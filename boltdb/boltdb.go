@@ -4,8 +4,7 @@ import (
   "bytes"
   "errors"
   "os"
-
-  "github.com/coreos/bbolt"
+  "go.etcd.io/bbolt"
 )
 
 var (
@@ -15,16 +14,16 @@ var (
 )
 
 type KVStore struct {
-  DB *bolt.DB
+  DB *bbolt.DB
 }
 
 func Open(path string, buckets ...string) (*KVStore, error) {
-  db, e := bolt.Open(path, os.ModePerm, nil)
+  db, e := bbolt.Open(path, os.ModePerm, nil)
   if e != nil {
     return nil, e
   }
   if len(buckets) > 0 {
-    e = db.Update(func(tx *bolt.Tx) error {
+    e = db.Update(func(tx *bbolt.Tx) error {
       for _, v := range buckets {
         if v == "" {
           continue
@@ -51,7 +50,7 @@ func (s *KVStore) QueryAndUpdateV(bucket, k []byte, f func(k, v []byte, n int) (
   if bucket == nil || k == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.Update(func(tx *bolt.Tx) error {
+  return s.DB.Update(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -75,7 +74,7 @@ func (s *KVStore) QueryAndUpdateVPrefix(bucket, prefix []byte, f func(k, v []byt
   if bucket == nil || prefix == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.Update(func(tx *bolt.Tx) error {
+  return s.DB.Update(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -102,7 +101,7 @@ func (s *KVStore) UpdateV(bucket, k, v []byte) error {
   if bucket == nil || k == nil || v == nil {
     return ErrInvalidArgs
   }
-  return s.DB.Update(func(tx *bolt.Tx) error {
+  return s.DB.Update(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -111,11 +110,11 @@ func (s *KVStore) UpdateV(bucket, k, v []byte) error {
   })
 }
 
-func (s *KVStore) UpdateB(bucket []byte, f func(b *bolt.Bucket) error) error {
+func (s *KVStore) UpdateB(bucket []byte, f func(b *bbolt.Bucket) error) error {
   if bucket == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.Update(func(tx *bolt.Tx) error {
+  return s.DB.Update(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -124,7 +123,7 @@ func (s *KVStore) UpdateB(bucket []byte, f func(b *bolt.Bucket) error) error {
   })
 }
 
-func (s *KVStore) Update(f func(tx *bolt.Tx) error) error {
+func (s *KVStore) Update(f func(tx *bbolt.Tx) error) error {
   if f == nil {
     return ErrInvalidArgs
   }
@@ -136,7 +135,7 @@ func (s *KVStore) Get(bucket, k []byte) []byte {
     return nil
   }
   var ret []byte
-  e := s.DB.View(func(tx *bolt.Tx) error {
+  e := s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -159,7 +158,7 @@ func (s *KVStore) QueryV(bucket, k []byte, f func(k, v []byte, n int) error) err
   if bucket == nil || k == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.View(func(tx *bolt.Tx) error {
+  return s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -172,11 +171,11 @@ func (s *KVStore) QueryV(bucket, k []byte, f func(k, v []byte, n int) error) err
   })
 }
 
-func (s *KVStore) QueryB(bucket []byte, f func(b *bolt.Bucket) error) error {
+func (s *KVStore) QueryB(bucket []byte, f func(b *bbolt.Bucket) error) error {
   if bucket == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.View(func(tx *bolt.Tx) error {
+  return s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -185,7 +184,7 @@ func (s *KVStore) QueryB(bucket []byte, f func(b *bolt.Bucket) error) error {
   })
 }
 
-func (s *KVStore) Query(f func(tx *bolt.Tx) error) error {
+func (s *KVStore) Query(f func(tx *bbolt.Tx) error) error {
   if f == nil {
     return ErrInvalidArgs
   }
@@ -196,7 +195,7 @@ func (s *KVStore) EachKV(bucket []byte, f func(k, v []byte, n int) error) error 
   if bucket == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.View(func(tx *bolt.Tx) error {
+  return s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -216,7 +215,7 @@ func (s *KVStore) EachKVPrefix(bucket, prefix []byte, f func(k, v []byte, n int)
   if bucket == nil || prefix == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.View(func(tx *bolt.Tx) error {
+  return s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -235,11 +234,11 @@ func (s *KVStore) EachKVPrefix(bucket, prefix []byte, f func(k, v []byte, n int)
   })
 }
 
-func (s *KVStore) EachB(bucket []byte, f func(b *bolt.Bucket) error) error {
+func (s *KVStore) EachB(bucket []byte, f func(b *bbolt.Bucket) error) error {
   if bucket == nil || f == nil {
     return ErrInvalidArgs
   }
-  return s.DB.View(func(tx *bolt.Tx) error {
+  return s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -253,7 +252,7 @@ func (s *KVStore) CountKV(bucket []byte) (int, error) {
     return 0, ErrInvalidArgs
   }
   n := 0
-  e := s.DB.View(func(tx *bolt.Tx) error {
+  e := s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
@@ -272,7 +271,7 @@ func (s *KVStore) CountKVPrefix(bucket, prefix []byte) (int, error) {
     return 0, ErrInvalidArgs
   }
   n := 0
-  e := s.DB.View(func(tx *bolt.Tx) error {
+  e := s.DB.View(func(tx *bbolt.Tx) error {
     b := tx.Bucket(bucket)
     if b == nil {
       return ErrBucketNotFound
