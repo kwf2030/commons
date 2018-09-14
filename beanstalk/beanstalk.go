@@ -11,13 +11,8 @@ import (
 )
 
 const (
-  mtu = 1450
-
-  defaultTTR = 3600
-
-  minPort = 1024
-
-  maxTubeLen = 200
+  mtu     = 1450
+  tubeLen = 200
 )
 
 var ErrInvalidArgs = errors.New("invalid args")
@@ -82,7 +77,7 @@ type Conn struct {
 }
 
 func Dial(host string, port int) (*Conn, error) {
-  if port < minPort {
+  if port <= 0 {
     return nil, ErrInvalidArgs
   }
   addr := fmt.Sprintf("%s:%d", host, port)
@@ -106,16 +101,16 @@ func (c *Conn) Put(priority, delay, ttr int, data []byte) (string, error) {
     delay = 0
   }
   if ttr < 0 {
-    ttr = defaultTTR
+    ttr = 1
   }
-  var cmd string
+  var str string
   if len(data) > 0 {
     body := base64.RawStdEncoding.EncodeToString(data)
-    cmd = fmt.Sprintf("put %d %d %d %d\r\n%s\r\n", priority, delay, ttr, len(body), body)
+    str = fmt.Sprintf("put %d %d %d %d\r\n%s\r\n", priority, delay, ttr, len(body), body)
   } else {
-    cmd = fmt.Sprintf("put %d %d %d %d\r\n\r\n", priority, delay, ttr, 0)
+    str = fmt.Sprintf("put %d %d %d %d\r\n\r\n", priority, delay, ttr, 0)
   }
-  resp, err := c.sendCmd(cmd)
+  resp, err := c.sendAndRecv(str)
   if err != nil {
     return "", err
   }
@@ -128,46 +123,28 @@ func (c *Conn) Put(priority, delay, ttr int, data []byte) (string, error) {
 }
 
 func (c *Conn) Use(tube string) error {
-  if tube == "" || len(tube) > maxTubeLen {
+  if tube == "" || len(tube) > tubeLen {
     return ErrInvalidArgs
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("use %s\r\n", tube), fmt.Sprintf("USING %s\r\n", tube))
-}
-
-func (c *Conn) reqJobData(cmd, prefix string) (string, []byte, error) {
-  resp, err := c.sendCmd(cmd)
-  if err != nil {
-    return "", nil, err
-  }
-  if !strings.HasPrefix(resp, prefix) {
-    return "", nil, parseError(resp)
-  }
-  var id string
-  var l int
-  _, err = fmt.Sscanf(resp, prefix+" %s %d\r\n", &id, &l)
-  if err != nil {
-    return "", nil, err
-  }
-  body, err := c.readBody(l)
-  return id, body, err
+  return c.sendAndRecvExpect(fmt.Sprintf("use %s\r\n", tube), fmt.Sprintf("USING %s\r\n", tube))
 }
 
 func (c *Conn) Reserve() (string, []byte, error) {
-  return c.reqJobData("reserve\r\n", "RESERVED")
+  return c.reqJob("reserve\r\n", "RESERVED")
 }
 
 func (c *Conn) ReserveWithTimeout(timeout int) (string, []byte, error) {
   if timeout < 0 {
     timeout = 0
   }
-  return c.reqJobData(fmt.Sprintf("reserve-with-timeout %d\r\n", timeout), "RESERVED")
+  return c.reqJob(fmt.Sprintf("reserve-with-timeout %d\r\n", timeout), "RESERVED")
 }
 
 func (c *Conn) Delete(id string) error {
   if id == "" {
     return ErrInvalidArgs
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("delete %s\r\n", id), "DELETED\r\n")
+  return c.sendAndRecvExpect(fmt.Sprintf("delete %s\r\n", id), "DELETED\r\n")
 }
 
 func (c *Conn) Release(id string, priority, delay int) error {
@@ -180,7 +157,7 @@ func (c *Conn) Release(id string, priority, delay int) error {
   if delay < 0 {
     delay = 0
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("release %s %d %d\r\n", id, priority, delay), "RELEASED\r\n")
+  return c.sendAndRecvExpect(fmt.Sprintf("release %s %d %d\r\n", id, priority, delay), "RELEASED\r\n")
 }
 
 func (c *Conn) Bury(id string, priority int) error {
@@ -190,18 +167,18 @@ func (c *Conn) Bury(id string, priority int) error {
   if priority < 0 {
     priority = 0
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("bury %s %d\r\n", id, priority), "BURIED\r\n")
+  return c.sendAndRecvExpect(fmt.Sprintf("bury %s %d\r\n", id, priority), "BURIED\r\n")
 }
 
 func (c *Conn) Touch(id string) error {
   if id == "" {
     return ErrInvalidArgs
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("touch %s\r\n", id), "TOUCHED\r\n")
+  return c.sendAndRecvExpect(fmt.Sprintf("touch %s\r\n", id), "TOUCHED\r\n")
 }
 
-func (c *Conn) watch(cmd string) (int, error) {
-  resp, err := c.sendCmd(cmd)
+func (c *Conn) watch(data string) (int, error) {
+  resp, err := c.sendAndRecv(data)
   if err != nil {
     return 0, err
   }
@@ -217,14 +194,14 @@ func (c *Conn) watch(cmd string) (int, error) {
 }
 
 func (c *Conn) Watch(tube string) (int, error) {
-  if tube == "" || len(tube) > maxTubeLen {
+  if tube == "" || len(tube) > tubeLen {
     return 0, ErrInvalidArgs
   }
   return c.watch(fmt.Sprintf("watch %s\r\n", tube))
 }
 
 func (c *Conn) Ignore(tube string) (int, error) {
-  if tube == "" || len(tube) > maxTubeLen {
+  if tube == "" || len(tube) > tubeLen {
     return 0, ErrInvalidArgs
   }
   return c.watch(fmt.Sprintf("ignore %s\r\n", tube))
@@ -234,26 +211,26 @@ func (c *Conn) Peek(id string) (string, []byte, error) {
   if id == "" {
     return "", nil, ErrInvalidArgs
   }
-  return c.reqJobData(fmt.Sprintf("peek %s\r\n", id), "FOUND")
+  return c.reqJob(fmt.Sprintf("peek %s\r\n", id), "FOUND")
 }
 
 func (c *Conn) PeekReady() (string, []byte, error) {
-  return c.reqJobData("peek-ready\r\n", "FOUND")
+  return c.reqJob("peek-ready\r\n", "FOUND")
 }
 
 func (c *Conn) PeekDelayed() (string, []byte, error) {
-  return c.reqJobData("peek-delayed\r\n", "FOUND")
+  return c.reqJob("peek-delayed\r\n", "FOUND")
 }
 
 func (c *Conn) PeekBuried() (string, []byte, error) {
-  return c.reqJobData("peek-buried\r\n", "FOUND")
+  return c.reqJob("peek-buried\r\n", "FOUND")
 }
 
 func (c *Conn) Kick(bound int) (int, error) {
   if bound <= 0 {
     return 0, ErrInvalidArgs
   }
-  resp, err := c.sendCmd(fmt.Sprintf("kick %d\r\n", bound))
+  resp, err := c.sendAndRecv(fmt.Sprintf("kick %d\r\n", bound))
   if err != nil {
     return 0, err
   }
@@ -269,33 +246,33 @@ func (c *Conn) KickJob(id string) error {
   if id == "" {
     return ErrInvalidArgs
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("kick-job %s\r\n", id), "KICKED\r\n")
+  return c.sendAndRecvExpect(fmt.Sprintf("kick-job %s\r\n", id), "KICKED\r\n")
 }
 
 func (c *Conn) StatsJob(id string) ([]byte, error) {
   if id == "" {
     return nil, ErrInvalidArgs
   }
-  return c.reqYamlData(fmt.Sprintf("stats-job %s\r\n", id))
+  return c.reqYaml(fmt.Sprintf("stats-job %s\r\n", id))
 }
 
 func (c *Conn) StatsTube(tube string) ([]byte, error) {
-  if tube == "" || len(tube) > maxTubeLen {
+  if tube == "" || len(tube) > tubeLen {
     return nil, ErrInvalidArgs
   }
-  return c.reqYamlData(fmt.Sprintf("stats-tube %s\r\n", tube))
+  return c.reqYaml(fmt.Sprintf("stats-tube %s\r\n", tube))
 }
 
 func (c *Conn) Stats() ([]byte, error) {
-  return c.reqYamlData("stats\r\n")
+  return c.reqYaml("stats\r\n")
 }
 
 func (c *Conn) ListTubes() ([]byte, error) {
-  return c.reqYamlData("list-tubes\r\n")
+  return c.reqYaml("list-tubes\r\n")
 }
 
 func (c *Conn) ListTubeUsed() (string, error) {
-  resp, err := c.sendCmd("list-tube-used\r\n")
+  resp, err := c.sendAndRecv("list-tube-used\r\n")
   if err != nil {
     return "", err
   }
@@ -311,7 +288,7 @@ func (c *Conn) ListTubeUsed() (string, error) {
 }
 
 func (c *Conn) ListTubesWatched() ([]byte, error) {
-  return c.reqYamlData("list-tubes-watched\r\n")
+  return c.reqYaml("list-tubes-watched\r\n")
 }
 
 func (c *Conn) Quit() error {
@@ -320,17 +297,43 @@ func (c *Conn) Quit() error {
 }
 
 func (c *Conn) PauseTube(tube string, delay int) error {
-  if tube == "" || len(tube) > maxTubeLen {
+  if tube == "" || len(tube) > tubeLen {
     return ErrInvalidArgs
   }
   if delay < 0 {
     delay = 0
   }
-  return c.sendCmdAndExpect(fmt.Sprintf("pause-tube %s %d\r\n", tube, delay), "PAUSED\r\n")
+  return c.sendAndRecvExpect(fmt.Sprintf("pause-tube %s %d\r\n", tube, delay), "PAUSED\r\n")
 }
 
-func (c *Conn) reqYamlData(cmd string) ([]byte, error) {
-  resp, err := c.sendCmd(cmd)
+func (c *Conn) reqJob(data, prefix string) (string, []byte, error) {
+  resp, err := c.sendAndRecv(data)
+  if err != nil {
+    return "", nil, err
+  }
+  if !strings.HasPrefix(resp, prefix) {
+    return "", nil, parseError(resp)
+  }
+  var id string
+  var l int
+  _, err = fmt.Sscanf(resp, prefix+" %s %d\r\n", &id, &l)
+  if err != nil {
+    return "", nil, err
+  }
+  body, err := c.readBody(l)
+  if err != nil {
+    return "", nil, err
+  }
+  job := make([]byte, base64.RawStdEncoding.DecodedLen(len(body)))
+  _, err = base64.RawStdEncoding.Decode(job, body)
+  if err != nil {
+    return "", nil, err
+  }
+  return id, job, nil
+}
+
+func (c *Conn) reqYaml(data string) ([]byte, error) {
+  resp, err := c.sendAndRecv(data)
   if err != nil {
     return nil, err
   }
@@ -355,8 +358,8 @@ func (c *Conn) readBody(l int) ([]byte, error) {
   return body[:n-2], nil
 }
 
-func (c *Conn) sendCmdAndExpect(cmd, expected string) error {
-  resp, err := c.sendCmd(cmd)
+func (c *Conn) sendAndRecvExpect(data, expected string) error {
+  resp, err := c.sendAndRecv(data)
   if err != nil {
     return err
   }
@@ -366,8 +369,8 @@ func (c *Conn) sendCmdAndExpect(cmd, expected string) error {
   return nil
 }
 
-func (c *Conn) sendCmd(cmd string) (string, error) {
-  _, err := c.send([]byte(cmd))
+func (c *Conn) sendAndRecv(data string) (string, error) {
+  _, err := c.send([]byte(data))
   if err != nil {
     return "", err
   }
