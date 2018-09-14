@@ -3,6 +3,7 @@ package cdp
 import (
   "io/ioutil"
   "net/http"
+  "sync"
   "sync/atomic"
 
   "github.com/gorilla/websocket"
@@ -72,7 +73,7 @@ type Tab struct {
   // 存放两类数据：
   // 1.订阅的事件，key是method（string-->bool），用于过滤WebSocket读取到的事件，
   // 2.请求对应的响应Message，key是请求Id（int64-->*Message），用于将请求和响应关联起来
-  eventsAndCalls map[interface{}]interface{}
+  eventsAndCalls sync.Map
 }
 
 func (t *Tab) wsConnect() (*websocket.Conn, error) {
@@ -122,16 +123,16 @@ func (t *Tab) dispatch(msg *Message) {
   // Message.id为0表示事件通知
   if msg.Id == 0 {
     // 若注册过该类事件，则进行通知
-    if _, ok := t.eventsAndCalls[msg.Method]; ok {
+    if _, ok := t.eventsAndCalls.Load(msg.Method); ok {
       t.C <- msg
     }
     return
   }
   // Message.id非0表示响应，
   // 找到对应的请求，同步异步分别处理
-  if v, ok := t.eventsAndCalls[msg.Id]; ok {
+  if v, ok := t.eventsAndCalls.Load(msg.Id); ok {
     if req, ok := v.(*Message); ok {
-      delete(t.eventsAndCalls, msg.Id)
+      t.eventsAndCalls.Delete(msg.Id)
       // 响应中没有Method，找到对应的请求，用请求中的method给其赋值
       msg.Method = req.Method
       if req.async {
@@ -161,7 +162,7 @@ func (t *Tab) Call(method string, params ...Params) *Message {
     Params:   p,
     syncChan: ch,
   }
-  t.eventsAndCalls[id] = msg
+  t.eventsAndCalls.Store(id, msg)
   t.sendChan <- msg
   return <-ch
 }
@@ -181,19 +182,19 @@ func (t *Tab) CallAsync(method string, params ...Params) {
     Params: p,
     async:  true,
   }
-  t.eventsAndCalls[id] = msg
+  t.eventsAndCalls.Store(id, msg)
   t.sendChan <- msg
 }
 
 func (t *Tab) Subscribe(method string) {
   if method != "" {
-    t.eventsAndCalls[method] = true
+    t.eventsAndCalls.Store(method, true)
   }
 }
 
 func (t *Tab) Unsubscribe(method string) {
   if method != "" {
-    delete(t.eventsAndCalls, method)
+    t.eventsAndCalls.Delete(method)
   }
 }
 
@@ -213,11 +214,12 @@ func (t *Tab) Close() {
   }
   close(t.closeChan)
   close(t.C)
-  for _, v := range t.eventsAndCalls {
+  t.eventsAndCalls.Range(func(k, v interface{}) bool {
     if msg, ok := v.(*Message); ok && msg.syncChan != nil {
       close(msg.syncChan)
     }
-  }
+    return true
+  })
   t.conn.Close()
   resp, e := http.Get(t.endpoint + "/close/" + t.meta.Id)
   if e == nil {
