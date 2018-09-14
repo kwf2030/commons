@@ -7,6 +7,7 @@ import (
   "net/http"
   "os/exec"
   "strings"
+  "sync"
   "time"
 )
 
@@ -76,7 +77,7 @@ func (c Chrome) NewTab() (*Tab, error) {
     closeChan:      make(chan struct{}),
     sendChan:       make(chan *Message, 2),
     C:              make(chan *Message, 4),
-    eventsAndCalls: make(map[interface{}]interface{}, 16),
+    eventsAndCalls: sync.Map{},
   }
   t.conn, e = t.wsConnect()
   if e != nil {
