@@ -5,7 +5,7 @@ Common [Go](https://golang.org/) code in daily programming.
 Client library for [beanstalkd](https://github.com/kr/beanstalkd)(work queue).
 
 ## boltdb
-Convenience wrapper for [boltdb](https://github.com/coreos/bbolt)(embedded key-value database).
+Convenience wrapper for [bbolt](https://github.com/etcd-io/bbolt)(embedded key-value database).
 
 ## cdp
 Client library for [ChromeDebuggingProtocol](https://github.com/ChromeDevTools/devtools-protocol)(interact with ChromeDevTools).
