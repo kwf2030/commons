@@ -1,4 +1,0 @@
-go.etcd.io/bbolt v1.3.1-etcd.8 h1:6J7QAKqfFBGnU80KRnuQxfjjeE5xAGE/qB810I3FQHQ=
-go.etcd.io/bbolt v1.3.1-etcd.8/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
-golang.org/x/sys v0.0.0-20181004145325-98c5dad5d1a0 h1:hDof96VB2g7fuE9OyFCCJ+HB+OI8NeTZC0vLxsfIzsI=
-golang.org/x/sys v0.0.0-20181004145325-98c5dad5d1a0/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
