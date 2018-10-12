@@ -18,7 +18,7 @@ var (
 
 type Chrome string
 
-func LaunchChrome(bin string, args ...string) (Chrome, error) {
+func LaunchInstance(bin string, args ...string) (Chrome, error) {
   if bin == "" {
     return "", ErrInvalidArgs
   }
@@ -49,7 +49,7 @@ func LaunchChrome(bin string, args ...string) (Chrome, error) {
   return Chrome(fmt.Sprintf("http://127.0.0.1:%s/json", port)), nil
 }
 
-func AttachToChrome(host string, port int) (Chrome, error) {
+func AttachInstance(host string, port int) (Chrome, error) {
   if host == "" || port < 0 {
     return "", ErrInvalidArgs
   }

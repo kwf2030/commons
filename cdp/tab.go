@@ -72,7 +72,7 @@ type Tab struct {
 
   // 存放两类数据：
   // 1.订阅的事件，key是method（string-->bool），用于过滤WebSocket读取到的事件，
-  // 2.请求对应的响应Message，key是请求Id（int64-->*Message），用于将请求和响应关联起来
+  // 2.请求对应的响应Message，key是请求Id（int32-->*Message），用于将请求和响应关联起来
   eventsAndCalls sync.Map
 }
 
