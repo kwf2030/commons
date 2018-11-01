@@ -8,7 +8,7 @@ import (
 )
 
 const (
-  stateReady   = iota
+  stateReady = iota
   stateRunning
   stateStopped
 )

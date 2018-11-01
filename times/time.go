@@ -11,15 +11,20 @@ const (
   DateTimeSFormat  = "2006-01-02 15:04:05"
   DateTimeMsFormat = "2006-01-02 15:04:05.000"
 
-  DateFormat2       = "2006.01.02"
-  DateTimeFormat2   = "2006.01.02 15:04"
-  DateTimeSFormat2  = "2006.01.02 15:04:05"
-  DateTimeMsFormat2 = "2006.01.02 15:04:05.000"
+  DateFormat2       = "2006/01/02"
+  DateTimeFormat2   = "2006/01/02 15:04"
+  DateTimeSFormat2  = "2006/01/02 15:04:05"
+  DateTimeMsFormat2 = "2006/01/02 15:04:05.000"
 
-  DateFormat3       = "20060102"
-  DateTimeFormat3   = "200601021504"
-  DateTimeSFormat3  = "20060102150405"
-  DateTimeMsFormat3 = "20060102150405000"
+  DateFormat3       = "2006.01.02"
+  DateTimeFormat3   = "2006.01.02 15:04"
+  DateTimeSFormat3  = "2006.01.02 15:04:05"
+  DateTimeMsFormat3 = "2006.01.02 15:04:05.000"
+
+  DateFormat4       = "20060102"
+  DateTimeFormat4   = "200601021504"
+  DateTimeSFormat4  = "20060102150405"
+  DateTimeMsFormat4 = "20060102150405000"
 )
 
 const (
@@ -51,7 +56,7 @@ func NowStr() string {
   return Now().Format(DateTimeSFormat)
 }
 
-func NowStrFormat(format string) string {
+func NowStrf(format string) string {
   return Now().Format(format)
 }
 
