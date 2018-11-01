@@ -10,10 +10,10 @@ const defaultEvent = "DEFAULT"
 type Action interface {
   Method() string
 
-  Params() Params
+  Param() Param
 }
 
-type EvaluateAction interface {
+type EvalAction interface {
   Action
 
   Expressions() []string
@@ -23,57 +23,53 @@ type EvaluateAction interface {
 
 type SimpleAction struct {
   method string
-  params Params
+  param  Param
 }
 
-func NewAction(method string, params ...Params) *SimpleAction {
-  ret := &SimpleAction{method: method}
-  if len(params) > 0 {
-    ret.params = params[0]
-  }
-  return ret
+func NewAction(method string, param Param) *SimpleAction {
+  return &SimpleAction{method: method, param: param}
 }
 
 func (sa *SimpleAction) Method() string {
   return sa.method
 }
 
-func (sa *SimpleAction) Params() Params {
-  return sa.params
+func (sa *SimpleAction) Param() Param {
+  return sa.param
 }
 
-type sleepAction time.Duration
+type waitAction time.Duration
 
-func (sa sleepAction) Method() string {
+func (wa waitAction) Method() string {
   return ""
 }
 
-func (sa sleepAction) Params() Params {
+func (wa waitAction) Param() Param {
   return nil
 }
 
-type SimpleEvaluateAction struct {
+type SimpleEvalAction struct {
   expression string
   handler    func(Result) error
 }
 
-func NewEvaluateAction(expression string, handler func(Result) error) *SimpleEvaluateAction {
-  return &SimpleEvaluateAction{expression: expression, handler: handler}
+func NewEvalAction(expression string, handler func(Result) error) *SimpleEvalAction {
+  return &SimpleEvalAction{expression: expression, handler: handler}
 }
 
-func (sea *SimpleEvaluateAction) Method() string {
+func (sea *SimpleEvalAction) Method() string {
   return Runtime.Evaluate
 }
 
-func (sea *SimpleEvaluateAction) Params() Params {
-  return Params{"objectGroup": "console", "includeCommandLineAPI": true}
+func (sea *SimpleEvalAction) Param() Param {
+  return Param{"objectGroup": "console", "includeCommandLineAPI": true}
 }
 
-func (sea *SimpleEvaluateAction) Expressions() []string {
+func (sea *SimpleEvalAction) Expressions() []string {
   return []string{sea.expression}
 }
 
-func (sea *SimpleEvaluateAction) Handle(result Result) error {
+func (sea *SimpleEvalAction) Handle(result Result) error {
   if sea.handler != nil {
     return sea.handler(result)
   }
@@ -83,7 +79,7 @@ func (sea *SimpleEvaluateAction) Handle(result Result) error {
 type Task struct {
   chrome Chrome
 
-  // 一个事件对应N个Action，
+  // 一个Domain事件对应多个Action（DomainEvent-->[]Action），
   // 没有事件的Action的key为DEFAULT，会优先执行
   actions map[string][]Action
 
@@ -108,7 +104,7 @@ func (t *Task) Action(action Action) *Task {
   return t
 }
 
-func (t *Task) WaitFor(event string) *Task {
+func (t *Task) Until(event string) *Task {
   if event != "" {
     if _, ok := t.actions[event]; !ok {
       t.evt = event
@@ -118,8 +114,8 @@ func (t *Task) WaitFor(event string) *Task {
   return t
 }
 
-func (t *Task) Sleep(duration time.Duration) *Task {
-  return t.Action(sleepAction(duration))
+func (t *Task) Wait(duration time.Duration) *Task {
+  return t.Action(waitAction(duration))
 }
 
 func (t *Task) Run(ctx context.Context) {
@@ -134,16 +130,16 @@ func (t *Task) Run(ctx context.Context) {
   }
   for _, action := range t.actions[defaultEvent] {
     switch a := action.(type) {
-    case sleepAction:
+    case waitAction:
       time.Sleep(time.Duration(a))
-    case EvaluateAction:
-      t.runEvaluateAction(tab, a)
+    case EvalAction:
+      t.runEvalAction(tab, a)
     default:
-      tab.CallAsync(action.Method(), action.Params())
+      tab.CallAsync(action.Method(), action.Param())
     }
   }
-  // 默认加了一个DEFAULT事件，所以Task.actions长度至少为1，
-  // 如果大于1，说明有事件要监听（执行对应事件的Action）
+  // 因为默认加了一个DEFAULT事件，所以Task.actions长度必定不小于1，
+  // 如果大于1，说明有事件要监听（执行对应事件的Actions）
   if len(t.actions) > 1 {
     go t.runActions(ctx, tab)
   }
@@ -159,12 +155,12 @@ func (t *Task) runActions(ctx context.Context, tab *Tab) {
       if actions, ok := t.actions[msg.Method]; ok {
         for _, action := range actions {
           switch a := action.(type) {
-          case sleepAction:
+          case waitAction:
             time.Sleep(time.Duration(a))
-          case EvaluateAction:
-            t.runEvaluateAction(tab, a)
+          case EvalAction:
+            t.runEvalAction(tab, a)
           default:
-            tab.CallAsync(action.Method(), action.Params())
+            tab.CallAsync(action.Method(), action.Param())
           }
         }
       }
@@ -172,22 +168,14 @@ func (t *Task) runActions(ctx context.Context, tab *Tab) {
   }
 }
 
-func (t *Task) runEvaluateAction(tab *Tab, action EvaluateAction) {
-  method := action.Method()
-  params := action.Params()
-  if params == nil {
-    params = Params{}
+func (t *Task) runEvalAction(tab *Tab, action EvalAction) {
+  param := action.Param()
+  if param == nil {
+    param = Param{}
   }
-  arr := action.Expressions()
-  for _, expr := range arr {
-    params["expression"] = expr
-    msg := tab.Call(method, params)
-    var e error
-    if msg == nil {
-      e = action.Handle(Result{})
-    } else {
-      e = action.Handle(msg.Result)
-    }
+  for _, expr := range action.Expressions() {
+    param["expression"] = expr
+    e := action.Handle(tab.Call(action.Method(), param).Result)
     if e != nil {
       break
     }

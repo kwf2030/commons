@@ -1,9 +1,10 @@
-package boltdb
+package bbolts
 
 import (
   "bytes"
   "errors"
   "os"
+
   "go.etcd.io/bbolt"
 )
 

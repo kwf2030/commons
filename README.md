@@ -1,23 +1,23 @@
 # commons
 Common [Go](https://golang.org/) code in daily programming.
 
-## beanstalk
-Client library for [beanstalkd](https://github.com/kr/beanstalkd)(work queue).
+## bbolts
+Convenience wrapper for [bbolt](https://github.com/etcd-io/bbolt).
 
-## boltdb
-Convenience wrapper for [bbolt](https://github.com/etcd-io/bbolt)(embedded key-value database).
+## beanstalkc
+Client library for [beanstalkd](https://github.com/kr/beanstalkd).
 
 ## cdp
-Client library for [ChromeDebuggingProtocol](https://github.com/ChromeDevTools/devtools-protocol)(interact with ChromeDevTools).
+Client library for [ChromeDevToolsProtocol](https://github.com/ChromeDevTools/devtools-protocol).
 
 ## conv
 Utils for map extracting and conversion between map and gob/json.
 
 ## flow
-Handles work like pipeline.
-
-## httputil
-Utils for http.
+Handles job as flows.
 
 ## times
 Utils for time(including a simple time wheel).
+
+## util
+Other utils.
