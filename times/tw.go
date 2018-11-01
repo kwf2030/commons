@@ -1,4 +1,4 @@
-package tw
+package times
 
 import (
   "math"
