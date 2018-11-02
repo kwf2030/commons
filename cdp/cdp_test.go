@@ -15,7 +15,6 @@ func TestTab(t *testing.T) {
   if e != nil {
     panic(e)
   }
-  time.Sleep(time.Second * 2)
   wg.Add(3)
   tabTaoBao(chrome)
   tabJD(chrome)
@@ -23,7 +22,7 @@ func TestTab(t *testing.T) {
   wg.Wait()
 }
 
-func tabTaoBao(chrome Chrome) {
+func tabTaoBao(chrome *Chrome) {
   tab, e := chrome.NewTab()
   if e != nil {
     panic(e)
@@ -44,7 +43,7 @@ func tabTaoBao(chrome Chrome) {
   }()
 }
 
-func tabJD(chrome Chrome) {
+func tabJD(chrome *Chrome) {
   tab, e := chrome.NewTab()
   if e != nil {
     panic(e)
@@ -65,7 +64,7 @@ func tabJD(chrome Chrome) {
   }()
 }
 
-func tabAmazon(chrome Chrome) {
+func tabAmazon(chrome *Chrome) {
   tab, e := chrome.NewTab()
   if e != nil {
     panic(e)
@@ -91,7 +90,6 @@ func TestTask(t *testing.T) {
   if e != nil {
     panic(e)
   }
-  time.Sleep(time.Second * 2)
   wg.Add(3)
   taskTaoBao(chrome)
   taskJD(chrome)
@@ -99,7 +97,7 @@ func TestTask(t *testing.T) {
   wg.Wait()
 }
 
-func taskTaoBao(chrome Chrome) {
+func taskTaoBao(chrome *Chrome) {
   ctx, f := context.WithCancel(context.Background())
   NewTask(chrome).
     Action(NewAction(Page.Enable, nil)).
@@ -115,7 +113,7 @@ func taskTaoBao(chrome Chrome) {
   })
 }
 
-func taskJD(chrome Chrome) {
+func taskJD(chrome *Chrome) {
   ctx, f := context.WithCancel(context.Background())
   NewTask(chrome).
     Action(NewAction(Page.Enable, nil)).
@@ -131,7 +129,7 @@ func taskJD(chrome Chrome) {
   })
 }
 
-func taskAmazon(chrome Chrome) {
+func taskAmazon(chrome *Chrome) {
   ctx, f := context.WithCancel(context.Background())
   NewTask(chrome).
     Action(NewAction(Page.Enable, nil)).

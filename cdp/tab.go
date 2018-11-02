@@ -49,8 +49,7 @@ type tabMeta struct {
 }
 
 type Tab struct {
-  // ChromeDevToolsProtocol的API地址（http://host:port/json）
-  endpoint string
+  chrome *Chrome
 
   meta *tabMeta
 
@@ -192,7 +191,7 @@ func (t *Tab) Unsubscribe(method string) {
 }
 
 func (t *Tab) Activate() {
-  resp, e := http.Get(t.endpoint + "/activate/" + t.meta.Id)
+  resp, e := http.Get(t.chrome.Endpoint + "/activate/" + t.meta.Id)
   if e == nil {
     drain(resp.Body)
   }
@@ -213,7 +212,7 @@ func (t *Tab) Close() {
     return true
   })
   t.conn.Close()
-  resp, e := http.Get(t.endpoint + "/close/" + t.meta.Id)
+  resp, e := http.Get(t.chrome.Endpoint + "/close/" + t.meta.Id)
   if e == nil {
     drain(resp.Body)
   }

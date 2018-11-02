@@ -77,7 +77,7 @@ func (sea *SimpleEvalAction) Handle(result Result) error {
 }
 
 type Task struct {
-  chrome Chrome
+  chrome *Chrome
 
   // 一个Domain事件对应多个Action（DomainEvent-->[]Action），
   // 没有事件的Action的key为DEFAULT，会优先执行
@@ -87,7 +87,7 @@ type Task struct {
   evt string
 }
 
-func NewTask(c Chrome) *Task {
+func NewTask(c *Chrome) *Task {
   t := &Task{
     chrome:  c,
     actions: make(map[string][]Action, 4),

@@ -5,27 +5,33 @@ import (
   "errors"
   "fmt"
   "net/http"
+  "os"
   "os/exec"
   "strings"
   "sync"
+  "time"
 )
 
-type Chrome string
+type Chrome struct {
+  // ChromeDevToolsProtocol的API地址（http://host:port/json）
+  Endpoint string
+  Process  *os.Process
+}
 
-func Launch(bin string, args ...string) (Chrome, error) {
+func Launch(bin string, args ...string) (*Chrome, error) {
   if bin == "" {
-    return "", errors.New("empty <bin>")
+    return nil, errors.New("empty <bin>")
   }
   _, e := exec.LookPath(bin)
   if e != nil {
-    return "", e
+    return nil, e
   }
   var port string
   for _, v := range args {
     if strings.Contains(v, "--remote-debugging-port") {
       arr := strings.Split(v, "=")
       if len(arr) != 2 {
-        return "", errors.New("invalid '--remote-debugging-port'")
+        return nil, errors.New("invalid '--remote-debugging-port'")
       }
       port = strings.TrimSpace(arr[1])
       break
@@ -35,28 +41,28 @@ func Launch(bin string, args ...string) (Chrome, error) {
     port = "9222"
     args = append(args, fmt.Sprintf("--remote-debugging-port=%s", port))
   }
-  e = exec.Command(bin, args...).Start()
+  cmd := exec.Command(bin, args...)
+  e = cmd.Start()
   if e != nil {
-    return "", e
+    return nil, e
   }
-  // Launch返回后立即调用Chrome.NewTab可能会出现空指针，
-  // 因为浏览器可能没有启动完毕，
-  // 所以需要延迟一段时间等待浏览器启动完毕后再调用Chrome.NewTab，
-  // 建议尽量提前调用Launch（例如先把浏览器启动起来再做其他初始化工作）
-  return Chrome(fmt.Sprintf("http://127.0.0.1:%s/json", port)), nil
+  c := &Chrome{fmt.Sprintf("http://127.0.0.1:%s/json", port), cmd.Process}
+  if ok := c.waitForStarted(time.Second * 10); !ok {
+    return nil, errors.New("chrome not started")
+  }
+  return c, nil
 }
 
-func Connect(host string, port int) (Chrome, error) {
+func Connect(host string, port int) (*Chrome, error) {
   if host == "" || port <= 0 {
-    return "", errors.New("invalid <host>/<port>")
+    return nil, errors.New("invalid <host>/<port>")
   }
-  return Chrome(fmt.Sprintf("http://%s:%d/json", host, port)), nil
+  return &Chrome{fmt.Sprintf("http://%s:%d/json", host, port), nil}, nil
 }
 
-func (c Chrome) NewTab() (*Tab, error) {
-  endpoint := string(c)
+func (c *Chrome) NewTab() (*Tab, error) {
   meta := &tabMeta{}
-  resp, e := http.Get(endpoint + "/new")
+  resp, e := http.Get(c.Endpoint + "/new")
   if e != nil {
     return nil, e
   }
@@ -69,7 +75,7 @@ func (c Chrome) NewTab() (*Tab, error) {
     return nil, errors.New("NewTab receives empty Id/WebSocketDebuggerUrl")
   }
   t := &Tab{
-    endpoint:          endpoint,
+    chrome:            c,
     meta:              meta,
     closeChan:         make(chan struct{}),
     sendChan:          make(chan *Message, 1),
@@ -84,4 +90,22 @@ func (c Chrome) NewTab() (*Tab, error) {
   go t.wsRead()
   go t.wsWrite()
   return t, nil
+}
+
+func (c *Chrome) waitForStarted(timeout time.Duration) bool {
+  client := &http.Client{Timeout: time.Second}
+  t := time.After(timeout)
+  for {
+    select {
+    case <-t:
+      return false
+    default:
+      resp, e := client.Get(c.Endpoint)
+      if e != nil {
+        break
+      }
+      drain(resp.Body)
+      return true
+    }
+  }
 }
