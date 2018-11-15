@@ -9,7 +9,7 @@ import (
   "time"
 
   "github.com/kwf2030/commons/conv"
-  "github.com/kwf2030/wechatbot"
+  "github.com/kwf2030/commons/wechatbot"
 )
 
 func main() {
