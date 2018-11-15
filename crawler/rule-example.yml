@@ -1,0 +1,65 @@
+id: "xx"
+version: 1
+name: "xx"
+alias: "别名"
+group: "xx"
+# 优先级在同一group内有效，0为最高优先级
+priority: 100
+
+patterns:
+  - "xxx"
+  - "xxx"
+
+page_load_timeout: "10s"
+
+# 如果有prepare，必须返回true流程才会继续（"false"或空字符串表示false）
+prepare:
+  eval: "js"
+  wait_when_ready: "2s"
+
+fields:
+  - name: "id"
+    # eval计算结果（纯字符串或JSON字符串）会作为JS全局变量，后续eval可直接使用
+    # 因为field会作为变量名，所以Field不要使用JS关键字和符号
+    eval: "js"
+
+  - name: "source"
+    alias: "平台"
+    # value替代eval，返回常量
+    value: "3"
+
+  # eval/value并存
+  # value会作为eval的局部变量
+  - name: "price"
+    alias: "价格"
+    eval: "js"
+    value: '1234'
+
+  - name: "comments_scroll"
+    alias: "滚动"
+    eval: "js"
+    # 是否采集eval结果
+    # 默认true，false的话即表示不采集并且eval结果也不会作为JS全局变量（用于无需返回的eval）
+    export: false
+    # eval之后等待指定时间
+    wait: "500ms"
+
+# 无论是否有loop，都会先采集fields
+# loop的数据周期性（export_cycle）输出，field会自动添加后缀
+# 例如每循环10次输出一次（export_cycle=10），第1次输出的field就是page_1，第100次输出就是page_100
+loop:
+  field: "page"
+  alias: "分页"
+  export_cycle: 10
+  # 如果有prepare，必须返回true流程才会继续
+  # prepare_eval-->prepare_wait_when_ready-->loop(eval-->break-->next-->wait)
+  prepare:
+    eval: "js"
+    wait_when_ready: "2s"
+  # last（前一次eval结果）和index（循环次数）会作为JS全局变量并在每次循环后更新
+  eval: "js"
+  # 下一次eval前执行（如翻页）
+  next: "js"
+  wait: "2s"
+  # 循环终止条件
+  break: "js"

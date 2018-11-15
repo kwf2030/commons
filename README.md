@@ -13,6 +13,9 @@ Client library for [ChromeDevToolsProtocol](https://github.com/ChromeDevTools/de
 ## conv
 Utils for map extracting and conversion between map and gob/json.
 
+## crawler
+Simple web crawler uses cdp package.
+
 ## flow
 Handles job as flows.
 
@@ -21,3 +24,6 @@ Utils for time(including a simple time wheel).
 
 ## util
 Other utils.
+
+## wechatbot
+Wechat bot for personal account.
