@@ -5,6 +5,7 @@ import (
   "html"
   "os"
   "runtime"
+  "strings"
   "time"
 
   "github.com/kwf2030/commons/cdp"
@@ -20,8 +21,20 @@ var (
   chrome *cdp.Chrome
 )
 
+/*func main() {
+  crawler.SetLogLevel("debug")
+  crawler.SetChrome("")
+  e := crawler.GetRules().FromFiles([]string{"D:\\Workspace\\kwf2030\\commons\\crawler\\jd.yml"})
+  if e != nil {
+    panic(e)
+  }
+  ch := crawler.Enqueue(map[string]string{"1": "https://item.jd.com/11684158.html", "2": "https://item.jd.com/2165601.html"})
+  data := <-ch
+  fmt.Println(data)
+}*/
+
 func SetLogLevel(level string) {
-  switch level {
+  switch strings.ToLower(level) {
   case "debug":
     logLevel = zerolog.DebugLevel
   case "info":

@@ -1,0 +1,20 @@
+id: "1"
+version: 1
+name: "jingdong"
+alias: "京东"
+group: "default"
+priority: 100
+
+patterns:
+  - "jd.com"
+
+page_load_timeout: "10s"
+
+fields:
+  - name: "source"
+    alias: "平台"
+    value: "3"
+
+  - name: "price"
+    alias: "价格"
+    eval: "let e=document.querySelector('#jd-price');if(e){e.textContent} else {e=document.querySelector('.J-p-2165601');e.textContent}"

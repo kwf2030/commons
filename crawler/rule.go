@@ -2,6 +2,7 @@ package crawler
 
 import (
   "errors"
+  "io/ioutil"
   "regexp"
   "sort"
   "sync"
@@ -44,14 +45,34 @@ func (r *Rules) match(group, url string) *rule {
   return nil
 }
 
-func (r *Rules) Update(group string, data []byte) error {
-  if group == "" || len(data) == 0 {
+func (r *Rules) FromFiles(files []string) error {
+  if len(files) == 0 {
     return errInvalidArgs
   }
-  rules := make([]*rule, 0, capacity)
-  e := yaml.Unmarshal(data, &rules)
-  if e != nil {
-    return e
+  for _, f := range files {
+    data, e := ioutil.ReadFile(f)
+    if e != nil {
+      return e
+    }
+    rr := &rule{}
+    e = yaml.Unmarshal(data, r)
+    if e != nil {
+      return e
+    }
+    if rr.Group == "" {
+      rr.Group = "default"
+    }
+    e = r.Update(rr.Group, []*rule{rr})
+    if e != nil {
+      return e
+    }
+  }
+  return nil
+}
+
+func (r *Rules) Update(group string, rules []*rule) error {
+  if group == "" || len(rules) == 0 {
+    return errInvalidArgs
   }
   r.Lock()
   defer r.Unlock()
@@ -59,6 +80,9 @@ func (r *Rules) Update(group string, data []byte) error {
     r.groups[group] = make([]*rule, 0, capacity)
   }
   for _, rule := range rules {
+    if rule.Group == "" {
+      rule.Group = group
+    }
     if rule.Group != group {
       continue
     }
