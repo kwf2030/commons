@@ -16,15 +16,15 @@ var (
 
   capacity = 16
 
-  allRules = &Rules{groups: make(map[string][]*Rule, capacity)}
+  allRules = &Rules{groups: make(map[string][]*rule, capacity)}
 )
 
 type Rules struct {
-  groups map[string][]*Rule
+  groups map[string][]*rule
   sync.RWMutex
 }
 
-func (r *Rules) Match(group, url string) *Rule {
+func (r *Rules) match(group, url string) *rule {
   if group == "" || url == "" {
     return nil
   }
@@ -48,7 +48,7 @@ func (r *Rules) Update(group string, data []byte) error {
   if group == "" || len(data) == 0 {
     return errInvalidArgs
   }
-  rules := make([]*Rule, 0, capacity)
+  rules := make([]*rule, 0, capacity)
   e := yaml.Unmarshal(data, &rules)
   if e != nil {
     return e
@@ -56,7 +56,7 @@ func (r *Rules) Update(group string, data []byte) error {
   r.Lock()
   defer r.Unlock()
   if _, ok := r.groups[group]; !ok {
-    r.groups[group] = make([]*Rule, 0, capacity)
+    r.groups[group] = make([]*rule, 0, capacity)
   }
   for _, rule := range rules {
     if rule.Group != group {
@@ -113,15 +113,15 @@ func (r *Rules) Remove(group string, ids ...string) error {
   return nil
 }
 
-func initRule(rule *Rule) {
-  rule.Patterns = make([]*Pattern, 0, len(rule.PatternsConf))
-  for _, pattern := range rule.PatternsConf {
-    re, e := regexp.Compile(pattern)
+func initRule(rule *rule) {
+  rule.Patterns = make([]*pattern, 0, len(rule.PatternsConf))
+  for _, p := range rule.PatternsConf {
+    re, e := regexp.Compile(p)
     if e != nil {
       continue
     }
-    rule.Patterns = append(rule.Patterns, &Pattern{
-      Content: pattern,
+    rule.Patterns = append(rule.Patterns, &pattern{
+      Content: p,
       Regex:   re,
     })
   }
@@ -162,7 +162,7 @@ func initRule(rule *Rule) {
   }
 }
 
-type Rule struct {
+type rule struct {
   Id                  string        `yaml:"id"`
   Version             int           `yaml:"version"`
   Name                string        `yaml:"name"`
@@ -170,26 +170,26 @@ type Rule struct {
   Group               string        `yaml:"group"`
   Priority            int           `yaml:"priority"`
   PatternsConf        []string      `yaml:"patterns"`
-  Patterns            []*Pattern    `yaml:"-"`
+  Patterns            []*pattern    `yaml:"-"`
   PageLoadTimeoutConf string        `yaml:"page_load_timeout"`
   PageLoadTimeout     time.Duration `yaml:"-"`
-  Prepare             *Prepare      `yaml:"prepare"`
-  Fields              []*Field      `yaml:"fields"`
-  Loop                *Loop         `yaml:"loop"`
+  Prepare             *prepare      `yaml:"prepare"`
+  Fields              []*field      `yaml:"fields"`
+  Loop                *loop         `yaml:"loop"`
 }
 
-type Pattern struct {
+type pattern struct {
   Content string
   Regex   *regexp.Regexp
 }
 
-type Prepare struct {
+type prepare struct {
   Eval              string        `yaml:"eval"`
   WaitWhenReadyConf string        `yaml:"wait_when_ready"`
   WaitWhenReady     time.Duration `yaml:"-"`
 }
 
-type Field struct {
+type field struct {
   Name     string        `yaml:"name"`
   Alias    string        `yaml:"alias"`
   Value    string        `yaml:"value"`
@@ -199,11 +199,11 @@ type Field struct {
   Wait     time.Duration `yaml:"-"`
 }
 
-type Loop struct {
+type loop struct {
   Field       string        `yaml:"field"`
   Alias       string        `yaml:"alias"`
   ExportCycle int           `yaml:"export_cycle"`
-  Prepare     *Prepare      `yaml:"prepare"`
+  Prepare     *prepare      `yaml:"prepare"`
   Eval        string        `yaml:"eval"`
   Next        string        `yaml:"next"`
   WaitConf    string        `yaml:"wait"`

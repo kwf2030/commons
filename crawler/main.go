@@ -2,7 +2,7 @@ package crawler
 
 import (
   "fmt"
-  "io/ioutil"
+  "html"
   "os"
   "runtime"
   "time"
@@ -10,7 +10,6 @@ import (
   "github.com/kwf2030/commons/cdp"
   "github.com/kwf2030/commons/times"
   "github.com/rs/zerolog"
-  "gopkg.in/yaml.v2"
 )
 
 var (
@@ -32,70 +31,19 @@ func SetLogLevel(level string) {
   case "error":
     logLevel = zerolog.ErrorLevel
   }
-}
-
-func Start() {
   initLogger()
-  initChrome()
 }
 
-func Stop() {
-  logFile.Close()
-  tab, e := chrome.NewTab()
-  if e == nil {
-    tab.CallAsync(cdp.Browser.Close, nil)
-  }
-}
-
-func Enqueue(urls []string) {
-
-}
-
-func initLogger() {
-  e := os.MkdirAll("log", os.ModePerm)
-  if e != nil {
-    panic(e)
-  }
-  zerolog.SetGlobalLevel(zerolog.InfoLevel)
-  zerolog.TimeFieldFormat = ""
-  if logFile != nil {
-    logFile.Close()
-  }
-  now := times.Now()
-  logFile, _ = os.Create(fmt.Sprintf("log/runner_%s.log", now.Format(times.DateFormat4)))
-  lg := zerolog.New(logFile).Level(zerolog.InfoLevel).With().Timestamp().Logger()
-  logger = &lg
-  next := now.Add(time.Hour * 24)
-  next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
-  time.AfterFunc(next.Sub(now), func() {
-    logger.Info().Msg("create log file")
-    go initLogger()
-  })
-}
-
-func initChrome() {
-  var e error
-  c := &struct {
-    Exec string
-    Args []string
-  }{}
-  f := "chrome.yml"
-  _, e = os.Stat(f)
-  if e == nil {
-    data, err := ioutil.ReadFile(f)
-    if err == nil {
-      yaml.Unmarshal(data, c)
-    }
-  }
-  if c.Exec == "" {
+func SetChrome(bin string, args ...string) {
+  if bin == "" {
     switch runtime.GOOS {
     case "windows":
-      c.Exec = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"
+      bin = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"
     case "linux":
-      c.Exec = "/usr/bin/google-chrome-stable"
+      bin = "/usr/bin/google-chrome-stable"
     }
   }
-  chrome, e = cdp.Launch(c.Exec, c.Args...)
+  chrome, e := cdp.Launch(bin, args...)
   if e != nil {
     panic(e)
   }
@@ -103,4 +51,62 @@ func initChrome() {
   defer tab.Close()
   msg := tab.Call(cdp.Browser.GetVersion, nil)
   logger.Info().Msg(msg.Result["product"].(string))
+}
+
+func GetRules() *Rules {
+  return allRules
+}
+
+func Stop() {
+  if logFile != nil {
+    logFile.Close()
+  }
+  if chrome != nil {
+    tab, e := chrome.NewTab()
+    if e == nil {
+      tab.CallAsync(cdp.Browser.Close, nil)
+    }
+  }
+}
+
+func Enqueue(urls map[string]string) <-chan map[string]interface{} {
+  ch := make(chan map[string]interface{})
+  go func() {
+    data := make(map[string]interface{}, len(urls))
+    for id, addr := range urls {
+      if addr == "" {
+        continue
+      }
+      r := crawl(html.UnescapeString(addr))
+      if len(r) > 0 {
+        data[id] = r
+      }
+    }
+    ch <- data
+  }()
+  return ch
+}
+
+func initLogger() {
+  now := times.Now()
+  if logger == nil {
+    e := os.MkdirAll("log", os.ModePerm)
+    if e != nil {
+      panic(e)
+    }
+    next := now.Add(time.Hour * 24)
+    next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
+    time.AfterFunc(next.Sub(now), func() {
+      logger.Info().Msg("create log file")
+      go initLogger()
+    })
+  }
+  zerolog.SetGlobalLevel(logLevel)
+  zerolog.TimeFieldFormat = ""
+  if logFile != nil {
+    logFile.Close()
+  }
+  logFile, _ = os.Create(fmt.Sprintf("log/runner_%s.log", now.Format(times.DateFormat4)))
+  lg := zerolog.New(logFile).Level(logLevel).With().Timestamp().Logger()
+  logger = &lg
 }
