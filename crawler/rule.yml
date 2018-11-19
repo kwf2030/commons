@@ -18,15 +18,20 @@ prepare:
   wait_when_ready: "2s"
 
 fields:
+  # 不要使用JS关键字和符号（可以使用下划线）
   - name: "id"
     # eval计算结果（纯字符串或JSON字符串）会作为JS全局变量，后续eval可直接使用
-    # 因为field会作为变量名，所以Field不要使用JS关键字和符号
     eval: "js"
+    # 是否采集eval结果
+    # 默认false，表示不采集并且也不会作为JS全局变量（用于无需返回的eval）
+    # 如果为true，表示采集并且会作为JS全局变量
+    export: true
 
   - name: "source"
     alias: "平台"
     # value替代eval，返回常量
     value: "3"
+    export: true
 
   # eval/value并存
   # value会作为eval的局部变量
@@ -34,13 +39,11 @@ fields:
     alias: "价格"
     eval: "js"
     value: '1234'
+    export: true
 
   - name: "comments_scroll"
     alias: "滚动"
     eval: "js"
-    # 是否采集eval结果
-    # 默认true，false的话即表示不采集并且eval结果也不会作为JS全局变量（用于无需返回的eval）
-    export: false
     # eval之后等待指定时间
     wait: "500ms"
 

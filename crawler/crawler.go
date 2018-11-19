@@ -43,10 +43,6 @@ func SetLogLevel(level string) {
 func initLogger() {
   now := times.Now()
   if logger == nil {
-    e := os.MkdirAll("log", os.ModePerm)
-    if e != nil {
-      return
-    }
     next := now.Add(time.Hour * 24)
     next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
     time.AfterFunc(next.Sub(now), func() {
@@ -91,10 +87,10 @@ func Start() <-chan []*Page {
   go func() {
     for pages := range queue {
       for _, p := range pages {
-        if p.Url == "" {
+        if p == nil {
           continue
         }
-        r := crawl(html.UnescapeString(p.Url))
+        r := crawl(p)
         if len(r) > 0 {
           p.Result = r
         }
@@ -121,8 +117,15 @@ func Enqueue(pages []*Page) {
   queue <- pages
 }
 
-func crawl(addr string) map[string]interface{} {
-  rule := rules.match("default", addr)
+func crawl(page *Page) map[string]interface{} {
+  if page.Url == "" {
+    return nil
+  }
+  if page.Group == "" {
+    page.Group = "default"
+  }
+  addr := html.UnescapeString(page.Url)
+  rule := rules.match(page.Group, addr)
   if rule == nil {
     return nil
   }
@@ -193,12 +196,10 @@ func crawl(addr string) map[string]interface{} {
     close(done)
   }()
   select {
-  case <-time.After(rule.pageLoadTimeout * 100):
-    logger.Debug().Msg("crawl timeout, execute expression")
+  case <-time.After(rule.pageLoadTimeout):
     tab.C <- &cdp.Message{Method: cdp.Page.LoadEventFired}
     <-done
   case <-done:
-    logger.Debug().Msg("crawl done")
   }
   tab.Close()
   return ret
@@ -207,5 +208,6 @@ func crawl(addr string) map[string]interface{} {
 type Page struct {
   Id     string
   Url    string
+  Group  string
   Result map[string]interface{}
 }

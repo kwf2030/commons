@@ -8,7 +8,7 @@ import (
 )
 
 func TestCrawler(t *testing.T) {
-  e := GetRules().FromFiles([]string{"D:\\Workspace\\kwf2030\\commons\\crawler\\jd.yml"})
+  e := GetRules().FromFiles([]string{"D:\\Workspace\\kwf2030\\commons\\crawler\\rule_test.yml"})
   if e != nil {
     t.Fatal(e)
   }
@@ -18,16 +18,16 @@ func TestCrawler(t *testing.T) {
   }
   ch := Start()
   go func() {
-    c := time.Tick(time.Second * 10)
-    id := 0
-    for range c {
-      id++
-      Enqueue([]*Page{{strconv.Itoa(id), "https://item.jd.com/11684158.html", nil}})
+    for pages := range ch {
+      for _, p := range pages {
+        fmt.Println(p.Id, p.Result)
+      }
     }
   }()
-  for pages := range ch {
-    for _, p := range pages {
-      fmt.Println(p.Id, p.Result)
-    }
+  for i := 0; i < 5; i++ {
+    Enqueue([]*Page{{strconv.Itoa(i), "https://item.jd.com/11684158.html", "default", nil}})
+    time.Sleep(time.Second * 3)
   }
+  Stop()
+  time.Sleep(time.Second)
 }
