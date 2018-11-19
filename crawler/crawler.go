@@ -2,11 +2,124 @@ package crawler
 
 import (
   "fmt"
+  "html"
+  "os"
+  "runtime"
+  "strings"
   "time"
 
   "github.com/kwf2030/commons/cdp"
   "github.com/kwf2030/commons/conv"
+  "github.com/kwf2030/commons/times"
+  "github.com/rs/zerolog"
 )
+
+var (
+  logFile  *os.File
+  logger   *zerolog.Logger
+  logLevel = zerolog.Disabled
+
+  chrome *cdp.Chrome
+
+  queue = make(chan []*Page, 1024)
+
+  notify = make(chan []*Page, 2)
+)
+
+func SetLogLevel(level string) {
+  switch strings.ToLower(level) {
+  case "debug":
+    logLevel = zerolog.DebugLevel
+  case "info":
+    logLevel = zerolog.InfoLevel
+  case "warn":
+    logLevel = zerolog.WarnLevel
+  case "error":
+    logLevel = zerolog.ErrorLevel
+  }
+  initLogger()
+}
+
+func initLogger() {
+  now := times.Now()
+  if logger == nil {
+    e := os.MkdirAll("log", os.ModePerm)
+    if e != nil {
+      return
+    }
+    next := now.Add(time.Hour * 24)
+    next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
+    time.AfterFunc(next.Sub(now), func() {
+      go initLogger()
+    })
+  }
+  zerolog.SetGlobalLevel(logLevel)
+  zerolog.TimeFieldFormat = ""
+  if logFile != nil {
+    logFile.Close()
+  }
+  logFile, _ = os.Create(fmt.Sprintf("crawler_%s.log", now.Format(times.DateFormat4)))
+  lg := zerolog.New(logFile).Level(logLevel).With().Timestamp().Logger()
+  logger = &lg
+}
+
+func LaunchChrome(bin string, args ...string) error {
+  if bin == "" {
+    switch runtime.GOOS {
+    case "windows":
+      bin = "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"
+    case "linux":
+      bin = "/usr/bin/google-chrome-stable"
+    }
+  }
+  c, e := cdp.Launch(bin, args...)
+  if e != nil {
+    return e
+  }
+  chrome = c
+  return nil
+}
+
+func GetRules() *Rules {
+  return rules
+}
+
+func Start() <-chan []*Page {
+  if logger == nil {
+    SetLogLevel("")
+  }
+  go func() {
+    for pages := range queue {
+      for _, p := range pages {
+        if p.Url == "" {
+          continue
+        }
+        r := crawl(html.UnescapeString(p.Url))
+        if len(r) > 0 {
+          p.Result = r
+        }
+      }
+      notify <- pages
+    }
+  }()
+  return notify
+}
+
+func Stop() {
+  if logFile != nil {
+    logFile.Close()
+  }
+  if chrome != nil {
+    tab, e := chrome.NewTab()
+    if e == nil {
+      tab.CallAsync(cdp.Browser.Close, nil)
+    }
+  }
+}
+
+func Enqueue(pages []*Page) {
+  queue <- pages
+}
 
 func crawl(addr string) map[string]interface{} {
   rule := rules.match("default", addr)
@@ -89,4 +202,10 @@ func crawl(addr string) map[string]interface{} {
   }
   tab.Close()
   return ret
+}
+
+type Page struct {
+  Id     string
+  Url    string
+  Result map[string]interface{}
 }

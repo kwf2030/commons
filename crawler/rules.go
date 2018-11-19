@@ -12,7 +12,7 @@ import (
 )
 
 var (
-  ErrArgsInvalid   = errors.New("args invalid")
+  ErrInvalidArgs   = errors.New("invalid args")
   ErrGroupNotFound = errors.New("group not found")
 
   rules = &Rules{groups: make(map[string][]*rule, 16)}
@@ -43,22 +43,25 @@ func (rs *Rules) match(group, url string) *rule {
   return nil
 }
 
-func (rs *Rules) FromFiles(files []string) error {
-  if len(files) == 0 {
-    return ErrArgsInvalid
+func (rs *Rules) FromBytes(bytes [][]byte) error {
+  if len(bytes) == 0 {
+    return ErrInvalidArgs
   }
-  for _, f := range files {
-    data, e := ioutil.ReadFile(f)
-    if e != nil {
-      return e
-    }
-    r := &rule{Group: "default"}
-    e = yaml.Unmarshal(data, r)
+  m := make(map[string][]*rule, len(bytes))
+  for _, b := range bytes {
+    r := &rule{}
+    e := yaml.Unmarshal(b, r)
     if e != nil {
       return e
     }
     initRule(r)
-    e = rs.update(r.Group, []*rule{r})
+    if _, ok := m[r.Group]; !ok {
+      m[r.Group] = make([]*rule, 0, len(bytes))
+    }
+    m[r.Group] = append(m[r.Group], r)
+  }
+  for g, r := range m {
+    e := rs.update(g, r)
     if e != nil {
       return e
     }
@@ -66,9 +69,24 @@ func (rs *Rules) FromFiles(files []string) error {
   return nil
 }
 
+func (rs *Rules) FromFiles(files []string) error {
+  if len(files) == 0 {
+    return ErrInvalidArgs
+  }
+  arr := make([][]byte, 0, len(files))
+  for _, f := range files {
+    data, e := ioutil.ReadFile(f)
+    if e != nil {
+      return e
+    }
+    arr = append(arr, data)
+  }
+  return rs.FromBytes(arr)
+}
+
 func (rs *Rules) update(group string, arr []*rule) error {
   if group == "" || len(arr) == 0 {
-    return ErrArgsInvalid
+    return ErrInvalidArgs
   }
   rs.Lock()
   defer rs.Unlock()
@@ -76,9 +94,6 @@ func (rs *Rules) update(group string, arr []*rule) error {
     rs.groups[group] = make([]*rule, 0, 16)
   }
   for _, r := range arr {
-    if r.Group == "" {
-      r.Group = group
-    }
     if r.Group != group {
       continue
     }
@@ -106,7 +121,7 @@ func (rs *Rules) update(group string, arr []*rule) error {
 
 func (rs *Rules) Remove(group string, ids ...string) error {
   if group == "" {
-    return ErrArgsInvalid
+    return ErrInvalidArgs
   }
   rs.Lock()
   defer rs.Unlock()
@@ -133,6 +148,9 @@ func (rs *Rules) Remove(group string, ids ...string) error {
 }
 
 func initRule(rule *rule) {
+  if rule.Group == "" {
+    rule.Group = "default"
+  }
   rule.patterns = make([]*pattern, 0, len(rule.PatternsConf))
   for _, p := range rule.PatternsConf {
     re, e := regexp.Compile(p)

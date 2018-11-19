@@ -11,20 +11,25 @@ const (
   DateTimeSFormat  = "2006-01-02 15:04:05"
   DateTimeMsFormat = "2006-01-02 15:04:05.000"
 
-  DateFormat2       = "2006/01/02"
-  DateTimeFormat2   = "2006/01/02 15:04"
-  DateTimeSFormat2  = "2006/01/02 15:04:05"
-  DateTimeMsFormat2 = "2006/01/02 15:04:05.000"
+  DateFormat2       = "2006_01_02"
+  DateTimeFormat2   = "2006_01_02 15:04"
+  DateTimeSFormat2  = "2006_01_02 15:04:05"
+  DateTimeMsFormat2 = "2006_01_02 15:04:05.000"
 
-  DateFormat3       = "2006.01.02"
-  DateTimeFormat3   = "2006.01.02 15:04"
-  DateTimeSFormat3  = "2006.01.02 15:04:05"
-  DateTimeMsFormat3 = "2006.01.02 15:04:05.000"
+  DateFormat3       = "2006/01/02"
+  DateTimeFormat3   = "2006/01/02 15:04"
+  DateTimeSFormat3  = "2006/01/02 15:04:05"
+  DateTimeMsFormat3 = "2006/01/02 15:04:05.000"
 
-  DateFormat4       = "20060102"
-  DateTimeFormat4   = "200601021504"
-  DateTimeSFormat4  = "20060102150405"
-  DateTimeMsFormat4 = "20060102150405000"
+  DateFormat4       = "2006.01.02"
+  DateTimeFormat4   = "2006.01.02 15:04"
+  DateTimeSFormat4  = "2006.01.02 15:04:05"
+  DateTimeMsFormat4 = "2006.01.02 15:04:05.000"
+
+  DateFormat5       = "20060102"
+  DateTimeFormat5   = "200601021504"
+  DateTimeSFormat5  = "20060102150405"
+  DateTimeMsFormat5 = "20060102150405000"
 )
 
 const (

@@ -3,6 +3,7 @@ version: 1
 name: "jingdong"
 alias: "京东"
 priority: 100
+group:
 
 patterns:
   - "jd.com"
