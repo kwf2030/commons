@@ -55,7 +55,7 @@ func (r *Rules) FromFiles(files []string) error {
       return e
     }
     rr := &rule{}
-    e = yaml.Unmarshal(data, r)
+    e = yaml.Unmarshal(data, rr)
     if e != nil {
       return e
     }

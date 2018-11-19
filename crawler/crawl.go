@@ -80,7 +80,7 @@ func crawl(addr string) map[string]interface{} {
     close(done)
   }()
   select {
-  case <-time.After(rule.PageLoadTimeout):
+  case <-time.After(rule.PageLoadTimeout*100):
     logger.Debug().Msg("crawl timeout, execute expression")
     tab.C <- &cdp.Message{Method: cdp.Page.LoadEventFired}
     <-done

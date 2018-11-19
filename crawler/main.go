@@ -56,7 +56,8 @@ func SetChrome(bin string, args ...string) {
       bin = "/usr/bin/google-chrome-stable"
     }
   }
-  chrome, e := cdp.Launch(bin, args...)
+  var e error
+  chrome, e = cdp.Launch(bin, args...)
   if e != nil {
     panic(e)
   }

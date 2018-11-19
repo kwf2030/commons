@@ -11,10 +11,16 @@ patterns:
 page_load_timeout: "10s"
 
 fields:
+  - name: "id"
+    value: "2165601"
+    export: true
+
   - name: "source"
     alias: "平台"
     value: "3"
+    export: true
 
   - name: "price"
     alias: "价格"
-    eval: "let e=document.querySelector('#jd-price');if(e){e.textContent} else {e=document.querySelector('.J-p-2165601');e.textContent}"
+    eval: "let e=document.querySelector('#jd-price');if(e){e.textContent} else {e=document.querySelector(`.J-p-${id}`);e.textContent}"
+    export: true
