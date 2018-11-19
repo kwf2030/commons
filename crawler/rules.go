@@ -12,12 +12,10 @@ import (
 )
 
 var (
-  errInvalidArgs = errors.New("invalid args")
-  errNoRuleGroup = errors.New("no rule group")
+  ErrArgsInvalid   = errors.New("args invalid")
+  ErrGroupNotFound = errors.New("group not found")
 
-  capacity = 16
-
-  allRules = &Rules{groups: make(map[string][]*rule, capacity)}
+  rules = &Rules{groups: make(map[string][]*rule, 16)}
 )
 
 type Rules struct {
@@ -25,44 +23,42 @@ type Rules struct {
   sync.RWMutex
 }
 
-func (r *Rules) match(group, url string) *rule {
+func (rs *Rules) match(group, url string) *rule {
   if group == "" || url == "" {
     return nil
   }
-  r.RLock()
-  defer r.RUnlock()
-  rules, ok := r.groups[group]
+  rs.RLock()
+  defer rs.RUnlock()
+  arr, ok := rs.groups[group]
   if !ok {
     return nil
   }
-  for _, rule := range rules {
-    for _, p := range rule.Patterns {
-      if p.Regex.MatchString(url) {
-        return rule
+  for _, r := range arr {
+    for _, p := range r.patterns {
+      if p.regex.MatchString(url) {
+        return r
       }
     }
   }
   return nil
 }
 
-func (r *Rules) FromFiles(files []string) error {
+func (rs *Rules) FromFiles(files []string) error {
   if len(files) == 0 {
-    return errInvalidArgs
+    return ErrArgsInvalid
   }
   for _, f := range files {
     data, e := ioutil.ReadFile(f)
     if e != nil {
       return e
     }
-    rr := &rule{}
-    e = yaml.Unmarshal(data, rr)
+    r := &rule{Group: "default"}
+    e = yaml.Unmarshal(data, r)
     if e != nil {
       return e
     }
-    if rr.Group == "" {
-      rr.Group = "default"
-    }
-    e = r.Update(rr.Group, []*rule{rr})
+    initRule(r)
+    e = rs.update(r.Group, []*rule{r})
     if e != nil {
       return e
     }
@@ -70,117 +66,113 @@ func (r *Rules) FromFiles(files []string) error {
   return nil
 }
 
-func (r *Rules) Update(group string, rules []*rule) error {
-  if group == "" || len(rules) == 0 {
-    return errInvalidArgs
+func (rs *Rules) update(group string, arr []*rule) error {
+  if group == "" || len(arr) == 0 {
+    return ErrArgsInvalid
   }
-  r.Lock()
-  defer r.Unlock()
-  if _, ok := r.groups[group]; !ok {
-    r.groups[group] = make([]*rule, 0, capacity)
+  rs.Lock()
+  defer rs.Unlock()
+  if _, ok := rs.groups[group]; !ok {
+    rs.groups[group] = make([]*rule, 0, 16)
   }
-  for _, rule := range rules {
-    if rule.Group == "" {
-      rule.Group = group
+  for _, r := range arr {
+    if r.Group == "" {
+      r.Group = group
     }
-    if rule.Group != group {
+    if r.Group != group {
       continue
     }
     index := -1
-    for i, old := range r.groups[group] {
-      if old.Id == rule.Id {
+    for i, old := range rs.groups[group] {
+      if old.Id == r.Id {
         index = i
         break
       }
     }
     if index == -1 {
-      r.groups[group] = append(r.groups[group], rule)
+      rs.groups[group] = append(rs.groups[group], r)
     } else {
-      old := r.groups[group][index]
-      if old.Version < rule.Version {
-        r.groups[group][index] = rule
+      old := rs.groups[group][index]
+      if old.Version < r.Version {
+        rs.groups[group][index] = r
       }
     }
-    initRule(rule)
   }
-  sort.SliceStable(r.groups[group], func(i, j int) bool {
-    return r.groups[group][i].Priority < r.groups[group][j].Priority
+  sort.SliceStable(rs.groups[group], func(i, j int) bool {
+    return rs.groups[group][i].Priority < rs.groups[group][j].Priority
   })
   return nil
 }
 
-func (r *Rules) Remove(group string, ids ...string) error {
+func (rs *Rules) Remove(group string, ids ...string) error {
   if group == "" {
-    return errInvalidArgs
+    return ErrArgsInvalid
   }
-  r.Lock()
-  defer r.Unlock()
-  if _, ok := r.groups[group]; !ok {
-    return errNoRuleGroup
+  rs.Lock()
+  defer rs.Unlock()
+  if _, ok := rs.groups[group]; !ok {
+    return ErrGroupNotFound
   }
   if len(ids) == 0 {
-    delete(r.groups, group)
+    delete(rs.groups, group)
     return nil
   }
   for _, id := range ids {
     index := -1
-    for i, r := range r.groups[group] {
+    for i, r := range rs.groups[group] {
       if id == r.Id {
         index = i
         break
       }
     }
     if index != -1 {
-      r.groups[group] = append(r.groups[group][:index], r.groups[group][index+1:]...)
+      rs.groups[group] = append(rs.groups[group][:index], rs.groups[group][index+1:]...)
     }
   }
   return nil
 }
 
 func initRule(rule *rule) {
-  rule.Patterns = make([]*pattern, 0, len(rule.PatternsConf))
+  rule.patterns = make([]*pattern, 0, len(rule.PatternsConf))
   for _, p := range rule.PatternsConf {
     re, e := regexp.Compile(p)
     if e != nil {
       continue
     }
-    rule.Patterns = append(rule.Patterns, &pattern{
-      Content: p,
-      Regex:   re,
-    })
+    rule.patterns = append(rule.patterns, &pattern{p, re})
   }
-  rule.PageLoadTimeout = time.Second * 10
+  rule.pageLoadTimeout = time.Second * 10
   if rule.PageLoadTimeoutConf != "" {
-    rule.PageLoadTimeout, _ = time.ParseDuration(rule.PageLoadTimeoutConf)
+    rule.pageLoadTimeout, _ = time.ParseDuration(rule.PageLoadTimeoutConf)
   }
   if rule.Prepare != nil && rule.Prepare.WaitWhenReadyConf != "" {
     var e error
-    rule.Prepare.WaitWhenReady, e = time.ParseDuration(rule.Prepare.WaitWhenReadyConf)
+    rule.Prepare.waitWhenReady, e = time.ParseDuration(rule.Prepare.WaitWhenReadyConf)
     if e != nil {
-      rule.Prepare.WaitWhenReady = time.Second
+      rule.Prepare.waitWhenReady = time.Second
     }
   }
-  for _, v := range rule.Fields {
-    if v.WaitConf != "" {
+  for _, f := range rule.Fields {
+    if f.WaitConf != "" {
       var e error
-      v.Wait, e = time.ParseDuration(v.WaitConf)
+      f.wait, e = time.ParseDuration(f.WaitConf)
       if e != nil {
-        v.Wait = time.Second
+        f.wait = time.Second
       }
     }
   }
   if rule.Loop != nil {
     var e error
     if rule.Loop.Prepare != nil && rule.Loop.Prepare.WaitWhenReadyConf != "" {
-      rule.Loop.Prepare.WaitWhenReady, e = time.ParseDuration(rule.Loop.Prepare.WaitWhenReadyConf)
+      rule.Loop.Prepare.waitWhenReady, e = time.ParseDuration(rule.Loop.Prepare.WaitWhenReadyConf)
       if e != nil {
-        rule.Loop.Prepare.WaitWhenReady = time.Second
+        rule.Loop.Prepare.waitWhenReady = time.Second
       }
     }
     if rule.Loop.WaitConf != "" {
-      rule.Loop.Wait, e = time.ParseDuration(rule.Loop.WaitConf)
+      rule.Loop.wait, e = time.ParseDuration(rule.Loop.WaitConf)
       if e != nil {
-        rule.Loop.Wait = time.Second
+        rule.Loop.wait = time.Second
       }
     }
   }
@@ -194,23 +186,23 @@ type rule struct {
   Group               string        `yaml:"group"`
   Priority            int           `yaml:"priority"`
   PatternsConf        []string      `yaml:"patterns"`
-  Patterns            []*pattern    `yaml:"-"`
+  patterns            []*pattern    `yaml:"-"`
   PageLoadTimeoutConf string        `yaml:"page_load_timeout"`
-  PageLoadTimeout     time.Duration `yaml:"-"`
+  pageLoadTimeout     time.Duration `yaml:"-"`
   Prepare             *prepare      `yaml:"prepare"`
   Fields              []*field      `yaml:"fields"`
   Loop                *loop         `yaml:"loop"`
 }
 
 type pattern struct {
-  Content string
-  Regex   *regexp.Regexp
+  content string
+  regex   *regexp.Regexp
 }
 
 type prepare struct {
   Eval              string        `yaml:"eval"`
   WaitWhenReadyConf string        `yaml:"wait_when_ready"`
-  WaitWhenReady     time.Duration `yaml:"-"`
+  waitWhenReady     time.Duration `yaml:"-"`
 }
 
 type field struct {
@@ -220,17 +212,17 @@ type field struct {
   Eval     string        `yaml:"eval"`
   Export   bool          `yaml:"export"`
   WaitConf string        `yaml:"wait"`
-  Wait     time.Duration `yaml:"-"`
+  wait     time.Duration `yaml:"-"`
 }
 
 type loop struct {
-  Field       string        `yaml:"field"`
+  Name        string        `yaml:"name"`
   Alias       string        `yaml:"alias"`
   ExportCycle int           `yaml:"export_cycle"`
   Prepare     *prepare      `yaml:"prepare"`
   Eval        string        `yaml:"eval"`
   Next        string        `yaml:"next"`
   WaitConf    string        `yaml:"wait"`
-  Wait        time.Duration `yaml:"-"`
+  wait        time.Duration `yaml:"-"`
   Break       string        `yaml:"break"`
 }

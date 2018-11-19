@@ -9,7 +9,7 @@ import (
 )
 
 func crawl(addr string) map[string]interface{} {
-  rule := allRules.match("default", addr)
+  rule := rules.match("default", addr)
   if rule == nil {
     return nil
   }
@@ -71,8 +71,8 @@ func crawl(addr string) map[string]interface{} {
             tab.CallAsync(cdp.Runtime.Evaluate, params)
           }
         }
-        if field.Wait > 0 {
-          time.Sleep(field.Wait)
+        if field.wait > 0 {
+          time.Sleep(field.wait)
         }
       }
       break
@@ -80,7 +80,7 @@ func crawl(addr string) map[string]interface{} {
     close(done)
   }()
   select {
-  case <-time.After(rule.PageLoadTimeout*100):
+  case <-time.After(rule.pageLoadTimeout * 100):
     logger.Debug().Msg("crawl timeout, execute expression")
     tab.C <- &cdp.Message{Method: cdp.Page.LoadEventFired}
     <-done

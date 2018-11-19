@@ -48,7 +48,7 @@ fields:
 # loop的数据周期性（export_cycle）输出，field会自动添加后缀
 # 例如每循环10次输出一次（export_cycle=10），第1次输出的field就是page_1，第100次输出就是page_100
 loop:
-  field: "page"
+  name: "page"
   alias: "分页"
   export_cycle: 10
   # 如果有prepare，必须返回true流程才会继续

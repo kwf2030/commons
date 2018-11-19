@@ -2,7 +2,6 @@ id: "1"
 version: 1
 name: "jingdong"
 alias: "京东"
-group: "default"
 priority: 100
 
 patterns:

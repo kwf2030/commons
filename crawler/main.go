@@ -68,7 +68,7 @@ func SetChrome(bin string, args ...string) {
 }
 
 func GetRules() *Rules {
-  return allRules
+  return rules
 }
 
 func Stop() {
