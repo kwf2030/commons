@@ -61,8 +61,8 @@ loop:
     wait_when_ready: "2s"
   # last（前一次eval结果）和index（循环次数）会作为JS全局变量并在每次循环后更新
   eval: "js"
+  # 循环终止条件
+  break: "js"
   # 下一次eval前执行（如翻页）
   next: "js"
   wait: "2s"
-  # 循环终止条件
-  break: "js"

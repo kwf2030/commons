@@ -156,14 +156,14 @@ func crawl(page *Page) map[string]interface{} {
       for _, field := range rule.Fields {
         switch {
         case field.Eval != "" && field.Value != "":
-          params["expression"] = fmt.Sprintf("{let value=%s;%s}", field.Value, field.Eval)
+          params["expression"] = fmt.Sprintf("{let value='%s';%s}", field.Value, field.Eval)
           if field.Export {
             r := tab.Call(cdp.Runtime.Evaluate, params)
             s := conv.String(conv.Map(r.Result, "result"), "value")
             ret[field.Name] = s
 
             // 定义JS变量
-            params["expression"] = fmt.Sprintf("const %s=%s", field.Name, s)
+            params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, s)
             tab.CallAsync("cdp.Runtime.Evaluate", params)
           } else {
             tab.CallAsync(cdp.Runtime.Evaluate, params)
@@ -173,7 +173,7 @@ func crawl(page *Page) map[string]interface{} {
           ret[field.Name] = field.Value
 
           // 定义JS变量
-          params["expression"] = fmt.Sprintf("const %s=%s", field.Name, field.Value)
+          params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, field.Value)
           tab.CallAsync("cdp.Runtime.Evaluate", params)
 
         case field.Eval != "":
@@ -184,7 +184,7 @@ func crawl(page *Page) map[string]interface{} {
             ret[field.Name] = s
 
             // 定义JS变量
-            params["expression"] = fmt.Sprintf("const %s=%s", field.Name, s)
+            params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, s)
             tab.CallAsync("cdp.Runtime.Evaluate", params)
           } else {
             tab.CallAsync(cdp.Runtime.Evaluate, params)
@@ -204,15 +204,16 @@ func crawl(page *Page) map[string]interface{} {
     <-done
   case <-done:
   }
-  if rule.Loop == nil {
+  tab.Close()
+  /*if rule.Loop == nil || rule.Loop.Eval == "" {
     tab.Close()
   } else {
-    go crawlLoop(page, rule, tab)
-  }
+    go crawlLoop(rule, tab)
+  }*/
   return ret
 }
 
-func crawlLoop(page *Page, rule *rule, tab *cdp.Tab) {
+func crawlLoop(rule *rule, tab *cdp.Tab) {
   defer tab.Close()
   params := cdp.Param{"objectGroup": "console", "includeCommandLineAPI": true}
   if rule.Loop.Prepare != nil && rule.Loop.Prepare.Eval != "" {
@@ -226,23 +227,55 @@ func crawlLoop(page *Page, rule *rule, tab *cdp.Tab) {
       time.Sleep(rule.Loop.Prepare.waitWhenReady)
     }
   }
-  /*for {
-    params["expression"] = rule.Loop.Eval
-    if field.Export {
-      r := tab.Call(cdp.Runtime.Evaluate, params)
-      s := conv.String(conv.Map(r.Result, "result"), "value")
-      ret[field.Name] = s
+  i := 0
+  for {
+    fmt.Println("loop:", i)
 
-      // 定义JS变量
-      params["expression"] = fmt.Sprintf("const %s=%s", field.Name, s)
-      tab.CallAsync("cdp.Runtime.Evaluate", params)
-    } else {
+    // eval
+    params["expression"] = rule.Loop.Eval
+    r1 := tab.Call(cdp.Runtime.Evaluate, params)
+    s1 := conv.String(conv.Map(r1.Result, "result"), "value")
+    fmt.Println("eval")
+
+    // 定义JS变量
+    exp := fmt.Sprintf("index=%d;last=%s", i, s1)
+    if i == 0 {
+      exp = fmt.Sprintf("let index=%d;last=%s", i, s1)
+    }
+    params["expression"] = exp
+    tab.CallAsync("cdp.Runtime.Evaluate", params)
+    fmt.Println("var")
+
+    // break
+    if rule.Loop.Break != "" {
+      params["expression"] = rule.Loop.Break
+      r2 := tab.Call(cdp.Runtime.Evaluate, params)
+      s2 := conv.String(conv.Map(r2.Result, "result"), "value")
+      if s2 == "" || s2 == "false" {
+        break
+      }
+    }
+    fmt.Println("break")
+
+    // next
+    if rule.Loop.Next != "" {
+      params["expression"] = rule.Loop.Next
       tab.CallAsync(cdp.Runtime.Evaluate, params)
+      fmt.Println("next")
     }
-    if field.wait > 0 {
-      time.Sleep(field.wait)
+
+    i++
+    if i%rule.Loop.ExportCycle == 0 {
+      // Export
+      fmt.Println("export:", s1)
     }
-  }*/
+
+    // wait
+    if rule.Loop.wait > 0 {
+      time.Sleep(rule.Loop.wait)
+      fmt.Println("wait")
+    }
+  }
 }
 
 type Page struct {

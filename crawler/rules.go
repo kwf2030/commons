@@ -180,6 +180,9 @@ func initRule(rule *rule) {
     }
   }
   if rule.Loop != nil {
+    if rule.Loop.ExportCycle == 0 {
+      rule.Loop.ExportCycle = 10
+    }
     var e error
     if rule.Loop.Prepare != nil && rule.Loop.Prepare.WaitWhenReadyConf != "" {
       rule.Loop.Prepare.waitWhenReady, e = time.ParseDuration(rule.Loop.Prepare.WaitWhenReadyConf)

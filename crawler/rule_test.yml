@@ -22,5 +22,12 @@ fields:
 
   - name: "price"
     alias: "价格"
-    eval: "let e=document.querySelector('#jd-price');if(e){e.textContent} else {e=document.querySelector(`.J-p-${id}`);e.textContent}"
+    eval: "{let e=document.querySelector('#jd-price');if(e){e.textContent} else {e=document.querySelector(`.J-p-${id}`);e.textContent}}"
     export: true
+
+loop:
+  name: "page"
+  alias: "分页"
+  export_cycle: 5
+  eval: "{let e=document.querySelector('#jd-price');if(e){e.textContent} else {e=document.querySelector(`.J-p-${id}`);e.textContent}}"
+  wait: "1s"
