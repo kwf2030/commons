@@ -144,3 +144,31 @@ func taskAmazon(chrome *Chrome) {
     wg.Done()
   })
 }
+
+func TestVar(t *testing.T) {
+  chrome, e := Launch("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe")
+  if e != nil {
+    panic(e)
+  }
+  tab, e := chrome.NewTab()
+  if e != nil {
+    panic(e)
+  }
+  wg.Add(1)
+  tab.Subscribe(Page.LoadEventFired)
+  tab.Call(Page.Enable, nil)
+  tab.Call(Page.Navigate, Param{"url": "https://item.jd.com/2165601.html"})
+  go func() {
+    for msg := range tab.C {
+      if msg.Method == Page.LoadEventFired {
+        v := tab.Call(Runtime.Evaluate, Param{"returnByValue": true, "expression": "const id='￥2165601'"})
+        fmt.Printf("Set: %+v\n", v)
+        v = tab.Call(Runtime.Evaluate, Param{"returnByValue": true, "expression": "id"})
+        fmt.Printf("Get: %+v\n", v)
+        tab.Close()
+        break
+      }
+    }
+  }()
+  wg.Wait()
+}
