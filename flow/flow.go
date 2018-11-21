@@ -63,12 +63,13 @@ func (f *Flow) Start(in interface{}) (interface{}, error) {
   case <-time.After(f.timeout):
     f.Lock()
     defer f.Unlock()
-    f.finished = true
-    f.tail.outTime = time.Now()
-    close(f.result)
+    if !f.finished {
+      f.finished = true
+      f.tail.outTime = time.Now()
+      close(f.result)
+    }
     return nil, ErrTimeout
   }
-  return nil, nil
 }
 
 func (f *Flow) Cancel() {

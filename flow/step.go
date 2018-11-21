@@ -66,13 +66,12 @@ type tailStep Step
 func (_ *tailStep) Run(s *Step) {
   s.Flow.Lock()
   defer s.Flow.Unlock()
-  if s.Flow.finished {
-    return
+  if !s.Flow.finished {
+    s.Flow.finished = true
+    s.outTime = time.Now()
+    s.Flow.result <- s.Arg
+    close(s.Flow.result)
   }
-  s.Flow.finished = true
-  s.outTime = time.Now()
-  s.Flow.result <- s.Arg
-  close(s.Flow.result)
 }
 
 type StepRunner interface {

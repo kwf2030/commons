@@ -1,14 +1,18 @@
 package cdp
 
 import (
-  "io"
-  "io/ioutil"
   "net/http"
   "sync"
   "sync/atomic"
 
   "github.com/gorilla/websocket"
 )
+
+type Handler interface {
+  OnCdpEvent(*Message)
+
+  OnCdpResp(*Message)
+}
 
 type Param map[string]interface{}
 
@@ -29,12 +33,6 @@ type Message struct {
 
   // 响应数据（请求和事件通知没有该字段）
   Result Result `json:"result,omitempty"`
-
-  // 请求是否等待响应（只有请求有该字段）
-  async bool
-
-  // 请求在此channel上等待响应（只有请求有该字段）
-  syncChan chan *Message
 }
 
 type tabMeta struct {
@@ -64,11 +62,7 @@ type Tab struct {
   // 广播，用于通知WebSocket关闭读写goroutine
   closeChan chan struct{}
 
-  // WebSocket发送数据的channel
-  sendChan chan *Message
-
-  // WebSocket读取到的数据经过处理后发送给该channel
-  C chan *Message
+  handler Handler
 
   // 存放两类数据：
   // 1.订阅的事件（string-->bool），key是Message.Method，用于过滤WebSocket读取到的事件，
@@ -102,80 +96,43 @@ func (t *Tab) wsRead() {
   }
 }
 
-func (t *Tab) wsWrite() {
-  for {
-    select {
-    case <-t.closeChan:
-      close(t.sendChan)
-      return
-
-    case msg := <-t.sendChan:
-      e := t.conn.WriteJSON(msg)
-      if e != nil {
-        t.Close()
-        return
-      }
-    }
-  }
-}
-
 func (t *Tab) dispatch(msg *Message) {
   // Message.id为0表示事件通知
   if msg.Id == 0 {
     // 若注册过该类事件，则进行通知
     if _, ok := t.eventsAndMessages.Load(msg.Method); ok {
-      t.C <- msg
+      t.handler.OnCdpEvent(msg)
     }
     return
   }
   // Message.id非0表示响应，
-  // 原始响应是没有method字段的，需要根据Id找到对应的请求，用请求中的method给其赋值，
-  // 同步异步分别处理
+  // 原始响应是没有method字段的，需要根据Id找到对应的请求，用请求中的method给其赋值
   if v, ok := t.eventsAndMessages.Load(msg.Id); ok {
     if req, ok := v.(*Message); ok {
       t.eventsAndMessages.Delete(msg.Id)
       msg.Method = req.Method
-      if req.async {
-        msg.async = true
-        t.C <- msg
-      } else {
-        req.syncChan <- msg
-        close(req.syncChan)
-      }
+      t.handler.OnCdpResp(msg)
     }
   }
 }
 
-func (t *Tab) Call(method string, param Param) *Message {
+func (t *Tab) Call(method string, param Param) int32 {
   if method == "" {
-    return nil
-  }
-  id := atomic.AddInt32(&t.lastMessageId, 1)
-  ch := make(chan *Message)
-  msg := &Message{
-    Id:       id,
-    Method:   method,
-    Param:    param,
-    syncChan: ch,
-  }
-  t.eventsAndMessages.Store(id, msg)
-  t.sendChan <- msg
-  return <-ch
-}
-
-func (t *Tab) CallAsync(method string, param Param) {
-  if method == "" {
-    return
+    return 0
   }
   id := atomic.AddInt32(&t.lastMessageId, 1)
   msg := &Message{
     Id:     id,
     Method: method,
     Param:  param,
-    async:  true,
   }
   t.eventsAndMessages.Store(id, msg)
-  t.sendChan <- msg
+  e := t.conn.WriteJSON(msg)
+  if e != nil {
+    t.Close()
+    return 0
+  }
+  return id
 }
 
 func (t *Tab) Subscribe(method string) {
@@ -204,21 +161,9 @@ func (t *Tab) Close() {
     return
   }
   close(t.closeChan)
-  close(t.C)
-  t.eventsAndMessages.Range(func(k, v interface{}) bool {
-    if msg, ok := v.(*Message); ok && msg.syncChan != nil {
-      close(msg.syncChan)
-    }
-    return true
-  })
   t.conn.Close()
   resp, e := http.Get(t.chrome.Endpoint + "/close/" + t.meta.Id)
   if e == nil {
     drain(resp.Body)
   }
-}
-
-func drain(r io.ReadCloser) {
-  ioutil.ReadAll(r)
-  r.Close()
 }

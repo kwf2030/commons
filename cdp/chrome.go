@@ -4,12 +4,20 @@ import (
   "encoding/json"
   "errors"
   "fmt"
+  "io"
+  "io/ioutil"
   "net/http"
   "os"
   "os/exec"
   "strings"
   "sync"
   "time"
+)
+
+var (
+  ErrInvalidArgs      = errors.New("invalid args")
+  ErrChromeNotStarted = errors.New("chrome not started")
+  ErrTabNotCreated    = errors.New("tab not created")
 )
 
 type Chrome struct {
@@ -20,7 +28,7 @@ type Chrome struct {
 
 func Launch(bin string, args ...string) (*Chrome, error) {
   if bin == "" {
-    return nil, errors.New("empty <bin>")
+    return nil, ErrInvalidArgs
   }
   _, e := exec.LookPath(bin)
   if e != nil {
@@ -31,7 +39,7 @@ func Launch(bin string, args ...string) (*Chrome, error) {
     if strings.Contains(v, "--remote-debugging-port") {
       arr := strings.Split(v, "=")
       if len(arr) != 2 {
-        return nil, errors.New("invalid '--remote-debugging-port'")
+        return nil, ErrInvalidArgs
       }
       port = strings.TrimSpace(arr[1])
       break
@@ -48,38 +56,43 @@ func Launch(bin string, args ...string) (*Chrome, error) {
   }
   c := &Chrome{fmt.Sprintf("http://127.0.0.1:%s/json", port), cmd.Process}
   if ok := c.waitForStarted(time.Second * 10); !ok {
-    return nil, errors.New("chrome not started")
+    return nil, ErrChromeNotStarted
   }
   return c, nil
 }
 
 func Connect(host string, port int) (*Chrome, error) {
   if host == "" || port <= 0 {
-    return nil, errors.New("invalid <host>/<port>")
+    return nil, ErrInvalidArgs
   }
   return &Chrome{fmt.Sprintf("http://%s:%d/json", host, port), nil}, nil
 }
 
-func (c *Chrome) NewTab() (*Tab, error) {
+func (c *Chrome) NewTab(h Handler) (*Tab, error) {
+  if h == nil {
+    return nil, ErrInvalidArgs
+  }
   meta := &tabMeta{}
   resp, e := http.Get(c.Endpoint + "/new")
   if e != nil {
     return nil, e
   }
   e = json.NewDecoder(resp.Body).Decode(meta)
-  resp.Body.Close()
+  if e != nil {
+    return nil, e
+  }
+  e = resp.Body.Close()
   if e != nil {
     return nil, e
   }
   if meta.Id == "" || meta.WebSocketDebuggerUrl == "" {
-    return nil, errors.New("NewTab receives empty Id/WebSocketDebuggerUrl")
+    return nil, ErrTabNotCreated
   }
   t := &Tab{
     chrome:            c,
     meta:              meta,
     closeChan:         make(chan struct{}),
-    sendChan:          make(chan *Message, 1),
-    C:                 make(chan *Message, 2),
+    handler:           h,
     eventsAndMessages: sync.Map{},
   }
   t.conn, e = t.wsConnect()
@@ -88,7 +101,6 @@ func (c *Chrome) NewTab() (*Tab, error) {
     return nil, e
   }
   go t.wsRead()
-  go t.wsWrite()
   return t, nil
 }
 
@@ -107,5 +119,12 @@ func (c *Chrome) waitForStarted(timeout time.Duration) bool {
       drain(resp.Body)
       return true
     }
+  }
+}
+
+func drain(r io.ReadCloser) {
+  _, e := ioutil.ReadAll(r)
+  if e == nil {
+    r.Close()
   }
 }

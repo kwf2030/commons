@@ -260,7 +260,10 @@ func (c *Conn) Kick(bound int) (int, error) {
     return 0, parseError(resp)
   }
   var id int
-  fmt.Sscanf(resp, "KICKED %d\r\n", &id)
+  _, e := fmt.Sscanf(resp, "KICKED %d\r\n", &id)
+  if e != nil {
+    return 0, e
+  }
   return id, nil
 }
 
