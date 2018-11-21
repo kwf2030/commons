@@ -1,3 +1,7 @@
+github.com/golang/net v0.0.0-20181114220301-adae6a3d119a h1:wxhJMi186V9aI731PnbZnsQ1aE0hEeDc/Gf9tTNIssU=
+github.com/golang/net v0.0.0-20181114220301-adae6a3d119a/go.mod h1:98y8FxUyMjTdJ5eOj/8vzuiVO14/dkJ98NYhEPG8QGY=
+github.com/golang/sys v0.0.0-20181107165924-66b7b1311ac8 h1:gFyVYPBOyPCYiYPRr7RWANIKGLsIIYtdz0NJ/PuuGbU=
+github.com/golang/sys v0.0.0-20181107165924-66b7b1311ac8/go.mod h1:5JyrLPvD/ZdaYkT7IqKhsP5xt7aLjA99KXRtk4EIYDk=
 github.com/gorilla/websocket v1.4.0 h1:WDFjx/TMzVgy9VdMMQi2K2Emtwi2QcUQsztZ/zLaH/Q=
 github.com/gorilla/websocket v1.4.0/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoAMk2YaljkQ=
 github.com/rs/zerolog v1.10.3 h1:Gbm4pmo3YF7QxRwoNAKvf33oB/bGMIVunAVNJRxQvdg=
