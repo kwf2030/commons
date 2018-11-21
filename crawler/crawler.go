@@ -3,61 +3,15 @@ package crawler
 import (
   "fmt"
   "html"
-  "os"
   "runtime"
-  "strings"
+  "sync"
   "time"
 
   "github.com/kwf2030/commons/cdp"
   "github.com/kwf2030/commons/conv"
-  "github.com/kwf2030/commons/times"
-  "github.com/rs/zerolog"
 )
 
-var (
-  logFile  *os.File
-  logger   *zerolog.Logger
-  logLevel = zerolog.Disabled
-
-  chrome *cdp.Chrome
-
-  queue = make(chan []*Page, 1024)
-
-  notify = make(chan []*Page, 2)
-)
-
-func SetLogLevel(level string) {
-  switch strings.ToLower(level) {
-  case "debug":
-    logLevel = zerolog.DebugLevel
-  case "info":
-    logLevel = zerolog.InfoLevel
-  case "warn":
-    logLevel = zerolog.WarnLevel
-  case "error":
-    logLevel = zerolog.ErrorLevel
-  }
-  initLogger()
-}
-
-func initLogger() {
-  now := times.Now()
-  if logger == nil {
-    next := now.Add(time.Hour * 24)
-    next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
-    time.AfterFunc(next.Sub(now), func() {
-      go initLogger()
-    })
-  }
-  zerolog.SetGlobalLevel(logLevel)
-  zerolog.TimeFieldFormat = ""
-  if logFile != nil {
-    logFile.Close()
-  }
-  logFile, _ = os.Create(fmt.Sprintf("crawler_%s.log", now.Format(times.DateFormat4)))
-  lg := zerolog.New(logFile).Level(logLevel).With().Timestamp().Logger()
-  logger = &lg
-}
+var chrome *cdp.Chrome
 
 func LaunchChrome(bin string, args ...string) error {
   if bin == "" {
@@ -68,43 +22,15 @@ func LaunchChrome(bin string, args ...string) error {
       bin = "/usr/bin/google-chrome-stable"
     }
   }
-  c, e := cdp.Launch(bin, args...)
+  var e error
+  chrome, e = cdp.Launch(bin, args...)
   if e != nil {
     return e
   }
-  chrome = c
   return nil
 }
 
-func GetRules() *Rules {
-  return rules
-}
-
-func Start() <-chan []*Page {
-  if logger == nil {
-    SetLogLevel("")
-  }
-  go func() {
-    for pages := range queue {
-      for _, p := range pages {
-        if p == nil {
-          continue
-        }
-        r := crawl(p)
-        if len(r) > 0 {
-          p.Result = r
-        }
-      }
-      notify <- pages
-    }
-  }()
-  return notify
-}
-
-func Stop() {
-  if logFile != nil {
-    logFile.Close()
-  }
+func CloseChrome() {
   if chrome != nil {
     tab, e := chrome.NewTab()
     if e == nil {
@@ -113,111 +39,141 @@ func Stop() {
   }
 }
 
-func Enqueue(pages []*Page) {
-  queue <- pages
+// 批量抓取会忽略Loop规则，确保Page.ID的唯一性
+func CrawlBatch(pages []*Page) map[string]map[string]interface{} {
+  if len(pages) == 0 {
+    return nil
+  }
+  ret := make(map[string]map[string]interface{}, len(pages))
+  handler := func(page *Page, result map[string]interface{}) {
+    ret[page.Id] = result
+  }
+  for _, page := range pages {
+    Crawl(page, handler, nil)
+  }
+  return ret
 }
 
-func crawl(page *Page) map[string]interface{} {
-  if page.Url == "" {
-    return nil
+func Crawl(page *Page, fieldsHandler func(*Page, map[string]interface{}), loopHandler func(*Page, int, []string)) {
+  if fieldsHandler == nil && loopHandler == nil {
+    return
+  }
+  if page == nil || page.Url == "" {
+    return
   }
   if page.Group == "" {
     page.Group = "default"
   }
   addr := html.UnescapeString(page.Url)
-  rule := rules.match(page.Group, addr)
+  rule := Rules.match(page.Group, addr)
   if rule == nil {
-    return nil
+    return
   }
-  ret := make(map[string]interface{}, len(rule.Fields))
-  done := make(chan struct{})
   tab, _ := chrome.NewTab()
+  defer tab.Close()
   tab.Subscribe(cdp.Page.LoadEventFired)
   tab.Call(cdp.Page.Enable, nil)
   tab.Call(cdp.Page.Navigate, cdp.Param{"url": addr})
+  r := crawlFields(tab, rule)
+  if fieldsHandler != nil {
+    fieldsHandler(page, r)
+  }
+  if rule.Loop != nil && rule.Loop.Eval != "" && loopHandler != nil {
+    crawlLoop(tab, rule, page, loopHandler)
+  }
+}
+
+func crawlFields(tab *cdp.Tab, rule *rule) map[string]interface{} {
+  ret := make(map[string]interface{}, len(rule.Fields))
+  done := make(chan struct{})
   go func() {
-    params := cdp.Param{"objectGroup": "console", "includeCommandLineAPI": true}
+    once := sync.Once{}
     for msg := range tab.C {
       if msg.Method != cdp.Page.LoadEventFired {
         continue
       }
-      if rule.Prepare != nil && rule.Prepare.Eval != "" {
-        params["expression"] = rule.Prepare.Eval
-        r := tab.Call(cdp.Runtime.Evaluate, params)
-        s := conv.String(conv.Map(r.Result, "result"), "value")
-        if s == "" || s == "false" {
+      once.Do(func() {
+        go func() {
+          params := cdp.Param{"objectGroup": "console", "includeCommandLineAPI": true}
+          if rule.Prepare != nil && rule.Prepare.Eval != "" {
+            if rule.Prepare.Eval[0] == '{' {
+              params["expression"] = rule.Prepare.Eval
+            } else {
+              params["expression"] = "{" + rule.Prepare.Eval + "}"
+            }
+            r := tab.Call(cdp.Runtime.Evaluate, params)
+            s := conv.String(conv.Map(r.Result, "result"), "value")
+            if s == "" || s == "false" {
+              close(done)
+              return
+            }
+            if rule.Prepare.waitWhenReady > 0 {
+              time.Sleep(rule.Prepare.waitWhenReady)
+            }
+          }
+          for _, field := range rule.Fields {
+            switch {
+            case field.Eval != "" && field.Value != "":
+              params["expression"] = fmt.Sprintf("{let value='%s';%s}", field.Value, field.Eval)
+              if !field.Export {
+                tab.CallAsync(cdp.Runtime.Evaluate, params)
+              } else {
+                r := tab.Call(cdp.Runtime.Evaluate, params)
+                s := conv.String(conv.Map(r.Result, "result"), "value")
+                ret[field.Name] = s
+                params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, s)
+                tab.Call(cdp.Runtime.Evaluate, params)
+              }
+
+            case field.Value != "":
+              ret[field.Name] = field.Value
+              params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, field.Value)
+              tab.Call(cdp.Runtime.Evaluate, params)
+
+            case field.Eval != "":
+              if field.Eval[0] == '{' {
+                params["expression"] = field.Eval
+              } else {
+                params["expression"] = "{" + field.Eval + "}"
+              }
+              if !field.Export {
+                tab.CallAsync(cdp.Runtime.Evaluate, params)
+              } else {
+                r := tab.Call(cdp.Runtime.Evaluate, params)
+                s := conv.String(conv.Map(r.Result, "result"), "value")
+                ret[field.Name] = s
+                params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, s)
+                // 不能用CallAsync，速度太快的话定义的变量还没生效
+                tab.Call(cdp.Runtime.Evaluate, params)
+              }
+            }
+            if field.wait > 0 {
+              time.Sleep(field.wait)
+            }
+          }
           close(done)
-          return
-        }
-        if rule.Prepare.waitWhenReady > 0 {
-          time.Sleep(rule.Prepare.waitWhenReady)
-        }
-      }
-      for _, field := range rule.Fields {
-        switch {
-        case field.Eval != "" && field.Value != "":
-          params["expression"] = fmt.Sprintf("{let value='%s';%s}", field.Value, field.Eval)
-          if field.Export {
-            r := tab.Call(cdp.Runtime.Evaluate, params)
-            s := conv.String(conv.Map(r.Result, "result"), "value")
-            ret[field.Name] = s
-
-            // 定义JS变量
-            params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, s)
-            tab.CallAsync("cdp.Runtime.Evaluate", params)
-          } else {
-            tab.CallAsync(cdp.Runtime.Evaluate, params)
-          }
-
-        case field.Value != "":
-          ret[field.Name] = field.Value
-
-          // 定义JS变量
-          params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, field.Value)
-          tab.CallAsync("cdp.Runtime.Evaluate", params)
-
-        case field.Eval != "":
-          params["expression"] = field.Eval
-          if field.Export {
-            r := tab.Call(cdp.Runtime.Evaluate, params)
-            s := conv.String(conv.Map(r.Result, "result"), "value")
-            ret[field.Name] = s
-
-            // 定义JS变量
-            params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, s)
-            tab.CallAsync("cdp.Runtime.Evaluate", params)
-          } else {
-            tab.CallAsync(cdp.Runtime.Evaluate, params)
-          }
-        }
-        if field.wait > 0 {
-          time.Sleep(field.wait)
-        }
-      }
-      break
+        }()
+      })
     }
-    close(done)
   }()
   select {
   case <-time.After(rule.pageLoadTimeout):
     tab.C <- &cdp.Message{Method: cdp.Page.LoadEventFired}
+    // 等待eval完成
     <-done
   case <-done:
   }
-  tab.Close()
-  /*if rule.Loop == nil || rule.Loop.Eval == "" {
-    tab.Close()
-  } else {
-    go crawlLoop(rule, tab)
-  }*/
   return ret
 }
 
-func crawlLoop(rule *rule, tab *cdp.Tab) {
-  defer tab.Close()
+func crawlLoop(tab *cdp.Tab, rule *rule, page *Page, handler func(*Page, int, []string)) {
   params := cdp.Param{"objectGroup": "console", "includeCommandLineAPI": true}
   if rule.Loop.Prepare != nil && rule.Loop.Prepare.Eval != "" {
-    params["expression"] = rule.Loop.Prepare.Eval
+    if rule.Loop.Prepare.Eval[0] == '{' {
+      params["expression"] = rule.Loop.Prepare.Eval
+    } else {
+      params["expression"] = "{" + rule.Loop.Prepare.Eval + "}"
+    }
     r := tab.Call(cdp.Runtime.Evaluate, params)
     s := conv.String(conv.Map(r.Result, "result"), "value")
     if s == "" || s == "false" {
@@ -227,60 +183,63 @@ func crawlLoop(rule *rule, tab *cdp.Tab) {
       time.Sleep(rule.Loop.Prepare.waitWhenReady)
     }
   }
+  if rule.Loop.Eval[0] != '{' {
+    rule.Loop.Eval = "{" + rule.Loop.Eval + "}"
+  }
+  if rule.Loop.Break != "" && rule.Loop.Break[0] != '{' {
+    rule.Loop.Break = "{" + rule.Loop.Break + "}"
+  }
+  if rule.Loop.Next != "" && rule.Loop.Next[0] != '{' {
+    rule.Loop.Next = "{" + rule.Loop.Next + "}"
+  }
   i := 0
+  bp := make([]string, rule.Loop.ExportCycle)
   for {
-    fmt.Println("loop:", i)
-
     // eval
     params["expression"] = rule.Loop.Eval
-    r1 := tab.Call(cdp.Runtime.Evaluate, params)
-    s1 := conv.String(conv.Map(r1.Result, "result"), "value")
-    fmt.Println("eval")
+    r := tab.Call(cdp.Runtime.Evaluate, params)
+    s := conv.String(conv.Map(r.Result, "result"), "value")
 
-    // 定义JS变量
-    exp := fmt.Sprintf("index=%d;last=%s", i, s1)
+    exp := fmt.Sprintf("count=%d;last='%s'", i, s)
     if i == 0 {
-      exp = fmt.Sprintf("let index=%d;last=%s", i, s1)
+      exp = fmt.Sprintf("let count=%d;last='%s'", i, s)
     }
     params["expression"] = exp
-    tab.CallAsync("cdp.Runtime.Evaluate", params)
-    fmt.Println("var")
+    tab.Call(cdp.Runtime.Evaluate, params)
 
     // break
     if rule.Loop.Break != "" {
       params["expression"] = rule.Loop.Break
-      r2 := tab.Call(cdp.Runtime.Evaluate, params)
-      s2 := conv.String(conv.Map(r2.Result, "result"), "value")
-      if s2 == "" || s2 == "false" {
+      r := tab.Call(cdp.Runtime.Evaluate, params)
+      s := conv.String(conv.Map(r.Result, "result"), "value")
+      if s == "" || s == "false" {
         break
       }
     }
-    fmt.Println("break")
 
     // next
     if rule.Loop.Next != "" {
       params["expression"] = rule.Loop.Next
       tab.CallAsync(cdp.Runtime.Evaluate, params)
-      fmt.Println("next")
     }
 
     i++
-    if i%rule.Loop.ExportCycle == 0 {
-      // Export
-      fmt.Println("export:", s1)
+    n := i % rule.Loop.ExportCycle
+    if n == 0 {
+      handler(page, i, bp)
+    } else {
+      bp[n-1] = s
     }
 
     // wait
     if rule.Loop.wait > 0 {
       time.Sleep(rule.Loop.wait)
-      fmt.Println("wait")
     }
   }
 }
 
 type Page struct {
-  Id     string
-  Url    string
-  Group  string
-  Result map[string]interface{}
+  Id    string
+  Url   string
+  Group string
 }

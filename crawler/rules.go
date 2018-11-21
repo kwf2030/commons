@@ -15,21 +15,21 @@ var (
   ErrInvalidArgs   = errors.New("invalid args")
   ErrGroupNotFound = errors.New("group not found")
 
-  rules = &Rules{groups: make(map[string][]*rule, 16)}
+  Rules = &RuleGroups{groups: make(map[string][]*rule, 16)}
 )
 
-type Rules struct {
+type RuleGroups struct {
   groups map[string][]*rule
   sync.RWMutex
 }
 
-func (rs *Rules) match(group, url string) *rule {
+func (rg *RuleGroups) match(group, url string) *rule {
   if group == "" || url == "" {
     return nil
   }
-  rs.RLock()
-  defer rs.RUnlock()
-  arr, ok := rs.groups[group]
+  rg.RLock()
+  defer rg.RUnlock()
+  arr, ok := rg.groups[group]
   if !ok {
     return nil
   }
@@ -43,7 +43,7 @@ func (rs *Rules) match(group, url string) *rule {
   return nil
 }
 
-func (rs *Rules) FromBytes(bytes [][]byte) error {
+func (rg *RuleGroups) FromBytes(bytes [][]byte) error {
   if len(bytes) == 0 {
     return ErrInvalidArgs
   }
@@ -61,7 +61,7 @@ func (rs *Rules) FromBytes(bytes [][]byte) error {
     m[r.Group] = append(m[r.Group], r)
   }
   for g, r := range m {
-    e := rs.update(g, r)
+    e := rg.update(g, r)
     if e != nil {
       return e
     }
@@ -69,7 +69,7 @@ func (rs *Rules) FromBytes(bytes [][]byte) error {
   return nil
 }
 
-func (rs *Rules) FromFiles(files []string) error {
+func (rg *RuleGroups) FromFiles(files []string) error {
   if len(files) == 0 {
     return ErrInvalidArgs
   }
@@ -81,67 +81,67 @@ func (rs *Rules) FromFiles(files []string) error {
     }
     arr = append(arr, data)
   }
-  return rs.FromBytes(arr)
+  return rg.FromBytes(arr)
 }
 
-func (rs *Rules) update(group string, arr []*rule) error {
+func (rg *RuleGroups) update(group string, arr []*rule) error {
   if group == "" || len(arr) == 0 {
     return ErrInvalidArgs
   }
-  rs.Lock()
-  defer rs.Unlock()
-  if _, ok := rs.groups[group]; !ok {
-    rs.groups[group] = make([]*rule, 0, 16)
+  rg.Lock()
+  defer rg.Unlock()
+  if _, ok := rg.groups[group]; !ok {
+    rg.groups[group] = make([]*rule, 0, 16)
   }
   for _, r := range arr {
     if r.Group != group {
       continue
     }
     index := -1
-    for i, old := range rs.groups[group] {
+    for i, old := range rg.groups[group] {
       if old.Id == r.Id {
         index = i
         break
       }
     }
     if index == -1 {
-      rs.groups[group] = append(rs.groups[group], r)
+      rg.groups[group] = append(rg.groups[group], r)
     } else {
-      old := rs.groups[group][index]
+      old := rg.groups[group][index]
       if old.Version < r.Version {
-        rs.groups[group][index] = r
+        rg.groups[group][index] = r
       }
     }
   }
-  sort.SliceStable(rs.groups[group], func(i, j int) bool {
-    return rs.groups[group][i].Priority < rs.groups[group][j].Priority
+  sort.SliceStable(rg.groups[group], func(i, j int) bool {
+    return rg.groups[group][i].Priority < rg.groups[group][j].Priority
   })
   return nil
 }
 
-func (rs *Rules) Remove(group string, ids ...string) error {
+func (rg *RuleGroups) Remove(group string, ids ...string) error {
   if group == "" {
     return ErrInvalidArgs
   }
-  rs.Lock()
-  defer rs.Unlock()
-  if _, ok := rs.groups[group]; !ok {
+  rg.Lock()
+  defer rg.Unlock()
+  if _, ok := rg.groups[group]; !ok {
     return ErrGroupNotFound
   }
   if len(ids) == 0 {
-    delete(rs.groups, group)
+    delete(rg.groups, group)
     return nil
   }
   for _, id := range ids {
     index := -1
-    for i, r := range rs.groups[group] {
+    for i, r := range rg.groups[group] {
       if id == r.Id {
         index = i
         break
       }
     }
     if index != -1 {
-      rs.groups[group] = append(rs.groups[group][:index], rs.groups[group][index+1:]...)
+      rg.groups[group] = append(rg.groups[group][:index], rg.groups[group][index+1:]...)
     }
   }
   return nil
