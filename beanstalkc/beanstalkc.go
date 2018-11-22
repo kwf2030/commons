@@ -110,7 +110,7 @@ func (c *Conn) EnableHeartbeat(seconds int) {
   c.ticker = time.NewTicker(time.Second * time.Duration(seconds))
   go func() {
     for range c.ticker.C {
-      c.Ignore("heartbeat00")
+      c.Ignore("__heartbeat__")
     }
   }()
 }

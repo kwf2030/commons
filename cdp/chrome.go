@@ -15,9 +15,9 @@ import (
 )
 
 var (
-  ErrInvalidArgs      = errors.New("invalid args")
-  ErrChromeNotStarted = errors.New("chrome not started")
-  ErrTabNotCreated    = errors.New("tab not created")
+  ErrInvalidArgs       = errors.New("invalid args")
+  ErrChromeStartFailed = errors.New("chrome start failed")
+  ErrTabCreateFailed   = errors.New("tab create failed")
 )
 
 type Chrome struct {
@@ -56,7 +56,7 @@ func Launch(bin string, args ...string) (*Chrome, error) {
   }
   c := &Chrome{fmt.Sprintf("http://127.0.0.1:%s/json", port), cmd.Process}
   if ok := c.waitForStarted(time.Second * 10); !ok {
-    return nil, ErrChromeNotStarted
+    return nil, ErrChromeStartFailed
   }
   return c, nil
 }
@@ -86,7 +86,7 @@ func (c *Chrome) NewTab(h Handler) (*Tab, error) {
     return nil, e
   }
   if meta.Id == "" || meta.WebSocketDebuggerUrl == "" {
-    return nil, ErrTabNotCreated
+    return nil, ErrTabCreateFailed
   }
   t := &Tab{
     chrome:            c,

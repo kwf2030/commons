@@ -1,7 +1,6 @@
 package cdp
 
 import (
-  "context"
   "time"
 )
 
@@ -9,16 +8,7 @@ const defaultEvent = "DEFAULT"
 
 type Action interface {
   Method() string
-
   Param() Param
-}
-
-type EvalAction interface {
-  Action
-
-  Expressions() []string
-
-  Handle(Result) error
 }
 
 type SimpleAction struct {
@@ -26,7 +16,10 @@ type SimpleAction struct {
   param  Param
 }
 
-func NewAction(method string, param Param) *SimpleAction {
+func NewSimpleAction(method string, param Param) *SimpleAction {
+  if method == "" {
+    return nil
+  }
   return &SimpleAction{method: method, param: param}
 }
 
@@ -48,13 +41,20 @@ func (wa waitAction) Param() Param {
   return nil
 }
 
-type SimpleEvalAction struct {
-  expression string
-  handler    func(Result) error
+type EvalAction interface {
+  Action
+  Expressions() []string
 }
 
-func NewEvalAction(expression string, handler func(Result) error) *SimpleEvalAction {
-  return &SimpleEvalAction{expression: expression, handler: handler}
+type SimpleEvalAction struct {
+  expressions []string
+}
+
+func NewSimpleEvalAction(expressions ...string) *SimpleEvalAction {
+  if len(expressions) == 0 {
+    return nil
+  }
+  return &SimpleEvalAction{expressions: expressions}
 }
 
 func (sea *SimpleEvalAction) Method() string {
@@ -66,35 +66,48 @@ func (sea *SimpleEvalAction) Param() Param {
 }
 
 func (sea *SimpleEvalAction) Expressions() []string {
-  return []string{sea.expression}
-}
-
-func (sea *SimpleEvalAction) Handle(result Result) error {
-  if sea.handler != nil {
-    return sea.handler(result)
-  }
-  return nil
+  return sea.expressions
 }
 
 type Task struct {
   chrome *Chrome
+  tab    *Tab
 
   // 一个Domain事件对应多个Action（DomainEvent-->[]Action），
-  // 没有事件的Action的key为DEFAULT，会优先执行
+  // 没有事件的Action的key为DEFAULT
   actions map[string][]Action
 
-  // 当前事件
+  // 当前事件（用于链式调用）
   evt string
+
+  handler Handler
 }
 
 func NewTask(c *Chrome) *Task {
+  if c == nil {
+    return nil
+  }
   t := &Task{
     chrome:  c,
-    actions: make(map[string][]Action, 4),
+    actions: make(map[string][]Action, 2),
     evt:     defaultEvent,
   }
   t.actions[defaultEvent] = make([]Action, 0, 2)
   return t
+}
+
+func (t *Task) OnCdpEvent(msg *Message) {
+  if actions, ok := t.actions[msg.Method]; ok {
+    for _, action := range actions {
+      t.runAction(action)
+    }
+  } else {
+    t.handler.OnCdpEvent(msg)
+  }
+}
+
+func (t *Task) OnCdpResp(msg *Message) {
+  t.handler.OnCdpResp(msg)
 }
 
 func (t *Task) Action(action Action) *Task {
@@ -115,69 +128,48 @@ func (t *Task) Until(event string) *Task {
 }
 
 func (t *Task) Wait(duration time.Duration) *Task {
-  return t.Action(waitAction(duration))
+  if duration > 0 {
+    t.Action(waitAction(duration))
+  }
+  return t
 }
 
-func (t *Task) Run(ctx context.Context) {
-  tab, e := t.chrome.NewTab()
+func (t *Task) Run(h Handler) {
+  if h == nil {
+    return
+  }
+  tab, e := t.chrome.NewTab(t)
   if e != nil {
     return
   }
+  t.tab = tab
+  t.handler = h
   for event := range t.actions {
     if event != defaultEvent {
       tab.Subscribe(event)
     }
   }
   for _, action := range t.actions[defaultEvent] {
-    switch a := action.(type) {
-    case waitAction:
-      time.Sleep(time.Duration(a))
-    case EvalAction:
-      t.runEvalAction(tab, a)
-    default:
-      tab.CallAsync(action.Method(), action.Param())
-    }
-  }
-  // 因为默认加了一个DEFAULT事件，所以Task.actions长度必定不小于1，
-  // 如果大于1，说明有事件要监听（执行对应事件的Actions）
-  if len(t.actions) > 1 {
-    go t.runActions(ctx, tab)
+    t.runAction(action)
   }
 }
 
-func (t *Task) runActions(ctx context.Context, tab *Tab) {
-  for {
-    select {
-    case <-ctx.Done():
-      tab.Close()
-      return
-    case msg := <-tab.C:
-      if actions, ok := t.actions[msg.Method]; ok {
-        for _, action := range actions {
-          switch a := action.(type) {
-          case waitAction:
-            time.Sleep(time.Duration(a))
-          case EvalAction:
-            t.runEvalAction(tab, a)
-          default:
-            tab.CallAsync(action.Method(), action.Param())
-          }
-        }
+func (t *Task) runAction(action Action) {
+  switch a := action.(type) {
+  case waitAction:
+    time.Sleep(time.Duration(a))
+  case EvalAction:
+    param := action.Param()
+    if param == nil {
+      param = Param{}
+    }
+    for _, expr := range a.Expressions() {
+      if expr != "" {
+        param["expression"] = expr
+        t.tab.Call(action.Method(), param)
       }
     }
-  }
-}
-
-func (t *Task) runEvalAction(tab *Tab, action EvalAction) {
-  param := action.Param()
-  if param == nil {
-    param = Param{}
-  }
-  for _, expr := range action.Expressions() {
-    param["expression"] = expr
-    e := action.Handle(tab.Call(action.Method(), param).Result)
-    if e != nil {
-      break
-    }
+  default:
+    t.tab.Call(action.Method(), action.Param())
   }
 }

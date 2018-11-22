@@ -101,7 +101,7 @@ func (t *Tab) dispatch(msg *Message) {
   if msg.Id == 0 {
     // 若注册过该类事件，则进行通知
     if _, ok := t.eventsAndMessages.Load(msg.Method); ok {
-      t.handler.OnCdpEvent(msg)
+      go t.handler.OnCdpEvent(msg)
     }
     return
   }
@@ -111,7 +111,7 @@ func (t *Tab) dispatch(msg *Message) {
     if req, ok := v.(*Message); ok {
       t.eventsAndMessages.Delete(msg.Id)
       msg.Method = req.Method
-      t.handler.OnCdpResp(msg)
+      go t.handler.OnCdpResp(msg)
     }
   }
 }
