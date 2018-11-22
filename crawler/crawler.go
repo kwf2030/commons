@@ -13,6 +13,90 @@ import (
 
 var chrome *cdp.Chrome
 
+type Handler interface {
+  OnFields(*Page, map[string]string)
+  OnLoop(*Page, int, []string)
+}
+
+type Page struct {
+  Id    string
+  Url   string
+  Group string
+
+  rule    *rule
+  tab     *cdp.Tab
+  handler Handler
+
+  lastCallId int32
+}
+
+func NewPage(id, url, group string) *Page {
+  if url == "" {
+    return nil
+  }
+  return &Page{Id: id, Url: url, Group: group}
+}
+
+func (page *Page) Crawl(h Handler) {
+  if page.Url == "" {
+    return
+  }
+  if page.Group == "" {
+    page.Group = "default"
+  }
+  addr := html.UnescapeString(page.Url)
+  rule := Rules.match(page.Group, addr)
+  if rule == nil {
+    return
+  }
+  tab, e := chrome.NewTab(page)
+  if e != nil {
+    return
+  }
+  page.rule = rule
+  page.tab = tab
+  page.handler = h
+  tab.Subscribe(cdp.Page.LoadEventFired)
+  tab.Call(cdp.Page.Enable, nil, nil)
+  tab.Call(cdp.Page.Navigate, cdp.Param{"url": addr}, nil)
+}
+
+func (page *Page) OnCdpEvent(msg *cdp.Message) {
+  if msg.Method == cdp.Page.LoadEventFired {
+    page.crawlFields()
+  }
+}
+
+func (page *Page) OnCdpResp(msg *cdp.Message) {
+
+}
+
+func (page *Page) crawlFields() {
+  params := cdp.Param{"objectGroup": "console", "includeCommandLineAPI": true}
+  rule := page.rule
+  if rule.Prepare != nil {
+    if rule.Prepare.Eval != "" {
+      if rule.Prepare.Eval[0] == '{' {
+        params["expression"] = rule.Prepare.Eval
+      } else {
+        params["expression"] = "{" + rule.Prepare.Eval + "}"
+      }
+      page.tab.Call(cdp.Runtime.Evaluate, params)
+      /*s := conv.String(conv.Map(r.Result, "result"), "value")
+      if s == "" || s == "false" {
+        close(done)
+        return
+      }*/
+    }
+    if rule.Prepare.waitWhenReady > 0 {
+      time.Sleep(rule.Prepare.waitWhenReady)
+    }
+  }
+  /*if rule.Loop != nil && rule.Loop.Eval != "" && loopHandler != nil {
+      crawlLoop(tab, rule, page, loopHandler)
+    }*/
+}
+
 func LaunchChrome(bin string, args ...string) error {
   if bin == "" {
     switch runtime.GOOS {
@@ -30,12 +114,9 @@ func LaunchChrome(bin string, args ...string) error {
   return nil
 }
 
-func CloseChrome() {
+func ExitChrome() {
   if chrome != nil {
-    tab, e := chrome.NewTab()
-    if e == nil {
-      tab.CallAsync(cdp.Browser.Close, nil)
-    }
+    chrome.Exit()
   }
 }
 
@@ -52,35 +133,6 @@ func CrawlBatch(pages []*Page) map[string]map[string]interface{} {
     Crawl(page, handler, nil)
   }
   return ret
-}
-
-func Crawl(page *Page, fieldsHandler func(*Page, map[string]interface{}), loopHandler func(*Page, int, []string)) {
-  if fieldsHandler == nil && loopHandler == nil {
-    return
-  }
-  if page == nil || page.Url == "" {
-    return
-  }
-  if page.Group == "" {
-    page.Group = "default"
-  }
-  addr := html.UnescapeString(page.Url)
-  rule := Rules.match(page.Group, addr)
-  if rule == nil {
-    return
-  }
-  tab, _ := chrome.NewTab()
-  defer tab.Close()
-  tab.Subscribe(cdp.Page.LoadEventFired)
-  tab.Call(cdp.Page.Enable, nil)
-  tab.Call(cdp.Page.Navigate, cdp.Param{"url": addr})
-  r := crawlFields(tab, rule)
-  if fieldsHandler != nil {
-    fieldsHandler(page, r)
-  }
-  if rule.Loop != nil && rule.Loop.Eval != "" && loopHandler != nil {
-    crawlLoop(tab, rule, page, loopHandler)
-  }
 }
 
 func crawlFields(tab *cdp.Tab, rule *rule) map[string]interface{} {
@@ -236,10 +288,4 @@ func crawlLoop(tab *cdp.Tab, rule *rule, page *Page, handler func(*Page, int, []
       time.Sleep(rule.Loop.wait)
     }
   }
-}
-
-type Page struct {
-  Id    string
-  Url   string
-  Group string
 }

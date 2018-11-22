@@ -12,3 +12,5 @@ require (
 replace golang.org/x/net v0.0.0-20181114220301-adae6a3d119a => github.com/golang/net v0.0.0-20181114220301-adae6a3d119a
 
 replace golang.org/x/sys v0.0.0-20181107165924-66b7b1311ac8 => github.com/golang/sys v0.0.0-20181107165924-66b7b1311ac8
+
+replace go.etcd.io/bbolt v1.3.1-etcd.8 => github.com/etcd-io/bbolt v1.3.1-etcd.8

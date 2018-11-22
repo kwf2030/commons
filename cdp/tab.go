@@ -33,6 +33,11 @@ type Message struct {
 
   // 响应数据（请求和事件通知没有该字段）
   Result Result `json:"result,omitempty"`
+
+  What int         `json:"-"`
+  Arg  int         `json:"-"`
+  Str  string      `json:"-"`
+  Obj  interface{} `json:"-"`
 }
 
 type tabMeta struct {
@@ -110,15 +115,20 @@ func (t *Tab) dispatch(msg *Message) {
   if v, ok := t.eventsAndMessages.Load(msg.Id); ok {
     if req, ok := v.(*Message); ok {
       t.eventsAndMessages.Delete(msg.Id)
-      msg.Method = req.Method
+      // 把响应数据赋值给对应的请求，回调直接用req作为参数（省去给msg的字段一个个赋值了）
+      req.Result = msg.Result
       if t.handler != nil {
-        go t.handler.OnCdpResp(msg)
+        go t.handler.OnCdpResp(req)
       }
     }
   }
 }
 
 func (t *Tab) Call(method string, param Param) int32 {
+  return t.CallAttr(method, param, 0, 0, "", nil)
+}
+
+func (t *Tab) CallAttr(method string, param Param, what, arg int, str string, obj interface{}) int32 {
   if method == "" {
     return 0
   }
@@ -127,6 +137,10 @@ func (t *Tab) Call(method string, param Param) int32 {
     Id:     id,
     Method: method,
     Param:  param,
+    What:   what,
+    Arg:    arg,
+    Str:    str,
+    Obj:    obj,
   }
   t.eventsAndMessages.Store(id, msg)
   e := t.conn.WriteJSON(msg)
