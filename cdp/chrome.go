@@ -68,10 +68,16 @@ func Connect(host string, port int) (*Chrome, error) {
   return &Chrome{fmt.Sprintf("http://%s:%d/json", host, port), nil}, nil
 }
 
-func (c *Chrome) NewTab(h Handler) (*Tab, error) {
-  if h == nil {
-    return nil, ErrInvalidArgs
+func (c *Chrome) Exit() error {
+  tab, e := c.NewTab(nil)
+  if e != nil {
+    return e
   }
+  tab.Call(Browser.Close, nil)
+  return nil
+}
+
+func (c *Chrome) NewTab(h Handler) (*Tab, error) {
   meta := &tabMeta{}
   resp, e := http.Get(c.Endpoint + "/new")
   if e != nil {

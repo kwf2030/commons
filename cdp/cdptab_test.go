@@ -42,6 +42,7 @@ func TestTab(t *testing.T) {
   tabJD(chrome)
   tabAmazon(chrome)
   wg.Wait()
+  chrome.Exit()
 }
 
 func tabTB(chrome *Chrome) {

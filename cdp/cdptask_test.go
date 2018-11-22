@@ -27,6 +27,7 @@ func TestTask(t *testing.T) {
   taskJD(chrome)
   taskAmazon(chrome)
   time.Sleep(time.Second * 10)
+  chrome.Exit()
 }
 
 func taskTB(chrome *Chrome) {
