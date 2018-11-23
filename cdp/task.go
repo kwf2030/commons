@@ -102,12 +102,25 @@ func (t *Task) OnCdpEvent(msg *Message) {
       t.runAction(action)
     }
   } else {
-    t.handler.OnCdpEvent(msg)
+    if t.handler != nil {
+      t.handler.OnCdpEvent(msg)
+    }
   }
 }
 
-func (t *Task) OnCdpResp(msg *Message) {
-  t.handler.OnCdpResp(msg)
+func (t *Task) OnCdpResp(msg *Message) bool {
+  if t.handler != nil {
+    return t.handler.OnCdpResp(msg)
+  }
+  return true
+}
+
+func (t *Task) CloseTab(msg *Message) {
+  t.tab.Close()
+}
+
+func (t *Task) ExitChrome(msg *Message) {
+  t.chrome.Exit()
 }
 
 func (t *Task) Action(action Action) *Task {
@@ -134,13 +147,10 @@ func (t *Task) Wait(duration time.Duration) *Task {
   return t
 }
 
-func (t *Task) Run(h Handler) {
-  if h == nil {
-    return
-  }
+func (t *Task) Run(h Handler) *Task {
   tab, e := t.chrome.NewTab(t)
   if e != nil {
-    return
+    return t
   }
   t.tab = tab
   t.handler = h
@@ -152,6 +162,7 @@ func (t *Task) Run(h Handler) {
   for _, action := range t.actions[defaultEvent] {
     t.runAction(action)
   }
+  return t
 }
 
 func (t *Task) runAction(action Action) {

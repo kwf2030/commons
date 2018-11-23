@@ -18,18 +18,19 @@ type H struct {
 func (h *H) OnCdpEvent(msg *Message) {
   fmt.Println("======Event:", h.name, msg.Method)
   if msg.Method == Page.LoadEventFired {
-    id := h.tab.Call(Runtime.Evaluate, Param{"returnByValue": true, "expression": h.expr})
+    id, _ := h.tab.Call(Runtime.Evaluate, Param{"returnByValue": true, "expression": h.expr})
     fmt.Println("call id:", id)
     h.callId = id
   }
 }
 
-func (h *H) OnCdpResp(msg *Message) {
+func (h *H) OnCdpResp(msg *Message) bool {
   fmt.Println("======Resp:", h.name, msg.Method, msg.Id, msg.Result)
   if msg.Id == h.callId {
     h.tab.Close()
     wg.Done()
   }
+  return true
 }
 
 func TestTab(t *testing.T) {

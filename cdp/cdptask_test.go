@@ -14,8 +14,9 @@ func (h *HTask) OnCdpEvent(msg *Message) {
   fmt.Println("======Event:", h.name, msg.Method)
 }
 
-func (h *HTask) OnCdpResp(msg *Message) {
+func (h *HTask) OnCdpResp(msg *Message) bool {
   fmt.Println("======Resp:", h.name, msg.Method, msg.Id, msg.Result)
+  return true
 }
 
 func TestTask(t *testing.T) {

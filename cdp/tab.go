@@ -11,7 +11,7 @@ import (
 type Handler interface {
   OnCdpEvent(*Message)
 
-  OnCdpResp(*Message)
+  OnCdpResp(*Message) bool
 }
 
 type Param map[string]interface{}
@@ -34,6 +34,11 @@ type Message struct {
   // 响应数据（请求和事件通知没有该字段）
   Result Result `json:"result,omitempty"`
 
+  // 同步等待channel，仅在Handler为nil或回调函数返回false的时候会发送一次，
+  // 发送的是Message自身
+  syncChan chan *Message
+
+  // 一些自定义属性
   What int         `json:"-"`
   Arg  int         `json:"-"`
   Str  string      `json:"-"`
@@ -64,7 +69,7 @@ type Tab struct {
   // 非零表示Tab已经关闭
   closed int32
 
-  // 广播，用于通知WebSocket关闭读写goroutine
+  // 广播，用于通知WebSocket关闭读goroutine
   closeChan chan struct{}
 
   handler Handler
@@ -117,38 +122,42 @@ func (t *Tab) dispatch(msg *Message) {
       t.eventsAndMessages.Delete(msg.Id)
       // 把响应数据赋值给对应的请求，回调直接用req作为参数（省去给msg的字段一个个赋值了）
       req.Result = msg.Result
-      if t.handler != nil {
-        go t.handler.OnCdpResp(req)
-      }
+      go func() {
+        if t.handler == nil || !t.handler.OnCdpResp(req) {
+          req.syncChan <- req
+        }
+      }()
     }
   }
 }
 
-func (t *Tab) Call(method string, param Param) int32 {
+func (t *Tab) Call(method string, param Param) (int32, chan *Message) {
   return t.CallAttr(method, param, 0, 0, "", nil)
 }
 
-func (t *Tab) CallAttr(method string, param Param, what, arg int, str string, obj interface{}) int32 {
+func (t *Tab) CallAttr(method string, param Param, what, arg int, str string, obj interface{}) (int32, chan *Message) {
   if method == "" {
-    return 0
+    return 0, nil
   }
   id := atomic.AddInt32(&t.lastMessageId, 1)
+  ch := make(chan *Message, 1)
   msg := &Message{
-    Id:     id,
-    Method: method,
-    Param:  param,
-    What:   what,
-    Arg:    arg,
-    Str:    str,
-    Obj:    obj,
+    Id:       id,
+    Method:   method,
+    Param:    param,
+    syncChan: ch,
+    What:     what,
+    Arg:      arg,
+    Str:      str,
+    Obj:      obj,
   }
   t.eventsAndMessages.Store(id, msg)
   e := t.conn.WriteJSON(msg)
   if e != nil {
     t.Close()
-    return 0
+    return 0, nil
   }
-  return id
+  return id, ch
 }
 
 func (t *Tab) Subscribe(method string) {
@@ -182,4 +191,8 @@ func (t *Tab) Close() {
   if e == nil {
     drain(resp.Body)
   }
+}
+
+func (t *Tab) Closed() bool {
+  return atomic.LoadInt32(&t.closed) != 0
 }

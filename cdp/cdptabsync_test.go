@@ -9,29 +9,26 @@ import (
 var wgSync sync.WaitGroup
 
 type HSync struct {
-  name   string
-  expr   string
-  ch     chan struct{}
-  tab    *Tab
-  callId int32
+  name string
+  expr string
+  ch   chan struct{}
+  tab  *Tab
 }
 
 func (h *HSync) OnCdpEvent(msg *Message) {
   fmt.Println("======Event:", h.name, msg.Method)
   if msg.Method == Page.LoadEventFired {
-    id := h.tab.Call(Runtime.Evaluate, Param{"returnByValue": true, "expression": h.expr})
-    fmt.Println("call id:", id)
-    h.callId = id
-  }
-}
-
-func (h *HSync) OnCdpResp(msg *Message) {
-  fmt.Println("======Resp:", h.name, msg.Method, msg.Id, msg.Result)
-  if msg.Id == h.callId {
+    _, ch := h.tab.Call(Runtime.Evaluate, Param{"returnByValue": true, "expression": h.expr})
+    resp := <-ch
+    fmt.Println("======Resp:", h.name, resp.Method, resp.Id, resp.Result)
     h.ch <- struct{}{}
     h.tab.Close()
     wgSync.Done()
   }
+}
+
+func (h *HSync) OnCdpResp(msg *Message) bool {
+  return false
 }
 
 func TestTabSync(t *testing.T) {
