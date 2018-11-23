@@ -12,7 +12,6 @@ import (
 )
 
 var (
-  ErrInvalidArgs   = errors.New("invalid args")
   ErrGroupNotFound = errors.New("group not found")
 
   Rules = &RuleGroups{groups: make(map[string][]*rule, 16)}

@@ -3,9 +3,36 @@ package crawler
 import (
   "encoding/json"
   "fmt"
-  "strconv"
+  "sync"
   "testing"
 )
+
+var wg sync.WaitGroup
+
+type H struct {
+  name string
+}
+
+func (h *H) OnFields(p *Page, data map[string]string) {
+  fmt.Println("======OnFields:", data)
+}
+
+func (h *H) OnLoop(p *Page, count int, data []string) {
+  for _, v := range data {
+    arr := make([]string, 0, 10)
+    e := json.Unmarshal([]byte(v), &arr)
+    if e != nil {
+      panic(e)
+    }
+    fmt.Println("len=", len(arr))
+  }
+  fmt.Println("======OnLoop:", count, data)
+}
+
+func (h *H) OnComplete(p *Page) {
+  fmt.Println("======OnComplete")
+  wg.Done()
+}
 
 func TestCrawler(t *testing.T) {
   e := Rules.FromFiles([]string{"D:\\Workspace\\kwf2030\\commons\\crawler\\rule_test.yml"})
@@ -16,37 +43,12 @@ func TestCrawler(t *testing.T) {
   if e != nil {
     t.Fatal(e)
   }
-  for i := 0; i < 2; i++ {
-    Crawl(&Page{strconv.Itoa(i), "https://item.jd.com/2165601.html", "default"},
-      func(page *Page, result map[string]interface{}) {
-        fmt.Println("field", page.Id, result)
-      },
-      func(page *Page, count int, result []string) {
-        fmt.Println("loop", page.Id, count, result)
-      })
-  }
-}
-
-func TestCrawler2(t *testing.T) {
-  e := Rules.FromFiles([]string{"D:\\Workspace\\kwf2030\\commons\\crawler\\rule_test.yml"})
+  wg.Add(1)
+  h := &H{"JingDong"}
+  p := NewPage("1", "https://item.jd.com/6655821.html", "default")
+  e = p.Crawl(h)
   if e != nil {
-    t.Fatal(e)
+    panic(e)
   }
-  e = LaunchChrome("")
-  if e != nil {
-    t.Fatal(e)
-  }
-  Crawl(&Page{"100", "https://www.amazon.cn/gp/registry/wishlist/ref=nav_wishlist_btn", "default"},
-    func(page *Page, result map[string]interface{}) {
-      obj := result["products"].(string)
-      m := make([]map[string]interface{}, 200)
-      e := json.Unmarshal([]byte(obj), &m)
-      if e != nil {
-        panic(e)
-      }
-      fmt.Println(len(m))
-    },
-    func(page *Page, count int, result []string) {
-      fmt.Println("loop", page.Id, count, result)
-    })
+  wg.Wait()
 }

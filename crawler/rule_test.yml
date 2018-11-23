@@ -1,39 +1,23 @@
 id: "1"
 version: 1
-name: "jingdong"
+name: "jd"
 alias: "京东"
 priority: 100
 group:
 
 patterns:
-  - "amazon.cn"
+  - "jd.com"
 
 page_load_timeout: "30s"
 
-
-fields:
-  - name: "source"
-    alias: "平台"
-    value: "4"
-    export: true
-    wait: "3s"
-
-  - name: "scroll1"
-    eval: "{document.documentElement.scrollBy(0, 5000);}"
-    export: false
-    wait: "500ms"
-
-  - name: "scroll2"
-    eval: "{document.documentElement.scrollBy(0, 10000);}"
-    export: false
-    wait: "500ms"
-
-  - name: "scroll3"
-    eval: "{document.documentElement.scrollBy(0, 5000);}"
-    export: false
-    wait: "10s"
-
-  - name: "products"
-    alias: "价格"
-    eval: "{let products = []; Array.prototype.slice.call(document.querySelector('#g-items').querySelectorAll('li')).map(function(e) {let a = e.querySelector('h3>a'); if (!a) {return null; } let price = '-1'; let p = e.querySelector('.a-price>span'); if (p) {price = p.textContent; } return {title: a.textContent, url: a.href, price: price}; }).forEach(function(e) {if (e !== null) {products.push(e); } }); JSON.stringify(products); }"
-    export: true
+loop:
+  name: "page"
+  alias: "分页"
+  export_cycle: 3
+  prepare:
+    eval: "{document.documentElement.scrollBy(0, 1000);Array.prototype.slice.call(document.querySelector('#detail > div > ul').children).filter(function (e) {return e.textContent.indexOf('商品评价') !== -1;})[0].click();true;}"
+    wait_when_ready: "3s"
+  eval: "JSON.stringify(Array.prototype.slice.call(document.querySelectorAll('.comment-con')).map(e=>e.textContent))"
+  break: "count===9"
+  next: "document.querySelector('.ui-pager-next').click()"
+  wait: "3s"

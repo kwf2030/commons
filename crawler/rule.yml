@@ -12,7 +12,7 @@ patterns:
 
 page_load_timeout: "10s"
 
-# 如果有prepare，必须返回true流程才会继续（"false"或空字符串表示false）
+# 如果eval不为空则必须返回true流程才会继续（"false"或空字符串表示false）
 prepare:
   eval: "js"
   wait_when_ready: "2s"
@@ -20,7 +20,7 @@ prepare:
 fields:
   # 不要使用JS关键字和符号（可以使用下划线）
   - name: "id"
-    # eval计算结果（纯字符串或JSON字符串）会作为JS全局变量，后续eval可直接使用
+    # eval计算结果（字符串）会作为JS全局变量，后续eval可直接使用
     eval: "js"
     # 是否采集eval结果
     # 默认false，表示不采集并且也不会作为JS全局变量（用于无需返回的eval）
@@ -48,20 +48,19 @@ fields:
     wait: "500ms"
 
 # 无论是否有loop，都会先采集fields
-# loop的数据周期性（export_cycle）输出，field会自动添加后缀
-# 例如每循环10次输出一次（export_cycle=10），第1次输出的field就是page_1，第100次输出就是page_100
+# loop的数据周期性（export_cycle）输出，例如每循环10次输出一次（export_cycle=10）
 loop:
   name: "page"
   alias: "分页"
   export_cycle: 10
-  # 如果有prepare，必须返回true流程才会继续
+  # 如果eval不为空则必须返回true流程才会继续（"false"或空字符串表示false）
   # prepare_eval-->prepare_wait_when_ready-->loop(eval-->break-->next-->wait)
   prepare:
     eval: "js"
     wait_when_ready: "2s"
-  # last（前一次eval结果）和index（循环次数）会作为JS全局变量并在每次循环后更新
+  # last（前一次eval结果）和count（循环次数）会作为JS全局变量并在每次循环后更新
   eval: "js"
-  # 循环终止条件
+  # 返回true循环终止
   break: "js"
   # 下一次eval前执行（如翻页）
   next: "js"
