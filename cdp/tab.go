@@ -131,6 +131,12 @@ func (t *Tab) dispatch(msg *Message) {
   }
 }
 
+func (t *Tab) FireEvent(event string, param Param) {
+  if t.handler != nil {
+    go t.handler.OnCdpEvent(&Message{Method: event, Param: param})
+  }
+}
+
 func (t *Tab) Call(method string, param Param) (int32, chan *Message) {
   return t.CallAttr(method, param, 0, 0, "", nil)
 }
