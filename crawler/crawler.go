@@ -5,6 +5,7 @@ import (
   "fmt"
   "html"
   "runtime"
+  "sync"
   "time"
 
   "github.com/kwf2030/commons/cdp"
@@ -34,6 +35,8 @@ type Page struct {
   rule    *rule
   tab     *cdp.Tab
   handler Handler
+
+  once sync.Once
 }
 
 func NewPage(id, url, group string) *Page {
@@ -43,19 +46,22 @@ func NewPage(id, url, group string) *Page {
   return &Page{Id: id, Url: url, Group: group}
 }
 
-// todo 超时，loop执行顺序（最后一次多余）
 func (p *Page) OnCdpEvent(msg *cdp.Message) {
   if msg.Method == cdp.Page.LoadEventFired {
-    m := p.crawlFields()
-    if p.handler != nil {
-      p.handler.OnFields(p, m)
-    }
-    if p.rule.Loop != nil {
-      p.crawlLoop()
-    }
-    if p.handler != nil {
-      p.handler.OnComplete(p)
-    }
+    // 如果超时，就有可能存在两次回调（超时一次回调和正常一次回调），
+    // once就是为了防止重复调用
+    p.once.Do(func() {
+      m := p.crawlFields()
+      if p.handler != nil {
+        p.handler.OnFields(p, m)
+      }
+      if p.rule.Loop != nil {
+        p.crawlLoop()
+      }
+      if p.handler != nil {
+        p.handler.OnComplete(p)
+      }
+    })
   }
 }
 
@@ -85,6 +91,10 @@ func (p *Page) Crawl(h Handler) error {
   tab.Subscribe(cdp.Page.LoadEventFired)
   tab.Call(cdp.Page.Enable, nil)
   tab.Call(cdp.Page.Navigate, cdp.Param{"url": addr})
+  // todo 大量定时器，如果有性能问题改用时间轮
+  time.AfterFunc(p.rule.pageLoadTimeout, func() {
+    tab.FireEvent(cdp.Page.LoadEventFired, nil)
+  })
   return nil
 }
 
@@ -102,7 +112,7 @@ func (p *Page) crawlFields() map[string]string {
       _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
       msg := <-ch
       r := conv.String(conv.Map(msg.Result, "result"), "value")
-      if r == "" || r == "false" {
+      if r != "true" {
         return ret
       }
     }
@@ -167,7 +177,7 @@ func (p *Page) crawlLoop() {
       _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
       msg := <-ch
       r := conv.String(conv.Map(msg.Result, "result"), "value")
-      if r == "" || r == "false" {
+      if r != "true" {
         return
       }
     }
@@ -185,7 +195,7 @@ func (p *Page) crawlLoop() {
     rule.Loop.Next = "{" + rule.Loop.Next + "}"
   }
   var v string
-  i := 0
+  i := 1
   bp := make([]string, rule.Loop.ExportCycle)
   for {
     // eval
@@ -195,11 +205,20 @@ func (p *Page) crawlLoop() {
       msg := <-ch
       v = conv.String(conv.Map(msg.Result, "result"), "value")
       exp := fmt.Sprintf("count=%d;last='%s'", i, v)
-      if i == 0 {
-        exp = fmt.Sprintf("let count=%d;last='%s'", i, v)
+      if i == 1 {
+        exp = "let " + exp
       }
       params["expression"] = exp
       p.tab.Call(cdp.Runtime.Evaluate, params)
+      n := i % rule.Loop.ExportCycle
+      if n != 0 {
+        bp[n-1] = v
+      } else {
+        bp[rule.Loop.ExportCycle-1] = v
+        if p.handler != nil {
+          p.handler.OnLoop(p, i, bp)
+        }
+      }
     }
 
     // break
@@ -219,23 +238,12 @@ func (p *Page) crawlLoop() {
       p.tab.Call(cdp.Runtime.Evaluate, params)
     }
 
-    i++
-    if rule.Loop.Eval != "" {
-      n := i % rule.Loop.ExportCycle
-      if n != 0 {
-        bp[n-1] = v
-      } else {
-        bp[rule.Loop.ExportCycle-1] = v
-        if p.handler != nil {
-          p.handler.OnLoop(p, i, bp)
-        }
-      }
-    }
-
     // wait
-    if i > 0 && rule.Loop.wait > 0 {
+    if rule.Loop.wait > 0 {
       time.Sleep(rule.Loop.wait)
     }
+
+    i++
   }
 }
 

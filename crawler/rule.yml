@@ -1,41 +1,42 @@
-id: "xx"
+id: "rule001"
 version: 1
-name: "xx"
-alias: "别名"
-group: "xx"
+name: "jd"
+alias: "京东"
+group: "default"
 # 优先级在同一group内有效，0为最高优先级
 priority: 100
 
 patterns:
-  - "xxx"
-  - "xxx"
+  - "jd.com"
+  - "jd.hk"
 
 page_load_timeout: "10s"
 
-# 如果eval不为空则必须返回true流程才会继续（"false"或空字符串表示false）
+# 如果prepare的eval不为空，必须返回true流程才会继续
+# true/"true"表示true，其他任何值都表示false
 prepare:
   eval: "js"
   wait_when_ready: "2s"
 
 fields:
   # 不要使用JS关键字和符号（可以使用下划线）
-  - name: "id"
-    # eval计算结果（字符串）会作为JS全局变量，后续eval可直接使用
+  - name: "product_id"
+    # eval计算结果（字符串）可以作为JS全局变量，后续可直接使用（export为true时）
     eval: "js"
     # 是否采集eval结果
     # 默认false，表示不采集并且也不会作为JS全局变量（用于无需返回的eval）
     # 如果为true，表示采集并且会作为JS全局变量
     export: true
 
-  - name: "source"
+  - name: "product_source"
     alias: "平台"
     # value替代eval，返回常量
     value: "3"
     export: true
 
-  # eval/value并存
-  # value会作为eval的局部变量
-  - name: "price"
+  # eval和value并存
+  # value会作为eval的局部变量（变量名就叫value），但仍然以eval返回值作为采集结果和全局变量
+  - name: "product_price"
     alias: "价格"
     eval: "js"
     value: '1234'
@@ -44,24 +45,26 @@ fields:
   - name: "comments_scroll"
     alias: "滚动"
     eval: "js"
-    # eval之后等待指定时间
+    # eval之后等待指定时间再继续
     wait: "500ms"
 
 # 无论是否有loop，都会先采集fields
-# loop的数据周期性（export_cycle）输出，例如每循环10次输出一次（export_cycle=10）
+# 执行顺序：prepare_eval-->prepare_wait_when_ready-->loop(eval-->break-->next-->wait)
 loop:
   name: "page"
   alias: "分页"
-  export_cycle: 10
-  # 如果eval不为空则必须返回true流程才会继续（"false"或空字符串表示false）
-  # prepare_eval-->prepare_wait_when_ready-->loop(eval-->break-->next-->wait)
+  # 设置回调周期，例如每循环5（默认为10）次回调一次（回调的时候参数即是这5次循环eval的数据）
+  export_cycle: 5
+  # 如果prepare的eval不为空，必须返回true流程才会继续
+  # true/"true"表示true，其他任何值都表示false
   prepare:
     eval: "js"
     wait_when_ready: "2s"
-  # last（前一次eval结果）和count（循环次数）会作为JS全局变量并在每次循环后更新
+  # eval计算过后，返回值会作为全局变量（变量名叫last），eval次数也会作为全局变量（变量名叫count，从1开始）
   eval: "js"
-  # 返回true循环终止
+  # 返回true终止循环（true/"true"表示true，其他任何值都表示false）
   break: "js"
   # 下一次eval前执行（如翻页）
   next: "js"
+  # next执行过后等待指定时间后再开始下一轮循环的eval
   wait: "2s"

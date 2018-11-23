@@ -18,6 +18,7 @@ func (h *H) OnFields(p *Page, data map[string]string) {
 }
 
 func (h *H) OnLoop(p *Page, count int, data []string) {
+  fmt.Println("======OnLoop:", count, data)
   for _, v := range data {
     arr := make([]string, 0, 10)
     e := json.Unmarshal([]byte(v), &arr)
@@ -26,7 +27,6 @@ func (h *H) OnLoop(p *Page, count int, data []string) {
     }
     fmt.Println("len=", len(arr))
   }
-  fmt.Println("======OnLoop:", count, data)
 }
 
 func (h *H) OnComplete(p *Page) {
