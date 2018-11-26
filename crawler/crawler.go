@@ -269,18 +269,3 @@ func ExitChrome() {
     chrome.Exit()
   }
 }
-
-// 批量抓取会忽略Loop规则，确保Page.ID的唯一性
-/*func CrawlBatch(pages []*Page) map[string]map[string]interface{} {
-  if len(pages) == 0 {
-    return nil
-  }
-  ret := make(map[string]map[string]interface{}, len(pages))
-  handler := func(page *Page, result map[string]interface{}) {
-    ret[page.Id] = result
-  }
-  for _, page := range pages {
-    Crawl(page, handler, nil)
-  }
-  return ret
-}*/
