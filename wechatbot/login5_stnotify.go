@@ -18,28 +18,22 @@ type StatusNotifyReq struct {
 }
 
 func (r *StatusNotifyReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 5th step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 5th step failed")
     s.Complete(e)
     return
   }
   _, e = r.do(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 5th step failed")
     s.Complete(e)
     return
   }
   s.Complete(nil)
 }
 
-func (r *StatusNotifyReq) validate(s *flow.Step) error {
+func (r *StatusNotifyReq) checkArg(s *flow.Step) error {
   if e, ok := s.Arg.(error); ok {
     return e
-  }
-  if r.req.syncKey == nil {
-    return errInvalidArgs
   }
   return nil
 }
@@ -66,7 +60,7 @@ func (r *StatusNotifyReq) do(s *flow.Step) (map[string]interface{}, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }

@@ -36,10 +36,8 @@ type SyncReq struct {
 }
 
 func (r *SyncReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 7th step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 7th step failed")
     s.Complete(e)
     return
   }
@@ -51,10 +49,10 @@ func (r *SyncReq) Run(s *flow.Step) {
   go r.loopSyncCheck(syncCheck, sync)
   go r.loopSync(syncCheck, sync)
   syncCheck <- struct{}{}
-  s.Complete(r.req.op)
+  s.Complete(nil)
 }
 
-func (r *SyncReq) validate(s *flow.Step) error {
+func (r *SyncReq) checkArg(s *flow.Step) error {
   if e, ok := s.Arg.(error); ok {
     return e
   }
@@ -63,18 +61,14 @@ func (r *SyncReq) validate(s *flow.Step) error {
 
 func (r *SyncReq) loopSyncCheck(syncCheck chan struct{}, sync chan struct{}) {
   for range syncCheck {
-    resp, e := r.doSyncCheck()
-    code := conv.Int(resp, "code")
-    selector := conv.Int(resp, "selector")
-    logger.Debug().Msgf("sync check, code=%d, selector=%d", code, selector)
+    code, selector, e := r.doSyncCheck()
     switch {
-    case e != nil, resp == nil:
+    case e != nil:
       fallthrough
 
     case code == 0 && selector == 0:
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      go func() { syncCheck <- struct{}{} }()
-      continue
+      syncCheck <- struct{}{}
 
     case code != 0:
       close(syncCheck)
@@ -91,7 +85,6 @@ func (r *SyncReq) loopSyncCheck(syncCheck chan struct{}, sync chan struct{}) {
 func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
   for range sync {
     resp, e := r.doSync()
-    logger.Debug().Msg("sync")
     switch {
     case e != nil, resp == nil:
       fallthrough
@@ -146,7 +139,7 @@ func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
 // selector=5：未知，
 // selector=6：未知，
 // selector=7：操作了手机，如进入/关闭聊天页面
-func (r *SyncReq) doSyncCheck() (map[string]interface{}, error) {
+func (r *SyncReq) doSyncCheck() (int, int, error) {
   addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.syncCheckHost, syncCheckURL))
   q := addr.Query()
   q.Set("r", timestampString13())
@@ -163,11 +156,11 @@ func (r *SyncReq) doSyncCheck() (map[string]interface{}, error) {
   req.Header.Set("User-Agent", userAgent)
   resp, e := r.req.client.Do(req)
   if e != nil {
-    return nil, e
+    return 0, 0, e
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return 0, 0, ErrReq
   }
   return parseSyncCheckResp(resp)
 }
@@ -194,7 +187,7 @@ func (r *SyncReq) doSync() (map[string]interface{}, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }
@@ -216,20 +209,20 @@ func (r *SyncReq) flatSyncKeys() string {
   return sb.String()
 }
 
-func parseSyncCheckResp(resp *http.Response) (map[string]interface{}, error) {
+func parseSyncCheckResp(resp *http.Response) (int, int, error) {
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
-    return nil, e
+    return 0, 0, e
   }
   data := string(body)
   match := syncCheckRegexp.FindStringSubmatch(data)
   if len(match) < 2 {
-    return nil, errResp
+    return 0, 0, ErrResp
   }
   code, _ := strconv.Atoi(match[1])
   selector := 0
   if len(match) >= 3 {
     selector, _ = strconv.Atoi(match[2])
   }
-  return map[string]interface{}{"code": code, "selector": selector}, nil
+  return code, selector, nil
 }

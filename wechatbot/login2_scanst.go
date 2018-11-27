@@ -24,10 +24,8 @@ type ScanStateReq struct {
 }
 
 func (r *ScanStateReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 2nd step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 2nd step failed")
     s.Complete(e)
     return
   }
@@ -38,21 +36,16 @@ func (r *ScanStateReq) Run(s *flow.Step) {
   if redirectURL == "" {
     // 如果是空，基本就是超时（一直没有扫描默认设置了2分钟超时），
     // 微信基本不可能返回200状态码的同时返回空redirect_url
-    logger.Error().Err(errTimeout).Msg("login, 2nd step failed")
-    s.Complete(errTimeout)
+    s.Complete(ErrTimeout)
     return
   }
   r.req.redirectURL = redirectURL
-  logger.Info().Msgf("redirectURL=%s", redirectURL)
   s.Complete(nil)
 }
 
-func (r *ScanStateReq) validate(s *flow.Step) error {
+func (r *ScanStateReq) checkArg(s *flow.Step) error {
   if e, ok := s.Arg.(error); ok {
     return e
-  }
-  if r.req.uuid == "" {
-    return errInvalidArgs
   }
   return nil
 }
@@ -67,27 +60,21 @@ out:
   for loop {
     // 200（已确认），201（已扫描），408（未扫描）
     code, addr, _ := r.do(s)
-    logger.Debug().Msgf("check, code=%d, addr=%s", code, addr)
     switch code {
     case 200:
-      r.req.scanState = QRConfirmed
+      r.req.bot.State = Confirmed
       t.Stop()
       loop = false
       ch <- addr
       break out
 
     case 201:
-      r.req.scanState = QRScanned
+      r.req.bot.State = Scanned
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
       continue
 
     case 408:
-      r.req.scanState = QRTimeout
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      continue
-
-    default:
-      r.req.scanState = QRReady
+      r.req.bot.State = Timeout
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
       continue
     }
@@ -112,7 +99,7 @@ func (r *ScanStateReq) do(s *flow.Step) (int, string, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return 0, "", errReq
+    return 0, "", ErrReq
   }
   // RedirectURL的Host可能是wx.qq.com、wx2.qq.com或其他地址，
   // 这个地址可能是根据帐号注册时间分配的，
@@ -131,11 +118,11 @@ func parseScanStateResp(resp *http.Response) (int, string, error) {
   data := string(body)
   code := scanSTCodeRegexp.FindStringSubmatch(data)
   if len(code) != 2 {
-    return 0, "", errResp
+    return 0, "", ErrResp
   }
   c, e := strconv.Atoi(code[1])
   if e != nil {
-    return 0, "", errResp
+    return 0, "", ErrResp
   }
   if c == 200 {
     addr := scanSTRedirectURLRegexp.FindStringSubmatch(data)
@@ -143,5 +130,5 @@ func parseScanStateResp(resp *http.Response) (int, string, error) {
       return c, addr[1], nil
     }
   }
-  return c, "", errResp
+  return c, "", ErrResp
 }

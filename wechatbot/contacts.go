@@ -43,7 +43,6 @@ type Contacts struct {
 }
 
 func initContacts(data []*Contact, bot *Bot) *Contacts {
-  logger.Info().Msg("initContacts")
   ret := &Contacts{
     Bot:       bot,
     contacts:  sync.Map{},
@@ -52,8 +51,7 @@ func initContacts(data []*Contact, bot *Bot) *Contacts {
   if len(data) == 0 {
     return ret
   }
-  enabled, ok := bot.Attr[AttrPersistentIDEnabled]
-  if !ok || !enabled.(bool) {
+  if !bot.Attr[AttrPersistentIDEnabled].(bool) {
     for _, c := range data {
       c.Bot = bot
       ret.contacts.Store(c.UserName, c)
@@ -96,7 +94,7 @@ func initContacts(data []*Contact, bot *Bot) *Contacts {
       v.ID = strconv.FormatUint(initial+idSelfOffset, 10)
     } else {
       // 生成一个ID并备注
-      v.ID = strconv.FormatUint(ret.NextID(), 10)
+      v.ID = strconv.FormatUint(ret.nextID(), 10)
       ret.Bot.req.Remark(v.UserName, v.ID)
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
     }
@@ -124,7 +122,6 @@ func initContacts(data []*Contact, bot *Bot) *Contacts {
   if bot.Self != nil {
     bot.Self.ID = strconv.FormatUint(initial+idSelfOffset, 10)
   }
-  logger.Info().Msg("initContacts, ok")
   return ret
 }
 
@@ -159,9 +156,9 @@ func (c *Contacts) Remove(userName string) {
   }
 }
 
-func (c *Contacts) Size() int {
+func (c *Contacts) Count() int {
   ret := 0
-  c.Each(func(_ *Contact) bool {
+  c.Each(func(*Contact) bool {
     ret++
     return true
   })
@@ -246,7 +243,7 @@ func (c *Contacts) Each(action func(cc *Contact) bool) {
   })
 }
 
-func (c *Contacts) NextID() uint64 {
+func (c *Contacts) nextID() uint64 {
   c.mu.Lock()
   c.maxID++
   c.mu.Unlock()

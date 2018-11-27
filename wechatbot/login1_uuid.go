@@ -22,33 +22,33 @@ type UUIDReq struct {
 }
 
 func (r *UUIDReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 1st step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 1st step failed")
     s.Complete(e)
     return
   }
   uuid, e := r.do(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 1st step failed")
     s.Complete(e)
+    return
+  }
+  if uuid == "" {
+    s.Complete(ErrInvalidState)
     return
   }
   r.req.uuid = uuid
   qrChan := s.Arg.(chan<- string)
   qrChan <- fmt.Sprintf("%s/%s", qrURL, uuid)
   close(qrChan)
-  logger.Info().Msgf("uuid=%s", uuid)
   s.Complete(nil)
 }
 
-func (r *UUIDReq) validate(s *flow.Step) error {
+func (r *UUIDReq) checkArg(s *flow.Step) error {
+  if s.Arg == nil {
+    return ErrInvalidArgs
+  }
   if e, ok := s.Arg.(error); ok {
     return e
-  }
-  if s.Arg == nil {
-    return errInvalidArgs
   }
   return nil
 }
@@ -71,7 +71,7 @@ func (r *UUIDReq) do(s *flow.Step) (string, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return "", errReq
+    return "", ErrReq
   }
   return parseUUIDResp(resp)
 }
@@ -84,7 +84,7 @@ func parseUUIDResp(resp *http.Response) (string, error) {
   data := string(body)
   match := uuidRegexp.FindStringSubmatch(data)
   if len(match) != 2 {
-    return "", errResp
+    return "", ErrResp
   }
   return match[1], nil
 }

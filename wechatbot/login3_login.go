@@ -16,16 +16,13 @@ type LoginReq struct {
 }
 
 func (r *LoginReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 3rd step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 3rd step failed")
     s.Complete(e)
     return
   }
   resp, e := r.do(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 3rd step failed")
     s.Complete(e)
     return
   }
@@ -42,16 +39,12 @@ func (r *LoginReq) Run(s *flow.Step) {
   r.req.skey = conv.String(resp, "skey")
   r.req.passTicket = conv.String(resp, "pass_ticket")
   r.selectBaseURL(s, r.req.redirectURL)
-  logger.Info().Msgf("uin=%d", r.req.uin)
   s.Complete(nil)
 }
 
-func (r *LoginReq) validate(s *flow.Step) error {
+func (r *LoginReq) checkArg(s *flow.Step) error {
   if e, ok := s.Arg.(error); ok {
     return e
-  }
-  if r.req.redirectURL == "" {
-    return errInvalidArgs
   }
   return nil
 }
@@ -72,7 +65,7 @@ func (r *LoginReq) do(s *flow.Step) (map[string]interface{}, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errResp
+    return nil, ErrResp
   }
   return parseLoginResp(resp)
 }
@@ -108,6 +101,9 @@ func parseLoginResp(resp *http.Response) (map[string]interface{}, error) {
   e = xml.Unmarshal(body, &v)
   if e != nil {
     return nil, e
+  }
+  if v.SKey == "" || v.WXSid == "" || v.WXUin == 0 || v.PassTicket == "" {
+    return nil, ErrInvalidState
   }
   return map[string]interface{}{
     "ret":         v.Ret,

@@ -171,21 +171,21 @@ func (msg *Message) GetToContact() *Contact {
 
 func (msg *Message) ReplyText(content string) error {
   if content == "" {
-    return nil
+    return ErrInvalidArgs
   }
   return msg.Bot.sendText(msg.FromUserName, content)
 }
 
 func (msg *Message) ReplyImage(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
-    return "", errInvalidArgs
+    return "", ErrInvalidArgs
   }
   return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgImage, sendImageURL)
 }
 
 func (msg *Message) ReplyVideo(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
-    return "", errInvalidArgs
+    return "", ErrInvalidArgs
   }
   return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgVideo, sendVideoURL)
 }

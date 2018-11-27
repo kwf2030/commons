@@ -30,7 +30,7 @@ func (r *req) DownloadQRCode(dst string) (string, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return "", errReq
+    return "", ErrReq
   }
   data, e := ioutil.ReadAll(resp.Body)
   if e != nil {
@@ -53,7 +53,7 @@ func (r *req) DownloadAvatar(dst string) (string, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return "", errReq
+    return "", ErrReq
   }
   data, e := ioutil.ReadAll(resp.Body)
   if e != nil {
@@ -71,7 +71,7 @@ func (r *req) DownloadAvatar(dst string) (string, error) {
 
 func (r *req) Verify(toUserName, ticket string) (map[string]interface{}, error) {
   if toUserName == "" || ticket == "" {
-    return nil, errInvalidArgs
+    return nil, ErrInvalidArgs
   }
   addr, _ := url.Parse(r.baseURL + verifyURL)
   q := addr.Query()
@@ -102,14 +102,14 @@ func (r *req) Verify(toUserName, ticket string) (map[string]interface{}, error) 
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }
 
 func (r *req) Remark(toUserName, remark string) (map[string]interface{}, error) {
   if toUserName == "" || remark == "" {
-    return nil, errInvalidArgs
+    return nil, ErrInvalidArgs
   }
   addr, _ := url.Parse(r.baseURL + remarkURL)
   q := addr.Query()
@@ -130,14 +130,14 @@ func (r *req) Remark(toUserName, remark string) (map[string]interface{}, error) 
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }
 
 func (r *req) GetContacts(userNames []string) (map[string]interface{}, error) {
   if userNames == nil || len(userNames) == 0 {
-    return nil, errInvalidArgs
+    return nil, ErrInvalidArgs
   }
   addr, _ := url.Parse(r.baseURL + contactsURL)
   q := addr.Query()
@@ -155,7 +155,6 @@ func (r *req) GetContacts(userNames []string) (map[string]interface{}, error) {
   m["Count"] = len(userNames)
   m["List"] = list
   buf, _ := json.Marshal(m)
-  // 请求必须加上Content-Type和Cookies
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
   req.Header.Set("Referer", r.referer)
   req.Header.Set("User-Agent", userAgent)
@@ -166,7 +165,7 @@ func (r *req) GetContacts(userNames []string) (map[string]interface{}, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }

@@ -20,34 +20,35 @@ type InitReq struct {
 }
 
 func (r *InitReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 4th step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 4th step failed")
     s.Complete(e)
     return
   }
   resp, e := r.do(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 4th step failed")
     s.Complete(e)
     return
   }
   u := conv.Map(resp, "User")
+  if u == nil {
+    s.Complete(ErrInvalidState)
+    return
+  }
   r.req.userName = conv.String(u, "UserName")
-  r.req.avatarURL = fmt.Sprintf("https://%s%s", r.req.host, u["HeadImgUrl"])
   r.req.syncKey = conv.Map(resp, "SyncKey")
+  if r.req.userName == "" || r.req.syncKey == nil {
+    s.Complete(ErrInvalidState)
+    return
+  }
+  r.req.avatarURL = fmt.Sprintf("https://%s%s", r.req.host, u["HeadImgUrl"])
   r.req.op <- &op{What: ContactSelfOp, Data: u}
-  logger.Info().Msgf("username=%s", r.req.userName)
   s.Complete(nil)
 }
 
-func (r *InitReq) validate(s *flow.Step) error {
+func (r *InitReq) checkArg(s *flow.Step) error {
   if e, ok := s.Arg.(error); ok {
     return e
-  }
-  if r.req.payload == nil {
-    return errInvalidArgs
   }
   return nil
 }
@@ -69,7 +70,7 @@ func (r *InitReq) do(s *flow.Step) (map[string]interface{}, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }

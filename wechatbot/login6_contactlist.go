@@ -17,26 +17,22 @@ type ContactListReq struct {
 }
 
 func (r *ContactListReq) Run(s *flow.Step) {
-  logger.Info().Msg("login, 6th step")
-  e := r.validate(s)
+  e := r.checkArg(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 6th step failed")
     s.Complete(e)
     return
   }
   resp, e := r.do(s)
   if e != nil {
-    logger.Error().Err(e).Msg("login, 6th step failed")
     s.Complete(e)
     return
   }
   data := conv.Slice(resp, "MemberList")
   r.req.op <- &op{What: ContactListOp, Data: data}
-  logger.Info().Msgf("%d contacts", len(data))
   s.Complete(nil)
 }
 
-func (r *ContactListReq) validate(s *flow.Step) error {
+func (r *ContactListReq) checkArg(s *flow.Step) error {
   if e, ok := s.Arg.(error); ok {
     return e
   }
@@ -60,7 +56,7 @@ func (r *ContactListReq) do(s *flow.Step) (map[string]interface{}, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }

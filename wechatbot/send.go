@@ -58,7 +58,7 @@ func (r *req) SendText(toUserName, content string) (map[string]interface{}, erro
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }
@@ -95,7 +95,7 @@ func (r *req) SendMedia(toUserName, mediaID string, msgType int, sendURL string)
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return nil, errReq
+    return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
 }
@@ -229,7 +229,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   }
   defer resp.Body.Close()
   if resp.StatusCode != http.StatusOK {
-    return "", errReq
+    return "", ErrReq
   }
   ret, e := conv.ReadJSONToMap(resp.Body)
   if e != nil {
@@ -238,7 +238,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   br := conv.Map(ret, "BaseResponse")
   rt := conv.Int(br, "Ret")
   if rt != 0 {
-    return "", errReq
+    return "", ErrReq
   }
   return conv.String(ret, "MediaId"), nil
 }

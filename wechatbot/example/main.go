@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-  wechatbot.SetLogLevel("debug")
   bot := wechatbot.CreateBot(false)
 
   // 用来接收二维码

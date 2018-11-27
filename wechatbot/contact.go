@@ -93,8 +93,11 @@ func mapsToContacts(data []map[string]interface{}, bot *Bot) []*Contact {
 }
 
 func FindContactByID(id string) *Contact {
+  if id == "" {
+    return nil
+  }
   var ret *Contact
-  EachBot(func(b *Bot) bool {
+  eachBot(func(b *Bot) bool {
     if b.Contacts != nil {
       if c := b.Contacts.FindByID(id); c != nil {
         ret = c
@@ -106,23 +109,40 @@ func FindContactByID(id string) *Contact {
   return ret
 }
 
+func FindContactByUserName(userName string) *Contact {
+  if userName == "" {
+    return nil
+  }
+  var ret *Contact
+  eachBot(func(b *Bot) bool {
+    if b.Contacts != nil {
+      if c := b.Contacts.FindByUserName(userName); c != nil {
+        ret = c
+        return false
+      }
+    }
+    return true
+  })
+  return ret
+}
+
 func (c *Contact) SendText(content string) error {
   if content == "" {
-    return errInvalidArgs
+    return ErrInvalidArgs
   }
   return c.Bot.sendText(c.UserName, content)
 }
 
 func (c *Contact) SendImage(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
-    return "", errInvalidArgs
+    return "", ErrInvalidArgs
   }
   return c.Bot.sendMedia(c.UserName, data, filename, MsgImage, sendImageURL)
 }
 
 func (c *Contact) SendVideo(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
-    return "", errInvalidArgs
+    return "", ErrInvalidArgs
   }
   return c.Bot.sendMedia(c.UserName, data, filename, MsgVideo, sendVideoURL)
 }
