@@ -8,6 +8,31 @@ import (
 
 var wg sync.WaitGroup
 
+var testRule = []byte(`id: "1"
+version: 1
+name: "jd"
+alias: "京东"
+priority: 100
+group: "default"
+
+patterns:
+  - "jd.com"
+
+page_load_timeout: "10s"
+
+loop:
+  name: "page"
+  alias: "最新10页评论"
+  export_cycle: 5
+  prepare:
+    eval: "{document.documentElement.scrollBy(0, 1000);Array.prototype.slice.call(document.querySelector('#detail > div > ul').children).filter(function (e) {return e.textContent.indexOf('商品评价') !== -1;})[0].click();true;}"
+    wait_when_ready: "2s"
+  eval: "JSON.stringify(Array.prototype.slice.call(document.querySelectorAll('.comment-con')).map(e=>e.textContent))"
+  break: "count===10"
+  next: "document.querySelector('.ui-pager-next').click()"
+  wait: "2s"
+`)
+
 type H struct {
   name string
 }
@@ -26,7 +51,7 @@ func (h *H) OnComplete(p *Page) {
 }
 
 func TestCrawler(t *testing.T) {
-  e := Rules.FromFiles([]string{"D:\\Workspace\\kwf2030\\commons\\crawler\\rule_test.yml"})
+  e := Rules.FromBytes([][]byte{testRule})
   if e != nil {
     t.Fatal(e)
   }
