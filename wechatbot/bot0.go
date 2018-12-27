@@ -48,7 +48,7 @@ func (bot *Bot) sendText(toUserName string, content string) error {
   if e != nil {
     return e
   }
-  if conv.Int(conv.Map(resp, "BaseResponse"), "Ret") != 0 {
+  if conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0 {
     return ErrResp
   }
   return nil
@@ -121,7 +121,7 @@ func (bot *Bot) sendMedia(toUserName string, data []byte, filename string, msgTy
   if e != nil {
     return "", e
   }
-  if conv.Int(conv.Map(resp, "BaseResponse"), "Ret") != 0 {
+  if conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0 {
     return "", ErrResp
   }
   return mediaID, nil
@@ -195,7 +195,7 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (string, error) {
   if e != nil {
     return "", ErrReq
   }
-  if conv.Int(resp, "Ret") != 0 {
+  if conv.GetInt(resp, "Ret", 0) != 0 {
     return "", ErrResp
   }
 
@@ -203,10 +203,10 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (string, error) {
   if e != nil {
     return "", ErrReq
   }
-  if conv.Int(conv.Map(resp, "BaseResponse"), "Ret") != 0 {
+  if conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0 {
     return "", ErrResp
   }
-  arr := conv.Slice(resp, "ContactList")
+  arr := conv.GetMapSlice(resp, "ContactList")
   if len(arr) <= 0 {
     return "", ErrResp
   }
@@ -224,7 +224,7 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (string, error) {
   if e != nil {
     return id, ErrReq
   }
-  if conv.Int(resp, "Ret") != 0 {
+  if conv.GetInt(resp, "Ret", 0) != 0 {
     return id, ErrResp
   }
   return id, nil

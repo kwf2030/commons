@@ -27,7 +27,7 @@ func (r *ContactListReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  data := conv.Slice(resp, "MemberList")
+  data := conv.GetMapSlice(resp, "MemberList")
   r.req.op <- &op{What: ContactListOp, Data: data}
   s.Complete(nil)
 }

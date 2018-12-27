@@ -34,10 +34,10 @@ func (r *LoginReq) Run(s *flow.Step) {
       "DeviceID": deviceID(),
     },
   }
-  r.req.uin = conv.Int(resp, "wxuin")
-  r.req.sid = conv.String(resp, "wxsid")
-  r.req.skey = conv.String(resp, "skey")
-  r.req.passTicket = conv.String(resp, "pass_ticket")
+  r.req.uin = conv.GetInt(resp, "wxuin", 0)
+  r.req.sid = conv.GetString(resp, "wxsid", "")
+  r.req.skey = conv.GetString(resp, "skey", "")
+  r.req.passTicket = conv.GetString(resp, "pass_ticket", "")
   r.selectBaseURL(s, r.req.redirectURL)
   s.Complete(nil)
 }

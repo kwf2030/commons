@@ -49,8 +49,8 @@ func mapToContact(data map[string]interface{}, bot *Bot) *Contact {
   ret := &Contact{Raw: data}
   ret.Bot = bot
   ret.Uin = bot.req.uin
-  ret.Nickname = conv.String(data, "NickName")
-  ret.UserName = conv.String(data, "UserName")
+  ret.Nickname = conv.GetString(data, "NickName", "")
+  ret.UserName = conv.GetString(data, "UserName", "")
   if bot != nil && bot.Contacts != nil {
     if c := bot.Contacts.FindByUserName(ret.UserName); c != nil {
       ret.ID = c.ID
@@ -152,15 +152,15 @@ func (c *Contact) GetAttrString(attr string) string {
 }
 
 func (c *Contact) GetAttrInt(attr string) int {
-  return conv.Int(c.Raw, attr)
+  return conv.GetInt(c.Raw, attr, 0)
 }
 
 func (c *Contact) GetAttrUint64(attr string) uint64 {
-  return conv.Uint64(c.Raw, attr)
+  return conv.GetUint64(c.Raw, attr, 0)
 }
 
 func (c *Contact) GetAttrBool(attr string) bool {
-  return conv.Bool(c.Raw, attr)
+  return conv.GetBool(c.Raw, attr, false)
 }
 
 func (c *Contact) GetAttrBytes(attr string) []byte {

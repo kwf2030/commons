@@ -64,7 +64,7 @@ func initContacts(data []*Contact, bot *Bot) *Contacts {
       continue
     }
     v.Bot = bot
-    if remark := conv.String(v.Raw, "RemarkName"); remark != "" {
+    if remark := conv.GetString(v.Raw, "RemarkName", ""); remark != "" {
       if id := parseRemarkToID(remark); id != 0 {
         if ret.maxID < id {
           ret.maxID = id
@@ -214,8 +214,8 @@ func (c *Contacts) FindByKeyword(keyword string) []*Contact {
   ret := make([]*Contact, 0, 1)
   var py1, py2 string
   c.Each(func(cc *Contact) bool {
-    py1 = conv.String(cc.Raw, "PYInitial")
-    py2 = conv.String(cc.Raw, "PYQuanPin")
+    py1 = conv.GetString(cc.Raw, "PYInitial", "")
+    py2 = conv.GetString(cc.Raw, "PYQuanPin", "")
     if strings.Contains(cc.Nickname, keyword) {
       ret = append(ret, cc)
       return true

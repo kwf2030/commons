@@ -89,13 +89,13 @@ func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
     case e != nil, resp == nil:
       fallthrough
 
-    case conv.Int(conv.Map(resp, "BaseResponse"), "Ret") != 0:
+    case conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0:
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
       syncCheck <- struct{}{}
       continue
     }
 
-    r.req.syncKey = conv.Map(resp, "SyncCheckKey")
+    r.req.syncKey = conv.GetMap(resp, "SyncCheckKey")
 
     // 没开启验证如果被添加好友，
     // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
@@ -103,20 +103,20 @@ func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
     // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
     // 不添加的话下次登录时好友列表中也没有此人，
     // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
-    if conv.Int(resp, "ModContactCount") > 0 {
-      data := conv.Slice(resp, "ModContactList")
+    if conv.GetInt(resp, "ModContactCount", 0) > 0 {
+      data := conv.GetMapSlice(resp, "ModContactList")
       for _, v := range data {
         r.req.op <- &op{What: ContactModOp, Data: v}
       }
     }
-    if conv.Int(resp, "DelContactCount") > 0 {
-      data := conv.Slice(resp, "DelContactList")
+    if conv.GetInt(resp, "DelContactCount", 0) > 0 {
+      data := conv.GetMapSlice(resp, "DelContactList")
       for _, v := range data {
         r.req.op <- &op{What: ContactDelOp, Data: v}
       }
     }
-    if conv.Int(resp, "AddMsgCount") > 0 {
-      data := conv.Slice(resp, "AddMsgList")
+    if conv.GetInt(resp, "AddMsgCount", 0) > 0 {
+      data := conv.GetMapSlice(resp, "AddMsgList")
       for _, v := range data {
         r.req.op <- &op{What: MsgOp, Data: v}
       }
@@ -193,15 +193,15 @@ func (r *SyncReq) doSync() (map[string]interface{}, error) {
 }
 
 func (r *SyncReq) flatSyncKeys() string {
-  l := conv.Int(r.req.syncKey, "Count")
-  list := conv.Slice(r.req.syncKey, "List")
+  l := conv.GetInt(r.req.syncKey, "Count", 0)
+  list := conv.GetMapSlice(r.req.syncKey, "List")
   if len(list) == 0 || len(list) != l {
     return ""
   }
   var sb strings.Builder
   for i := 0; i < l; i++ {
     v := list[i]
-    fmt.Fprintf(&sb, "%d_%d", conv.Int(v, "Key"), conv.Int(v, "Val"))
+    fmt.Fprintf(&sb, "%d_%d", conv.GetInt(v, "Key", 0), conv.GetInt(v, "Val", 0))
     if i != l-1 {
       sb.WriteString("|")
     }

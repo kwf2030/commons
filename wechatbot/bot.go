@@ -242,19 +242,19 @@ func (bot *Bot) Start(qrChan chan<- string) (<-chan *Op, error) {
 }
 
 func (bot *Bot) GetAttrString(attr string) string {
-  return conv.String(bot.Attr, attr)
+  return conv.GetString(bot.Attr, attr, "")
 }
 
 func (bot *Bot) GetAttrInt(attr string) int {
-  return conv.Int(bot.Attr, attr)
+  return conv.GetInt(bot.Attr, attr, 0)
 }
 
 func (bot *Bot) GetAttrUint64(attr string) uint64 {
-  return conv.Uint64(bot.Attr, attr)
+  return conv.GetUint64(bot.Attr, attr, 0)
 }
 
 func (bot *Bot) GetAttrBool(attr string) bool {
-  return conv.Bool(bot.Attr, attr)
+  return conv.GetBool(bot.Attr, attr, false)
 }
 
 func (bot *Bot) GetAttrBytes(attr string) []byte {

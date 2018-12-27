@@ -30,13 +30,13 @@ func (r *InitReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  u := conv.Map(resp, "User")
+  u := conv.GetMap(resp, "User")
   if u == nil {
     s.Complete(ErrInvalidState)
     return
   }
-  r.req.userName = conv.String(u, "UserName")
-  r.req.syncKey = conv.Map(resp, "SyncKey")
+  r.req.userName = conv.GetString(u, "UserName", "")
+  r.req.syncKey = conv.GetMap(resp, "SyncKey")
   if r.req.userName == "" || r.req.syncKey == nil {
     s.Complete(ErrInvalidState)
     return

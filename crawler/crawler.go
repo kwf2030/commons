@@ -111,7 +111,7 @@ func (p *Page) crawlFields() map[string]string {
       }
       _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
       msg := <-ch
-      r := conv.String(conv.Map(msg.Result, "result"), "value")
+      r := conv.String(conv.GetMap(msg.Result, "result"), "value")
       if r != "true" {
         return ret
       }
@@ -129,7 +129,7 @@ func (p *Page) crawlFields() map[string]string {
       } else {
         _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
         msg := <-ch
-        r := conv.String(conv.Map(msg.Result, "result"), "value")
+        r := conv.String(conv.GetMap(msg.Result, "result"), "value")
         ret[field.Name] = r
         params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, r)
         p.tab.Call(cdp.Runtime.Evaluate, params)
@@ -151,7 +151,7 @@ func (p *Page) crawlFields() map[string]string {
       } else {
         _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
         msg := <-ch
-        r := conv.String(conv.Map(msg.Result, "result"), "value")
+        r := conv.String(conv.GetMap(msg.Result, "result"), "value")
         ret[field.Name] = r
         params["expression"] = fmt.Sprintf("const %s='%s'", field.Name, r)
         p.tab.Call(cdp.Runtime.Evaluate, params)
@@ -176,7 +176,7 @@ func (p *Page) crawlLoop() {
       }
       _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
       msg := <-ch
-      r := conv.String(conv.Map(msg.Result, "result"), "value")
+      r := conv.String(conv.GetMap(msg.Result, "result"), "value")
       if r != "true" {
         return
       }
@@ -203,7 +203,7 @@ func (p *Page) crawlLoop() {
       params["expression"] = rule.Loop.Eval
       _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
       msg := <-ch
-      v = conv.String(conv.Map(msg.Result, "result"), "value")
+      v = conv.String(conv.GetMap(msg.Result, "result"), "value")
       exp := fmt.Sprintf("count=%d;last='%s'", i, v)
       if i == 1 {
         exp = "let " + exp
@@ -226,7 +226,7 @@ func (p *Page) crawlLoop() {
       params["expression"] = rule.Loop.Break
       _, ch := p.tab.Call(cdp.Runtime.Evaluate, params)
       msg := <-ch
-      r := conv.String(conv.Map(msg.Result, "result"), "value")
+      r := conv.String(conv.GetMap(msg.Result, "result"), "value")
       if r == "true" {
         break
       }

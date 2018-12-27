@@ -65,10 +65,10 @@ func NowStrf(format string) string {
   return Now().Format(format)
 }
 
-func RandMillis(min, max int) time.Duration {
-  n := rnd.Intn(max)
-  if n < min {
-    n = min
+func RandMillis(msMin, msMax int) time.Duration {
+  n := rnd.Intn(msMax)
+  if n < msMin {
+    n = msMin
   }
   return time.Millisecond * time.Duration(n)
 }

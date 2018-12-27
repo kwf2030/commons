@@ -123,15 +123,15 @@ func mapToMessage(data map[string]interface{}, bot *Bot) *Message {
   }
   ret := &Message{Raw: data}
   ret.Bot = bot
-  ret.Type = conv.Int(data, "MsgType")
-  ret.URL = conv.String(data, "Url")
-  ret.Content = conv.String(data, "Content")
+  ret.Type = conv.GetInt(data, "MsgType", 0)
+  ret.URL = conv.GetString(data, "Url", "")
+  ret.Content = conv.GetString(data, "Content", "")
   if v, ok := data["CreateTime"]; ok {
     if x, ok := v.(float64); ok {
       ret.CreateTime = time.Unix(int64(x), 0)
     }
   }
-  ret.ID = conv.String(data, "MsgId")
+  ret.ID = conv.GetString(data, "MsgId", "")
   if ret.ID == "" {
     if v, ok := data["NewMsgId"]; ok {
       if x, ok := v.(float64); ok {
@@ -139,11 +139,11 @@ func mapToMessage(data map[string]interface{}, bot *Bot) *Message {
       }
     }
   }
-  ret.FromUserName = conv.String(data, "FromUserName")
+  ret.FromUserName = conv.GetString(data, "FromUserName", "")
   if ret.FromUserName == "" && ret.Type == MsgVerify {
-    ret.FromUserName = conv.String(conv.Map(data, "RecommendInfo"), "UserName")
+    ret.FromUserName = conv.GetString(conv.GetMap(data, "RecommendInfo"), "UserName", "")
   }
-  ret.ToUserName = conv.String(data, "ToUserName")
+  ret.ToUserName = conv.GetString(data, "ToUserName", "")
   if bot != nil && bot.Contacts != nil {
     if c := bot.Contacts.FindByUserName(ret.FromUserName); c != nil {
       ret.FromUserID = c.ID
@@ -191,19 +191,19 @@ func (msg *Message) ReplyVideo(data []byte, filename string) (string, error) {
 }
 
 func (msg *Message) GetAttrString(attr string) string {
-  return conv.String(msg.Raw, attr)
+  return conv.GetString(msg.Raw, attr, "")
 }
 
 func (msg *Message) GetAttrInt(attr string) int {
-  return conv.Int(msg.Raw, attr)
+  return conv.GetInt(msg.Raw, attr, 0)
 }
 
 func (msg *Message) GetAttrUint64(attr string) uint64 {
-  return conv.Uint64(msg.Raw, attr)
+  return conv.GetUint64(msg.Raw, attr, 0)
 }
 
 func (msg *Message) GetAttrBool(attr string) bool {
-  return conv.Bool(msg.Raw, attr)
+  return conv.GetBool(msg.Raw, attr, false)
 }
 
 func (msg *Message) GetAttrBytes(attr string) []byte {

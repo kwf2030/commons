@@ -235,12 +235,12 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   if e != nil {
     return "", e
   }
-  br := conv.Map(ret, "BaseResponse")
-  rt := conv.Int(br, "Ret")
+  br := conv.GetMap(ret, "BaseResponse")
+  rt := conv.GetInt(br, "Ret", 0)
   if rt != 0 {
     return "", ErrReq
   }
-  return conv.String(ret, "MediaId"), nil
+  return conv.GetString(ret, "MediaId", ""), nil
 }
 
 type uploadInfo struct {
