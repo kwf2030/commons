@@ -22,11 +22,11 @@ const (
 )
 
 const (
-  opSync       = 0x6001
-  opMsg        = 0x6002
-  opContactMod = 0x6003
-  opContactDel = 0x6004
-  opExit       = 0x6005
+  opSync       = 0x7001
+  opMsg        = 0x7002
+  opContactMod = 0x7003
+  opContactDel = 0x7004
+  opExit       = 0x7005
 )
 
 var syncCheckRegexp = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
@@ -39,80 +39,54 @@ func (r *syncReq) Run(s *flow.Step) {
   // syncCheck一直执行，有消息时才会执行sync，
   // web微信syncCheck的时间间隔约为25秒左右，
   // 即在没有新消息的时候，服务器会保持（阻塞）连接25秒左右
-  ch1 := make(chan struct{})
-  ch2 := make(chan struct{})
-  go r.syncCheck(ch1, ch2)
-  go r.sync(ch1, ch2)
-  ch1 <- struct{}{}
+  ch := make(chan int)
+  syncCheckChan := make(chan struct{})
+  syncChan := make(chan struct{})
+  go r.bridge(ch, syncCheckChan, syncChan)
+  go r.syncCheck(ch, syncCheckChan, syncChan)
+  go r.sync(ch, syncCheckChan, syncChan)
+  syncCheckChan <- struct{}{}
   r.req.op <- &op{what: opSync}
   s.Complete(nil)
 }
 
-func (r *syncReq) syncCheck(ch1 chan struct{}, ch2 chan struct{}) {
-  for range ch1 {
-    code, selector, e := r.doSyncCheck()
-    switch {
-    case e != nil:
-      fallthrough
-
-    case code == 0 && selector == 0:
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      ch1 <- struct{}{}
-
-    case code != 0:
-      close(ch1)
-      close(ch2)
-      r.req.op <- &op{what: TerminateOp, Data: code}
-      close(r.req.op)
-
-    default:
-      ch2 <- struct{}{}
+func (r *syncReq) bridge(ch chan int, syncCheckChan chan struct{}, syncChan chan struct{}) {
+  for i := range ch {
+    if i == 0 {
+      syncCheckChan <- struct{}{}
+    } else {
+      syncChan <- struct{}{}
     }
   }
 }
 
-func (r *syncReq) sync(ch1 chan struct{}, ch2 chan struct{}) {
-  for range ch2 {
-    resp, e := r.doSync()
-    switch {
-    case e != nil, resp == nil:
-      fallthrough
-
-    case conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0:
+func (r *syncReq) syncCheck(ch chan int, syncCheckChan chan struct{}, syncChan chan struct{}) {
+  for range syncCheckChan {
+    code, selector, e := r.doSyncCheck()
+    if e != nil {
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      ch1 <- struct{}{}
+      ch <- 0
       continue
     }
 
-    r.req.SyncKeys = conv.GetMap(resp, "SyncCheckKey")
-
-    // 没开启验证如果被添加好友，
-    // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
-    // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
-    // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
-    // 不添加的话下次登录时好友列表中也没有此人，
-    // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
-    if conv.GetInt(resp, "ModContactCount", 0) > 0 {
-      data := conv.GetMapSlice(resp, "ModContactList")
-      for _, v := range data {
-        r.req.op <- &op{what: ContactModOp, Data: v}
-      }
-    }
-    if conv.GetInt(resp, "DelContactCount", 0) > 0 {
-      data := conv.GetMapSlice(resp, "DelContactList")
-      for _, v := range data {
-        r.req.op <- &op{what: ContactDelOp, Data: v}
-      }
-    }
-    if conv.GetInt(resp, "AddMsgCount", 0) > 0 {
-      data := conv.GetMapSlice(resp, "AddMsgList")
-      for _, v := range data {
-        r.req.op <- &op{what: MsgOp, Data: v}
-      }
+    switch code {
+    case 0:
+      break
+    default:
+      //close(ch1)
+      //close(ch2)
+      //r.req.op <- &op{what: TerminateOp, Data: code}
+      //close(r.req.op)
+      //continue
     }
 
-    time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-    ch1 <- struct{}{}
+    switch selector {
+    case 0:
+      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      ch <- 0
+    default:
+      syncChan <- struct{}{}
+    }
   }
 }
 
@@ -152,6 +126,52 @@ func (r *syncReq) doSyncCheck() (int, int, error) {
     return 0, 0, ErrReq
   }
   return parseSyncCheckResp(resp)
+}
+
+func (r *syncReq) sync(ch chan int, ch1 chan struct{}, ch2 chan struct{}) {
+  for range ch2 {
+    resp, e := r.doSync()
+    switch {
+    case e != nil, resp == nil:
+      fallthrough
+
+    case conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0:
+      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      ch1 <- struct{}{}
+      continue
+    }
+
+    //r.req.SyncKeys = conv.GetMap(resp, "SyncCheckKey")
+
+    // 没开启验证如果被添加好友，
+    // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
+    // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
+    // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
+    // 不添加的话下次登录时好友列表中也没有此人，
+    // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
+
+    if conv.GetInt(resp, "ModContactCount", 0) > 0 {
+      data := conv.GetMapSlice(resp, "ModContactList")
+      for _, v := range data {
+        //r.req.op <- &op{what: ContactModOp, Data: v}
+      }
+    }
+    if conv.GetInt(resp, "DelContactCount", 0) > 0 {
+      data := conv.GetMapSlice(resp, "DelContactList")
+      for _, v := range data {
+        //r.req.op <- &op{what: ContactDelOp, Data: v}
+      }
+    }
+    if conv.GetInt(resp, "AddMsgCount", 0) > 0 {
+      data := conv.GetMapSlice(resp, "AddMsgList")
+      for _, v := range data {
+        //r.req.op <- &op{what: MsgOp, Data: v}
+      }
+    }
+
+    time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+    ch1 <- struct{}{}
+  }
 }
 
 func (r *syncReq) doSync() (map[string]interface{}, error) {

@@ -55,7 +55,10 @@ func parseContactListResp(resp *http.Response) ([]*Contact, error) {
   if e != nil {
     return nil, e
   }
-  paths := [][]string{{"NickName"}, {"RemarkName"}, {"UserName"}, {"VerifyFlag"}}
+  path1 := []string{"NickName"}
+  path2 := []string{"RemarkName"}
+  path3 := []string{"UserName"}
+  path4 := []string{"VerifyFlag"}
   arr := make([]*Contact, 0, 5000)
   _, e = jsonparser.ArrayEach(body, func(v1 []byte, _ jsonparser.ValueType, _ int, e1 error) {
     if e1 != nil {
@@ -79,13 +82,13 @@ func parseContactListResp(resp *http.Response) ([]*Contact, error) {
           c.VerifyFlag = int(flag)
         }
       }
-    }, paths...)
+    }, path1, path2, path3, path4)
     if c.UserName != "" {
       arr = append(arr, c)
     }
   }, "MemberList")
-  if e != nil {
-    return nil, e
+  if e == nil || e == jsonparser.KeyPathNotFoundError {
+    return arr, nil
   }
-  return arr, nil
+  return nil, e
 }

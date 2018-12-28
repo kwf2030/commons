@@ -37,13 +37,13 @@ func (r *initReq) Run(s *flow.Step) {
     s.Complete(ErrResp)
     return
   }
-  r.req.SyncKeys = sk.(*syncKeys)
-  c.Attr.Delete("SyncKey")
   r.req.UserName = c.UserName
   if addr, ok := c.Attr.Load("HeadImgUrl"); ok {
     r.req.AvatarURL = fmt.Sprintf("https://%s%s", r.req.Host, addr.(string))
     c.Attr.Delete("HeadImgUrl")
   }
+  r.req.SyncKeys = sk.(*syncKeys)
+  c.Attr.Delete("SyncKey")
   r.req.op <- &op{what: opInit, contact: c}
   s.Complete(nil)
 }
@@ -108,13 +108,13 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
 }
 
 type syncKey struct {
-  Key int
-  Val int
+  Key int `json:"Key"`
+  Val int `json:"Val"`
 }
 
 type syncKeys struct {
-  Count int
-  List  []*syncKey
+  Count int        `json:"Count"`
+  List  []*syncKey `json:"List"`
 }
 
 func (sk *syncKeys) flat() string {

@@ -54,6 +54,6 @@ func (r *statusNotifyReq) do() error {
   if resp.StatusCode != http.StatusOK {
     return ErrReq
   }
-  _, _ = ioutil.ReadAll(resp.Body)
+  ioutil.ReadAll(resp.Body)
   return nil
 }
