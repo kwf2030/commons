@@ -14,43 +14,34 @@ import (
 
 const scanStateURL = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
 
+const opScanState = 0x2001
+
 var (
   scanSTCodeRegexp        = regexp.MustCompile(`code\s*=\s*(\d+)\s*;`)
   scanSTRedirectURLRegexp = regexp.MustCompile(`redirect_uri\s*=\s*"(.*)"`)
 )
 
-type ScanStateReq struct {
+type scanStateReq struct {
   req *req
 }
 
-func (r *ScanStateReq) Run(s *flow.Step) {
-  e := r.checkArg(s)
-  if e != nil {
-    s.Complete(e)
-    return
-  }
+func (r *scanStateReq) Run(s *flow.Step) {
   ch := make(chan string)
-  go r.check(s, ch)
-  redirectURL := <-ch
+  go r.check(ch)
+  redirectUrl := <-ch
   close(ch)
-  if redirectURL == "" {
+  if redirectUrl == "" {
     // 如果是空，基本就是超时（一直没有扫描默认设置了2分钟超时），
     // 微信基本不可能返回200状态码的同时返回空redirect_url
     s.Complete(ErrTimeout)
     return
   }
-  r.req.redirectURL = redirectURL
+  r.req.RedirectUrl = redirectUrl
+  r.req.op <- &op{what: opScanState}
   s.Complete(nil)
 }
 
-func (r *ScanStateReq) checkArg(s *flow.Step) error {
-  if e, ok := s.Arg.(error); ok {
-    return e
-  }
-  return nil
-}
-
-func (r *ScanStateReq) check(s *flow.Step, ch chan<- string) {
+func (r *scanStateReq) check(ch chan<- string) {
   loop := true
   t := time.AfterFunc(time.Minute*2, func() {
     loop = false
@@ -59,39 +50,43 @@ func (r *ScanStateReq) check(s *flow.Step, ch chan<- string) {
 out:
   for loop {
     // 200（已确认），201（已扫描），408（未扫描）
-    code, addr, _ := r.do(s)
+    code, addr, e := r.do()
+    if e != nil {
+      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      continue
+    }
     switch code {
     case 200:
-      r.req.bot.State = Confirmed
-      t.Stop()
       loop = false
+      t.Stop()
+      r.req.State = StateConfirmed
       ch <- addr
       break out
 
     case 201:
-      r.req.bot.State = Scanned
+      r.req.State = StateScanned
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
       continue
 
     case 408:
-      r.req.bot.State = Timeout
+      r.req.State = StateTimeout
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
       continue
     }
   }
 }
 
-func (r *ScanStateReq) do(s *flow.Step) (int, string, error) {
+func (r *scanStateReq) do() (int, string, error) {
   addr, _ := url.Parse(scanStateURL)
   q := addr.Query()
-  q.Set("uuid", r.req.uuid)
+  q.Set("uuid", r.req.UUID)
   q.Set("tip", "0")
   q.Set("_", timestampString13())
   q.Set("r", timestampString10())
   q.Set("loginicon", "true")
   addr.RawQuery = q.Encode()
   req, _ := http.NewRequest("GET", addr.String(), nil)
-  req.Header.Set("Referer", r.req.referer)
+  req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
   resp, e := r.req.client.Do(req)
   if e != nil {

@@ -17,7 +17,7 @@ func Bool(any interface{}) bool {
   return any != nil
 }
 
-func Int(any interface{}, value int) int {
+func Int(any interface{}, defaultValue int) int {
   switch ret := any.(type) {
   case int:
     return ret
@@ -55,10 +55,10 @@ func Int(any interface{}, value int) int {
       return 0
     }
   }
-  return value
+  return defaultValue
 }
 
-func Int64(any interface{}, value int64) int64 {
+func Int64(any interface{}, defaultValue int64) int64 {
   switch ret := any.(type) {
   case int64:
     return ret
@@ -96,10 +96,10 @@ func Int64(any interface{}, value int64) int64 {
       return 0
     }
   }
-  return value
+  return defaultValue
 }
 
-func Uint(any interface{}, value uint) uint {
+func Uint(any interface{}, defaultValue uint) uint {
   switch ret := any.(type) {
   case uint:
     return ret
@@ -137,10 +137,10 @@ func Uint(any interface{}, value uint) uint {
       return 0
     }
   }
-  return value
+  return defaultValue
 }
 
-func Uint64(any interface{}, value uint64) uint64 {
+func Uint64(any interface{}, defaultValue uint64) uint64 {
   switch ret := any.(type) {
   case uint64:
     return ret
@@ -178,9 +178,9 @@ func Uint64(any interface{}, value uint64) uint64 {
       return 0
     }
   }
-  return value
+  return defaultValue
 }
-func String(any interface{}, value string) string {
+func String(any interface{}, defaultValue string) string {
   switch ret := any.(type) {
   case string:
     return ret
@@ -215,5 +215,5 @@ func String(any interface{}, value string) string {
       return ""
     }
   }
-  return value
+  return defaultValue
 }

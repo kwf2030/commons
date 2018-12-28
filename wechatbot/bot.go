@@ -20,54 +20,90 @@ import (
 )
 
 const (
-  Unknown = iota
-
-  Created
+  StateCreated = iota
 
   // 已扫码未确认
-  Scanned
+  StateScanned
 
   // 已确认（正在登录）
-  Confirmed
+  StateConfirmed
 
   // 登录成功（此时才可以正常收发消息）
-  Running
+  StateRunning
 
   // 停止/下线（手动、被动或异常）
-  Stopped
+  StateStopped
 
   // 超时
-  Timeout
+  StateTimeout
+)
+
+// Event Type
+const (
+  // 收到二维码
+  EventQRCode = iota
+
+  // 登录成功
+  EventSignInSuccess
+
+  // 登录失败
+  EventSignInFailed
+
+  // 主动退出
+  EventSignOut
+
+  // 被动退出
+  EventOffline
+
+  // 收到消息
+  EventMsg
+
+  // 添加好友（主动或被动）
+  EventContactNew
+
+  // 删除好友（主动或被动）
+  EventContactDel
+
+  // 好友资料更新
+  EventContactMod
+
+  // 进群（建群、主动或被动加群）
+  EventGroupNew
+
+  // 退群（主动或被动）
+  EventGroupDel
+
+  // 群资料更新（名称更新/群主变更/设置更新等）
+  EventGroupMod
 )
 
 const (
   // 图片消息存放目录
-  AttrDirImage = "wechatbot.attr.dir_image"
+  AttrImageDir = "wechatbot.image_dir"
 
   // 语音消息存放目录
-  AttrDirVoice = "wechatbot.attr.dir_voice"
+  AttrVoiceDir = "wechatbot.voice_dir"
 
   // 视频消息存放目录
-  AttrDirVideo = "wechatbot.attr.dir_video"
+  AttrVideoDir = "wechatbot.video_dir"
 
   // 文件消息存放目录
-  AttrDirFile = "wechatbot.attr.dir_file"
+  AttrFileDir = "wechatbot.file_dir"
 
   // 头像存放路径
-  AttrPathAvatar = "wechatbot.attr.path_avatar"
+  AttrAvatarPath = "wechatbot.avatar_path"
 
-  // 持久化ID方案，如果禁用则Contact.ID永远不会有值，默认禁用，
-  // 联系人持久化使用备注实现，群持久化使用群名称实现（改名会同步，同名没影响），公众号不会持久化
-  AttrPersistentIDEnabled = "wechatbot.attr.persistent_id_enabled"
+  // 持久化方案，如果禁用则Contact.Id永远不会有值，默认禁用，
+  // 仅会对好友（使用备注实现）和群（使用群名称实现，改名会同步，同名没影响）持久化
+  attrIdEnabled = "wechatbot.id_enabled"
 
-  // 未登录成功时会随机生成key，保证bots中有记录且可查询这个Bot
-  attrBotPlaceHolder = "wechatbot.attr.bot_place_holder"
+  // 初始Id
+  attrInitialId = "wechatbot.initial_id"
 
-  // 起始ID
-  attrInitialID = "wechatbot.attr.initial_id"
-)
+  // 未登录成功时会随机生成uin作为key，保证bots中有记录且可查询这个Bot
+  attrRandUin = "wechatbot.rand_uin"
 
-const (
+  rootDir     = "wechatbot"
   contentType = "application/json; charset=UTF-8"
   userAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
 )
@@ -86,32 +122,33 @@ var (
   ErrTimeout = errors.New("timeout")
 )
 
-var (
-  once = sync.Once{}
+// 所有Bot，int=>*Bot
+// 若处于Created/Scanned/Confirmed状态，key是随机生成的，
+// 若处于Running和Stopped状态，key是uin，
+// 调用Bot.Release()会把Bot从bots中删除
+var bots = &sync.Map{}
 
-  // 所有Bot，int=>*Bot
-  // 若处于Created/Scanned/Confirmed状态，key是随机生成的，
-  // 若处于Running和Stopped状态，key是uin，
-  // 调用Bot.Release()会把Bot从bots中删除
-  bots = sync.Map{}
-)
+func init() {
+  e := os.MkdirAll(rootDir, os.ModePerm)
+  if e != nil {
+    return
+  }
+  updatePaths()
+}
 
 func updatePaths() {
-  now := times.Now()
-  next := now.Add(time.Hour * 24)
-  next = time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
-  time.AfterFunc(next.Sub(now), func() {
+  time.AfterFunc(times.UntilTomorrow(), func() {
     for _, b := range RunningBots() {
       b.updatePaths()
     }
-    go updatePaths()
+    updatePaths()
   })
 }
 
-func eachBot(f func(b *Bot) bool) {
-  bots.Range(func(_, v interface{}) bool {
-    if vv, ok := v.(*Bot); ok {
-      return f(vv)
+func eachBot(f func(*Bot) bool) {
+  bots.Range(func(_, bot interface{}) bool {
+    if b, ok := bot.(*Bot); ok {
+      return f(b)
     }
     return true
   })
@@ -120,7 +157,7 @@ func eachBot(f func(b *Bot) bool) {
 func RunningBots() []*Bot {
   ret := make([]*Bot, 0, 2)
   eachBot(func(b *Bot) bool {
-    if b.State == Running {
+    if b.req.State == StateRunning {
       ret = append(ret, b)
     }
     return true
@@ -143,7 +180,7 @@ func FindBotByUUID(uuid string) *Bot {
   }
   var ret *Bot
   eachBot(func(b *Bot) bool {
-    if b.req != nil && b.req.uuid == uuid {
+    if b.req != nil && b.req.UUID == uuid {
       ret = b
       return false
     }
@@ -155,7 +192,7 @@ func FindBotByUUID(uuid string) *Bot {
 func FindBotByUin(uin int) *Bot {
   var ret *Bot
   eachBot(func(b *Bot) bool {
-    if b.req != nil && b.req.uin == uin {
+    if b.req != nil && b.req.Uin == uin {
       ret = b
       return false
     }
@@ -165,100 +202,109 @@ func FindBotByUin(uin int) *Bot {
 }
 
 type Bot struct {
-  Attr map[string]interface{}
+  Attr *sync.Map
 
   Self     *Contact
   Contacts *Contacts
 
-  StartTime    time.Time
-  StartTimeStr string
-  StopTime     time.Time
-  StopTimeStr  string
+  StartTime time.Time
+  StopTime  time.Time
 
-  State int
-
-  opForward chan *Op
-  op        chan *op
+  evt chan *Event
+  op  chan *op
 
   req *req
 }
 
-func CreateBot(enablePersistentID bool) *Bot {
-  once.Do(func() {
-    e := os.Mkdir("data", os.ModePerm)
-    if e != nil {
-      return
-    }
-    updatePaths()
-  })
+func CreateBot(enableId bool) *Bot {
   ch := make(chan *op, runtime.NumCPU()+1)
   bot := &Bot{
-    Attr:      make(map[string]interface{}),
-    State:     Created,
-    opForward: make(chan *Op, cap(ch)),
-    op:        ch,
+    Attr: &sync.Map{},
+    evt:  make(chan *Event, cap(ch)),
+    op:   ch,
+    req:  newReq(ch),
   }
-  bot.req = newReq(bot, ch)
   // 未获取到uin之前key是随机的，
-  // 登录失败或成功之后会删除这个key
+  // 无论登录成功还是失败，都会删除这个key，
+  // 如果登录成功，会用uin存储这个Bot
   k := rand.Int()
-  bot.Attr[attrBotPlaceHolder] = k
-  bot.Attr[AttrPersistentIDEnabled] = enablePersistentID
+  bot.Attr.Store(attrRandUin, k)
+  bot.Attr.Store(attrIdEnabled, enableId)
   bots.Store(k, bot)
   return bot
 }
 
-// qrChan为接收二维码URL的channel，
-// 返回的channel用来接收事件和消息通知，
-// Start方法会一直阻塞到登录成功可以开始收发消息为止
-func (bot *Bot) Start(qrChan chan<- string) (<-chan *Op, error) {
-  if qrChan == nil {
-    return nil, ErrInvalidArgs
-  }
-
-  // 监听事件和消息
+// 返回的channel用来接收事件通知
+func (bot *Bot) Start() <-chan *Event {
   go bot.dispatch()
+  go func() {
+    bot.req.initFlow()
+    _, e := bot.req.flow.Start(nil)
 
-  bot.req.initFlow()
-  _, e := bot.req.flow.Start(qrChan)
+    // 不管登录成功还是失败，都要把临时的kv删除
+    k, _ := bot.Attr.Load(attrRandUin)
+    bots.Delete(k)
 
-  // 不管登录成功还是失败，都要把临时的kv删除
-  bots.Delete(bot.Attr[attrBotPlaceHolder])
+    if e != nil {
+      // 登录Bot出现了问题或一直没扫描超时了
+      close(bot.op)
+      bot.Release()
+      bot.evt <- &Event{Type: EventSignInFailed, Err: e}
+      return
+    }
 
-  if e != nil {
-    // 登录Bot出现了问题或一直没扫描超时了
-    close(bot.op)
-    bot.Release()
-    return nil, e
+    bot.StartTime = times.Now()
+    bot.req.State = StateRunning
+    bots.Store(bot.Self.Uin, bot)
+    bot.evt <- &Event{Type: EventSignInSuccess}
+  }()
+  return bot.evt
+}
+
+func (bot *Bot) GetAttrString(attr string, defaultValue string) string {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.String(v, defaultValue)
   }
-
-  t := times.Now()
-  bot.StartTime = t
-  bot.StartTimeStr = t.Format(times.DateTimeSFormat)
-  bot.updatePaths()
-  bot.State = Running
-  bots.Store(bot.Self.Uin, bot)
-  return bot.opForward, nil
+  return defaultValue
 }
 
-func (bot *Bot) GetAttrString(attr string) string {
-  return conv.GetString(bot.Attr, attr, "")
+func (bot *Bot) GetAttrInt(attr string, defaultValue int) int {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Int(v, defaultValue)
+  }
+  return defaultValue
 }
 
-func (bot *Bot) GetAttrInt(attr string) int {
-  return conv.GetInt(bot.Attr, attr, 0)
+func (bot *Bot) GetAttrInt64(attr string, defaultValue int64) int64 {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Int64(v, defaultValue)
+  }
+  return defaultValue
 }
 
-func (bot *Bot) GetAttrUint64(attr string) uint64 {
-  return conv.GetUint64(bot.Attr, attr, 0)
+func (bot *Bot) GetAttrUint(attr string, defaultValue uint) uint {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Uint(v, defaultValue)
+  }
+  return defaultValue
 }
 
-func (bot *Bot) GetAttrBool(attr string) bool {
-  return conv.GetBool(bot.Attr, attr, false)
+func (bot *Bot) GetAttrUint64(attr string, defaultValue uint64) uint64 {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Uint64(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrBool(attr string, defaultValue bool) bool {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Bool(v)
+  }
+  return defaultValue
 }
 
 func (bot *Bot) GetAttrBytes(attr string) []byte {
-  if v, ok := bot.Attr[attr]; ok {
+  if v, ok := bot.Attr.Load(attr); ok {
     switch ret := v.(type) {
     case []byte:
       return ret
@@ -270,30 +316,66 @@ func (bot *Bot) GetAttrBytes(attr string) []byte {
 }
 
 func (bot *Bot) updatePaths() {
-  dir := path.Join("data", strconv.Itoa(bot.Self.Uin), times.NowStrf(times.DateFormat))
+  uin := strconv.Itoa(bot.Self.Uin)
+  dir := path.Join(rootDir, uin, times.NowStrf(times.DateFormat))
   e := os.MkdirAll(dir, os.ModePerm)
   if e != nil {
     return
   }
 
-  di := path.Join(dir, "image")
-  dvo := path.Join(dir, "voice")
-  dvi := path.Join(dir, "video")
-  df := path.Join(dir, "file")
+  image := path.Join(dir, "image")
+  e = os.MkdirAll(image, os.ModePerm)
+  if e == nil {
+    bot.Attr.Store(AttrImageDir, image)
+  }
 
-  os.MkdirAll(di, os.ModePerm)
-  os.MkdirAll(dvo, os.ModePerm)
-  os.MkdirAll(dvi, os.ModePerm)
-  os.MkdirAll(df, os.ModePerm)
+  voice := path.Join(dir, "voice")
+  e = os.MkdirAll(voice, os.ModePerm)
+  if e == nil {
+    bot.Attr.Store(AttrVoiceDir, voice)
+  }
 
-  bot.Attr[AttrPathAvatar] = path.Join(path.Dir(dir), "avatar.jpg")
-  bot.Attr[AttrDirImage] = di
-  bot.Attr[AttrDirVoice] = dvo
-  bot.Attr[AttrDirVideo] = dvi
-  bot.Attr[AttrDirFile] = df
+  video := path.Join(dir, "video")
+  e = os.MkdirAll(video, os.ModePerm)
+  if e == nil {
+    bot.Attr.Store(AttrVideoDir, video)
+  }
+
+  file := path.Join(dir, "file")
+  e = os.MkdirAll(file, os.ModePerm)
+  if e == nil {
+    bot.Attr.Store(AttrFileDir, file)
+  }
+
+  bot.Attr.Store(AttrAvatarPath, path.Join(rootDir, uin, "avatar.jpg"))
 }
 
 func (bot *Bot) dispatch() {
+  for op := range bot.op {
+    evt := &Event{}
+
+    switch op.what {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+    }
+  }
+
+  // op不用关闭，在Logout之后，syncCheck请求会收到非零的响应，
+  // 由它负责关闭op（谁发送谁关闭的原则），
+  // 但evt是在dispatch的时候发送给调用方的，所以应该在此处关闭，
+  // 不能放在Stop方法里（如果在Stop里面关闭了evt，那就没法发送TerminateOp事件了），
+  // 而且会引起"send on closed channel"的panic
+  close(bot.evt)
+}
+
+/*func (bot *Bot) dispatch() {
   for o := range bot.op {
     op := &Op{What: o.What}
     switch o.What {
@@ -309,6 +391,7 @@ func (bot *Bot) dispatch() {
       op.Contact = c
 
     case ContactSelfOp:
+      bot.updatePaths()
       bot.Self = mapToContact(o.Data.(map[string]interface{}), bot)
 
     case ContactListOp:
@@ -317,19 +400,11 @@ func (bot *Bot) dispatch() {
     case TerminateOp:
       bot.Stop()
     }
-    // 事件转发
     bot.opForward <- op
   }
+}*/
 
-  // op不用关闭，在Logout之后，syncCheck请求会收到非零的响应，
-  // 由它负责关闭op（谁发送谁关闭的原则），
-  // 但opForward是在dispatch的时候发送给调用方的，所以应该在此处关闭，
-  // 不能放在Stop方法里，因为如果在Stop里面关闭了op，那就没法发送TerminateOp事件了，
-  // 而且会引起"send on closed channel"的panic
-  close(bot.opForward)
-}
-
-func (bot *Bot) modContact(m map[string]interface{}) *Contact {
+/*func (bot *Bot) modContact(m map[string]interface{}) *Contact {
   c := mapToContact(m, bot)
   if !bot.Attr[AttrPersistentIDEnabled].(bool) {
     bot.Contacts.Add(c)
@@ -357,18 +432,16 @@ func (bot *Bot) modContact(m map[string]interface{}) *Contact {
   }
   bot.Contacts.Add(c)
   return c
-}
+}*/
 
 func (bot *Bot) Stop() {
-  bot.State = Stopped
-  t := times.Now()
-  bot.StopTime = t
-  bot.StopTimeStr = t.Format(times.DateTimeSFormat)
+  bot.StopTime = times.Now()
+  bot.req.State = StateStopped
   bot.req.Logout()
 }
 
 func (bot *Bot) Release() {
-  bots.Delete(bot.req.uin)
+  bots.Delete(bot.req.Uin)
   bot.req.reset()
   bot.req.flow = nil
   bot.req.client = nil
@@ -376,36 +449,42 @@ func (bot *Bot) Release() {
   bot.Attr = nil
   bot.Self = nil
   bot.Contacts = nil
-  bot.State = Unknown
   bot.op = nil
 }
 
 type op struct {
-  What int
-  Data interface{}
+  what     int
+  str      string
+  contact  *Contact
+  contacts []*Contact
+  msg      *Message
 }
 
-type Op struct {
-  What    int
-  Msg     *Message
+type Event struct {
+  Err     error
+  Type    int
+  SubType int
+  Int1    int
+  Int2    int
+  Str1    string
+  Str2    string
   Contact *Contact
+  Msg     *Message
 }
 
 type req struct {
-  bot    *Bot
   op     chan<- *op
   flow   *flow.Flow
   client *http.Client
   *session
 }
 
-func newReq(bot *Bot, op chan<- *op) *req {
+func newReq(op chan<- *op) *req {
   jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-  s := &session{}
-  s.reset()
+  sess := &session{}
+  sess.reset()
   return &req{
-    session: s,
-    bot:     bot,
+    session: sess,
     op:      op,
     flow:    flow.NewFlow(0),
     client: &http.Client{
@@ -416,13 +495,13 @@ func newReq(bot *Bot, op chan<- *op) *req {
 }
 
 func (r *req) initFlow() {
-  uuid := &UUIDReq{r}
-  scanState := &ScanStateReq{r}
-  login := &LoginReq{r}
-  init := &InitReq{r}
-  statusNotify := &StatusNotifyReq{r}
-  contactList := &ContactListReq{r}
-  syn := &SyncReq{r}
+  uuid := &uuidReq{r}
+  scanState := &scanStateReq{r}
+  login := &loginReq{r}
+  init := &initReq{r}
+  statusNotify := &statusNotifyReq{r}
+  contactList := &contactListReq{r}
+  syn := &syncReq{r}
   r.flow.AddLast(uuid, "uuid")
   r.flow.AddLast(scanState, "scan_state")
   r.flow.AddLast(login, "login")
@@ -436,7 +515,7 @@ func (r *req) cookie(key string) string {
   if key == "" {
     return ""
   }
-  addr, _ := url.Parse(r.baseURL)
+  addr, _ := url.Parse(r.BaseUrl)
   arr := r.client.Jar.Cookies(addr)
   for _, c := range arr {
     if c.Name == key {
@@ -447,72 +526,68 @@ func (r *req) cookie(key string) string {
 }
 
 type session struct {
-  referer       string
-  host          string
-  syncCheckHost string
-  baseURL       string
-
-  uuid        string
-  redirectURL string
-  uin         int
-  sid         string
-  skey        string
-  passTicket  string
-  payload     map[string]interface{}
-
-  userName  string
-  avatarURL string
-  syncKey   map[string]interface{}
-
-  wuFile int
+  SyncCheckHost string
+  Host          string
+  Referer       string
+  BaseUrl       string
+  State         int
+  UUID          string
+  RedirectUrl   string
+  Uin           int
+  Sid           string
+  Skey          string
+  PassTicket    string
+  BaseReq       *baseRequest
+  UserName      string
+  AvatarURL     string
+  SyncKeys      *syncKeys
+  WuFile        int
 }
 
 func (s *session) reset() {
-  s.referer = "https://wx.qq.com/"
-  s.host = "wx.qq.com"
-  s.syncCheckHost = "webpush.weixin.qq.com"
-  s.baseURL = "https://wx.qq.com/cgi-bin/mmwebwx-bin"
-  s.uuid = ""
-  s.redirectURL = ""
-  s.uin = 0
-  s.sid = ""
-  s.skey = ""
-  s.passTicket = ""
-  s.payload = nil
-  s.userName = ""
-  s.avatarURL = ""
-  s.syncKey = nil
-  s.wuFile = 0
-}
-
-func timestamp() int64 {
-  return times.Now().UnixNano()
-}
-
-func timestampStringN(l int, prefix, suffix string) string {
-  s := strconv.FormatInt(timestamp(), 10)
-  if len(s) <= l {
-    return prefix + s + suffix
-  }
-  return prefix + s[:l] + suffix
-}
-
-func timestampString10() string {
-  return timestampStringN(10, "", "")
-}
-
-func timestampString13() string {
-  return timestampStringN(13, "", "")
+  s.SyncCheckHost = "webpush.weixin.qq.com"
+  s.Host = "wx.qq.com"
+  s.Referer = "https://wx.qq.com/"
+  s.BaseUrl = "https://wx.qq.com/cgi-bin/mmwebwx-bin"
+  s.State = StateCreated
+  s.UUID = ""
+  s.RedirectUrl = ""
+  s.BaseReq = nil
+  s.Uin = 0
+  s.Sid = ""
+  s.Skey = ""
+  s.PassTicket = ""
+  s.UserName = ""
+  s.AvatarURL = ""
+  s.SyncKeys = nil
+  s.WuFile = 0
 }
 
 func deviceID() string {
-  return timestampStringN(15, "e", "")
+  return "e" + timestampStringL(15)
 }
 
-func randStringN(l int) string {
-  s := strconv.FormatInt(timestamp(), 10)
-  if len(s) <= l {
-    return s
+func timestampString13() string {
+  return timestampStringL(13)
+}
+
+func timestampString10() string {
+  return timestampStringL(10)
+}
+
+func timestampStringL(l int) string {
+  s := strconv.FormatInt(times.Timestamp(), 10)
+  if len(s) > l {
+    return s[:l]
   }
-  return s[len(s)-l:]
+  return s
+}
+
+func timestampStringR(l int) string {
+  s := strconv.FormatInt(times.Timestamp(), 10)
+  i := len(s) - l
+  if i > 0 {
+    return s[i:]
+  }
+  return s
 }

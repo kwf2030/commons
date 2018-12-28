@@ -7,57 +7,44 @@ import (
   "net/url"
   "strings"
 
-  "github.com/kwf2030/commons/conv"
   "github.com/kwf2030/commons/flow"
 )
 
-type LoginReq struct {
+const opLogin = 0x3001
+
+type loginReq struct {
   req *req
 }
 
-func (r *LoginReq) Run(s *flow.Step) {
-  e := r.checkArg(s)
+func (r *loginReq) Run(s *flow.Step) {
+  login, e := r.do()
   if e != nil {
     s.Complete(e)
     return
   }
-  resp, e := r.do(s)
-  if e != nil {
-    s.Complete(e)
+  if login == nil || login.WXUin == 0 || login.WXSid == "" || login.SKey == "" || login.PassTicket == "" {
+    s.Complete(ErrResp)
     return
   }
-  r.req.payload = map[string]interface{}{
-    "BaseRequest": map[string]interface{}{
-      "Uin":      resp["wxuin"],
-      "Sid":      resp["wxsid"],
-      "Skey":     resp["skey"],
-      "DeviceID": deviceID(),
-    },
-  }
-  r.req.uin = conv.GetInt(resp, "wxuin", 0)
-  r.req.sid = conv.GetString(resp, "wxsid", "")
-  r.req.skey = conv.GetString(resp, "skey", "")
-  r.req.passTicket = conv.GetString(resp, "pass_ticket", "")
-  r.selectBaseURL(s, r.req.redirectURL)
+  r.req.Uin = login.WXUin
+  r.req.Sid = login.WXSid
+  r.req.Skey = login.SKey
+  r.req.PassTicket = login.PassTicket
+  r.req.BaseReq = &baseRequest{login.WXUin, login.WXSid, login.SKey, deviceID()}
+  r.selectBaseURL()
+  r.req.op <- &op{what: opLogin}
   s.Complete(nil)
 }
 
-func (r *LoginReq) checkArg(s *flow.Step) error {
-  if e, ok := s.Arg.(error); ok {
-    return e
-  }
-  return nil
-}
-
-func (r *LoginReq) do(s *flow.Step) (map[string]interface{}, error) {
-  u, _ := url.Parse(r.req.redirectURL)
+func (r *loginReq) do() (*loginResp, error) {
+  u, _ := url.Parse(r.req.RedirectUrl)
   // 返回的地址可能没有fun和version两个参数，而此请求必须这两个参数
   q := u.Query()
   q.Set("fun", "new")
   q.Set("version", "v2")
   u.RawQuery = q.Encode()
   req, _ := http.NewRequest("GET", u.String(), nil)
-  req.Header.Set("Referer", r.req.referer)
+  req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
   resp, e := r.req.client.Do(req)
   if e != nil {
@@ -70,48 +57,46 @@ func (r *LoginReq) do(s *flow.Step) (map[string]interface{}, error) {
   return parseLoginResp(resp)
 }
 
-func (r *LoginReq) selectBaseURL(s *flow.Step, addr string) {
-  u, _ := url.Parse(addr)
+func (r *loginReq) selectBaseURL() {
+  u, _ := url.Parse(r.req.RedirectUrl)
   host := u.Hostname()
-  r.req.host = host
+  r.req.Host = host
   switch {
   case strings.Contains(host, "wx2"):
-    r.req.referer = "https://wx2.qq.com/"
-    r.req.host = "wx2.qq.com"
-    r.req.syncCheckHost = "webpush.wx2.qq.com"
-    r.req.baseURL = "https://wx2.qq.com/cgi-bin/mmwebwx-bin"
+    r.req.SyncCheckHost = "webpush.wx2.qq.com"
+    r.req.Host = "wx2.qq.com"
+    r.req.Referer = "https://wx2.qq.com/"
+    r.req.BaseUrl = "https://wx2.qq.com/cgi-bin/mmwebwx-bin"
   }
 }
 
-func parseLoginResp(resp *http.Response) (map[string]interface{}, error) {
+func parseLoginResp(resp *http.Response) (*loginResp, error) {
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
   }
-  v := struct {
-    XMLName     xml.Name `xml:"error"`
-    Ret         int      `xml:"ret"`
-    Message     string   `xml:"message"`
-    SKey        string   `xml:"skey"`
-    WXSid       string   `xml:"wxsid"`
-    WXUin       int      `xml:"wxuin"`
-    PassTicket  string   `xml:"pass_ticket"`
-    IsGrayScale int      `xml:"isgrayscale"`
-  }{}
-  e = xml.Unmarshal(body, &v)
+  ret := &loginResp{}
+  e = xml.Unmarshal(body, ret)
   if e != nil {
     return nil, e
   }
-  if v.SKey == "" || v.WXSid == "" || v.WXUin == 0 || v.PassTicket == "" {
-    return nil, ErrInvalidState
-  }
-  return map[string]interface{}{
-    "ret":         v.Ret,
-    "message":     v.Message,
-    "skey":        v.SKey,
-    "wxsid":       v.WXSid,
-    "wxuin":       v.WXUin,
-    "pass_ticket": v.PassTicket,
-    "isgrayscale": v.IsGrayScale,
-  }, nil
+  return ret, nil
+}
+
+type loginResp struct {
+  XMLName     xml.Name `xml:"error"`
+  Ret         int      `xml:"ret"`
+  Message     string   `xml:"message"`
+  WXUin       int      `xml:"wxuin"`
+  WXSid       string   `xml:"wxsid"`
+  SKey        string   `xml:"skey"`
+  PassTicket  string   `xml:"pass_ticket"`
+  IsGrayScale int      `xml:"isgrayscale"`
+}
+
+type baseRequest struct {
+  Uin      int    `json:"Uin"`
+  Sid      string `json:"Sid"`
+  Skey     string `json:"Skey"`
+  DeviceID string `json:"DeviceID"`
 }

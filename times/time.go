@@ -43,7 +43,7 @@ var (
   Empty    time.Time
   emptyStr string
 
-  rnd = rand.New(rand.NewSource(Now().UnixNano()))
+  rnd = rand.New(rand.NewSource(Timestamp()))
 )
 
 func EmptyStr() string {
@@ -65,10 +65,21 @@ func NowStrf(format string) string {
   return Now().Format(format)
 }
 
-func RandMillis(msMin, msMax int) time.Duration {
-  n := rnd.Intn(msMax)
-  if n < msMin {
-    n = msMin
+func Timestamp() int64 {
+  return Now().UnixNano()
+}
+
+func RandMillis(min, max int) time.Duration {
+  n := rnd.Intn(max)
+  if n < min {
+    n = min
   }
   return time.Millisecond * time.Duration(n)
+}
+
+func UntilTomorrow() time.Duration {
+  t1 := Now()
+  t2 := t1.Add(time.Hour * 24)
+  t2 = time.Date(t2.Year(), t2.Month(), t2.Day(), 0, 0, 0, 0, t1.Location())
+  return t2.Sub(t1)
 }

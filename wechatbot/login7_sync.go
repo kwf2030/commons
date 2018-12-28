@@ -9,7 +9,6 @@ import (
   "net/url"
   "regexp"
   "strconv"
-  "strings"
   "time"
 
   "github.com/kwf2030/commons/conv"
@@ -23,44 +22,34 @@ const (
 )
 
 const (
-  MsgOp        = 0x20
-  ContactModOp = 0x21
-  ContactDelOp = 0x22
-  TerminateOp  = 0x23
+  opSync       = 0x6001
+  opMsg        = 0x6002
+  opContactMod = 0x6003
+  opContactDel = 0x6004
+  opExit       = 0x6005
 )
 
 var syncCheckRegexp = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
 
-type SyncReq struct {
+type syncReq struct {
   req *req
 }
 
-func (r *SyncReq) Run(s *flow.Step) {
-  e := r.checkArg(s)
-  if e != nil {
-    s.Complete(e)
-    return
-  }
+func (r *syncReq) Run(s *flow.Step) {
   // syncCheck一直执行，有消息时才会执行sync，
   // web微信syncCheck的时间间隔约为25秒左右，
   // 即在没有新消息的时候，服务器会保持（阻塞）连接25秒左右
-  syncCheck := make(chan struct{})
-  sync := make(chan struct{})
-  go r.loopSyncCheck(syncCheck, sync)
-  go r.loopSync(syncCheck, sync)
-  syncCheck <- struct{}{}
+  ch1 := make(chan struct{})
+  ch2 := make(chan struct{})
+  go r.syncCheck(ch1, ch2)
+  go r.sync(ch1, ch2)
+  ch1 <- struct{}{}
+  r.req.op <- &op{what: opSync}
   s.Complete(nil)
 }
 
-func (r *SyncReq) checkArg(s *flow.Step) error {
-  if e, ok := s.Arg.(error); ok {
-    return e
-  }
-  return nil
-}
-
-func (r *SyncReq) loopSyncCheck(syncCheck chan struct{}, sync chan struct{}) {
-  for range syncCheck {
+func (r *syncReq) syncCheck(ch1 chan struct{}, ch2 chan struct{}) {
+  for range ch1 {
     code, selector, e := r.doSyncCheck()
     switch {
     case e != nil:
@@ -68,22 +57,22 @@ func (r *SyncReq) loopSyncCheck(syncCheck chan struct{}, sync chan struct{}) {
 
     case code == 0 && selector == 0:
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      syncCheck <- struct{}{}
+      ch1 <- struct{}{}
 
     case code != 0:
-      close(syncCheck)
-      close(sync)
-      r.req.op <- &op{What: TerminateOp, Data: code}
+      close(ch1)
+      close(ch2)
+      r.req.op <- &op{what: TerminateOp, Data: code}
       close(r.req.op)
 
     default:
-      sync <- struct{}{}
+      ch2 <- struct{}{}
     }
   }
 }
 
-func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
-  for range sync {
+func (r *syncReq) sync(ch1 chan struct{}, ch2 chan struct{}) {
+  for range ch2 {
     resp, e := r.doSync()
     switch {
     case e != nil, resp == nil:
@@ -91,11 +80,11 @@ func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
 
     case conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0:
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      syncCheck <- struct{}{}
+      ch1 <- struct{}{}
       continue
     }
 
-    r.req.syncKey = conv.GetMap(resp, "SyncCheckKey")
+    r.req.SyncKeys = conv.GetMap(resp, "SyncCheckKey")
 
     // 没开启验证如果被添加好友，
     // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
@@ -106,24 +95,24 @@ func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
     if conv.GetInt(resp, "ModContactCount", 0) > 0 {
       data := conv.GetMapSlice(resp, "ModContactList")
       for _, v := range data {
-        r.req.op <- &op{What: ContactModOp, Data: v}
+        r.req.op <- &op{what: ContactModOp, Data: v}
       }
     }
     if conv.GetInt(resp, "DelContactCount", 0) > 0 {
       data := conv.GetMapSlice(resp, "DelContactList")
       for _, v := range data {
-        r.req.op <- &op{What: ContactDelOp, Data: v}
+        r.req.op <- &op{what: ContactDelOp, Data: v}
       }
     }
     if conv.GetInt(resp, "AddMsgCount", 0) > 0 {
       data := conv.GetMapSlice(resp, "AddMsgList")
       for _, v := range data {
-        r.req.op <- &op{What: MsgOp, Data: v}
+        r.req.op <- &op{what: MsgOp, Data: v}
       }
     }
 
     time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-    syncCheck <- struct{}{}
+    ch1 <- struct{}{}
   }
 }
 
@@ -139,20 +128,20 @@ func (r *SyncReq) loopSync(syncCheck chan struct{}, sync chan struct{}) {
 // selector=5：未知，
 // selector=6：未知，
 // selector=7：操作了手机，如进入/关闭聊天页面
-func (r *SyncReq) doSyncCheck() (int, int, error) {
-  addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.syncCheckHost, syncCheckURL))
+func (r *syncReq) doSyncCheck() (int, int, error) {
+  addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckURL))
   q := addr.Query()
   q.Set("r", timestampString13())
-  q.Set("sid", r.req.sid)
-  q.Set("uin", strconv.Itoa(r.req.uin))
-  q.Set("skey", r.req.skey)
+  q.Set("sid", r.req.Sid)
+  q.Set("uin", strconv.Itoa(r.req.Uin))
+  q.Set("skey", r.req.Skey)
   q.Set("deviceid", deviceID())
-  q.Set("synckey", r.flatSyncKeys())
+  q.Set("synckey", r.req.SyncKeys.flat())
   q.Set("_", timestampString13())
   addr.RawQuery = q.Encode()
   // 请求必须加上Cookies
   req, _ := http.NewRequest("GET", addr.String(), nil)
-  req.Header.Set("Referer", r.req.referer)
+  req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
   resp, e := r.req.client.Do(req)
   if e != nil {
@@ -165,20 +154,21 @@ func (r *SyncReq) doSyncCheck() (int, int, error) {
   return parseSyncCheckResp(resp)
 }
 
-func (r *SyncReq) doSync() (map[string]interface{}, error) {
-  addr, _ := url.Parse(r.req.baseURL + syncURL)
+func (r *syncReq) doSync() (map[string]interface{}, error) {
+  addr, _ := url.Parse(r.req.BaseUrl + syncURL)
   q := addr.Query()
-  q.Set("pass_ticket", r.req.passTicket)
-  q.Set("sid", r.req.sid)
-  q.Set("skey", r.req.skey)
+  q.Set("pass_ticket", r.req.PassTicket)
+  q.Set("sid", r.req.Sid)
+  q.Set("skey", r.req.Skey)
   addr.RawQuery = q.Encode()
-  m := r.req.payload
-  m["SyncKey"] = r.req.syncKey
-  m["rr"] = strconv.FormatInt(^(timestamp() / int64(time.Second)), 10)
+  m := make(map[string]interface{}, 3)
+  m["BaseRequest"] = r.req.BaseReq
+  m["SyncKey"] = r.req.SyncKeys
+  m["rr"] = strconv.FormatInt(^(times.Timestamp() / int64(time.Second)), 10)
   buf, _ := json.Marshal(m)
   // 请求必须加上Content-Type和Cookies
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
-  req.Header.Set("Referer", r.req.referer)
+  req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
   req.Header.Set("Content-Type", contentType)
   resp, e := r.req.client.Do(req)
@@ -190,23 +180,6 @@ func (r *SyncReq) doSync() (map[string]interface{}, error) {
     return nil, ErrReq
   }
   return conv.ReadJSONToMap(resp.Body)
-}
-
-func (r *SyncReq) flatSyncKeys() string {
-  l := conv.GetInt(r.req.syncKey, "Count", 0)
-  list := conv.GetMapSlice(r.req.syncKey, "List")
-  if len(list) == 0 || len(list) != l {
-    return ""
-  }
-  var sb strings.Builder
-  for i := 0; i < l; i++ {
-    v := list[i]
-    fmt.Fprintf(&sb, "%d_%d", conv.GetInt(v, "Key", 0), conv.GetInt(v, "Val", 0))
-    if i != l-1 {
-      sb.WriteString("|")
-    }
-  }
-  return sb.String()
 }
 
 func parseSyncCheckResp(resp *http.Response) (int, int, error) {

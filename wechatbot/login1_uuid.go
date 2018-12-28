@@ -15,45 +15,30 @@ const (
   qrURL   = "https://login.weixin.qq.com/qrcode"
 )
 
+const opUUID = 0x1001
+
 var uuidRegexp = regexp.MustCompile(`uuid\s*=\s*"(.*)"`)
 
-type UUIDReq struct {
+type uuidReq struct {
   req *req
 }
 
-func (r *UUIDReq) Run(s *flow.Step) {
-  e := r.checkArg(s)
-  if e != nil {
-    s.Complete(e)
-    return
-  }
-  uuid, e := r.do(s)
+func (r *uuidReq) Run(s *flow.Step) {
+  uuid, e := r.do()
   if e != nil {
     s.Complete(e)
     return
   }
   if uuid == "" {
-    s.Complete(ErrInvalidState)
+    s.Complete(ErrResp)
     return
   }
-  r.req.uuid = uuid
-  qrChan := s.Arg.(chan<- string)
-  qrChan <- fmt.Sprintf("%s/%s", qrURL, uuid)
-  close(qrChan)
+  r.req.UUID = uuid
+  r.req.op <- &op{what: opUUID, str: fmt.Sprintf("%s/%s", qrURL, uuid)}
   s.Complete(nil)
 }
 
-func (r *UUIDReq) checkArg(s *flow.Step) error {
-  if s.Arg == nil {
-    return ErrInvalidArgs
-  }
-  if e, ok := s.Arg.(error); ok {
-    return e
-  }
-  return nil
-}
-
-func (r *UUIDReq) do(s *flow.Step) (string, error) {
+func (r *uuidReq) do() (string, error) {
   addr, _ := url.Parse(uuidURL)
   q := addr.Query()
   q.Set("appid", "wx782c26e4c19acffb")
@@ -63,7 +48,7 @@ func (r *UUIDReq) do(s *flow.Step) (string, error) {
   q.Set("redirect_uri", "https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxnewloginpage")
   addr.RawQuery = q.Encode()
   req, _ := http.NewRequest("GET", addr.String(), nil)
-  req.Header.Set("Referer", r.req.referer)
+  req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
   resp, e := r.req.client.Do(req)
   if e != nil {

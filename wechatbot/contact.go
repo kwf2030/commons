@@ -2,6 +2,7 @@ package wechatbot
 
 import (
   "strconv"
+  "sync"
   "time"
 
   "github.com/kwf2030/commons/conv"
@@ -16,6 +17,7 @@ const (
 )
 
 type Contact struct {
+  Attr *sync.Map
   ID         string    `json:"id,omitempty"`
   Nickname   string    `json:"nickname,omitempty"`
   CreateTime time.Time `json:"create_time,omitempty"`
@@ -23,7 +25,7 @@ type Contact struct {
   // 不是联系人的UIN，是联系人所属Bot的UIN
   Uin int `json:"uin"`
 
-  Raw map[string]interface{} `json:"raw,omitempty"`
+  Raw []byte `json:"raw,omitempty"`
 
   // VerifyFlag表示联系人类型，
   // 个人和群聊帐号为0，
@@ -32,12 +34,15 @@ type Contact struct {
   // 系统号为56(微信团队官方帐号），
   // 29（未知，招行信用卡为29）
   // Flag是VerifyFlag解析后的值
+  VerifyFlag int
   Flag int `json:"flag,omitempty"`
 
   // UserName每次登录都不一样，
   // 群聊帐号以@@开头，其他以@开头，内置帐号就直接是名字，如：
   // weixin（微信团队）/filehelper（文件传输助手）/fmessage(朋友消息推荐)
   UserName string `json:"-"`
+
+  RemarkName string
 
   Bot *Bot `json:"-"`
 }

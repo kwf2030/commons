@@ -1,63 +1,63 @@
 package conv
 
-func GetBool(data map[string]interface{}, key string, value bool) bool {
+func GetBool(data map[string]interface{}, key string, defaultValue bool) bool {
   if data == nil || key == "" {
-    return value
+    return defaultValue
   }
   if v, ok := data[key]; ok {
     return Bool(v)
   }
-  return value
+  return defaultValue
 }
 
-func GetInt(data map[string]interface{}, key string, value int) int {
+func GetInt(data map[string]interface{}, key string, defaultValue int) int {
   if data == nil || key == "" {
-    return value
+    return defaultValue
   }
   if v, ok := data[key]; ok {
-    return Int(v, value)
+    return Int(v, defaultValue)
   }
-  return value
+  return defaultValue
 }
 
-func GetInt64(data map[string]interface{}, key string, value int64) int64 {
+func GetInt64(data map[string]interface{}, key string, defaultValue int64) int64 {
   if data == nil || key == "" {
-    return value
+    return defaultValue
   }
   if v, ok := data[key]; ok {
-    return Int64(v, value)
+    return Int64(v, defaultValue)
   }
-  return value
+  return defaultValue
 }
 
-func GetUint(data map[string]interface{}, key string, value uint) uint {
+func GetUint(data map[string]interface{}, key string, defaultValue uint) uint {
   if data == nil || key == "" {
-    return value
+    return defaultValue
   }
   if v, ok := data[key]; ok {
-    return Uint(v, value)
+    return Uint(v, defaultValue)
   }
-  return value
+  return defaultValue
 }
 
-func GetUint64(data map[string]interface{}, key string, value uint64) uint64 {
+func GetUint64(data map[string]interface{}, key string, defaultValue uint64) uint64 {
   if data == nil || key == "" {
-    return value
+    return defaultValue
   }
   if v, ok := data[key]; ok {
-    return Uint64(v, value)
+    return Uint64(v, defaultValue)
   }
-  return value
+  return defaultValue
 }
 
-func GetString(data map[string]interface{}, key string, value string) string {
+func GetString(data map[string]interface{}, key string, defaultValue string) string {
   if data == nil || key == "" {
-    return value
+    return defaultValue
   }
   if v, ok := data[key]; ok {
-    return String(v, value)
+    return String(v, defaultValue)
   }
-  return value
+  return defaultValue
 }
 
 func GetMap(data map[string]interface{}, key string) map[string]interface{} {
