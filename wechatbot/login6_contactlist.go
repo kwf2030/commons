@@ -4,13 +4,12 @@ import (
   "io/ioutil"
   "net/http"
   "net/url"
-  "sync"
 
   "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/flow"
 )
 
-const contactListURL = "/webwxgetcontact"
+const contactListUrl = "/webwxgetcontact"
 
 const opContactList = 0x6001
 
@@ -24,12 +23,13 @@ func (r *contactListReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
+  // todo 初始化Bot.Contacts
   r.req.op <- &op{what: opContactList, contacts: arr}
   s.Complete(nil)
 }
 
 func (r *contactListReq) do() ([]*Contact, error) {
-  addr, _ := url.Parse(r.req.BaseUrl + contactListURL)
+  addr, _ := url.Parse(r.req.BaseUrl + contactListUrl)
   q := addr.Query()
   q.Set("skey", r.req.Skey)
   q.Set("pass_ticket", r.req.PassTicket)
@@ -55,35 +55,13 @@ func parseContactListResp(resp *http.Response) ([]*Contact, error) {
   if e != nil {
     return nil, e
   }
-  path1 := []string{"NickName"}
-  path2 := []string{"RemarkName"}
-  path3 := []string{"UserName"}
-  path4 := []string{"VerifyFlag"}
   arr := make([]*Contact, 0, 5000)
-  _, e = jsonparser.ArrayEach(body, func(v1 []byte, _ jsonparser.ValueType, _ int, e1 error) {
-    if e1 != nil {
+  _, e = jsonparser.ArrayEach(body, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
       return
     }
-    c := &Contact{Raw: v1, Attr: &sync.Map{}}
-    jsonparser.EachKey(v1, func(i int, v2 []byte, _ jsonparser.ValueType, e2 error) {
-      if e2 != nil {
-        return
-      }
-      switch i {
-      case 0:
-        c.Nickname, _ = jsonparser.ParseString(v2)
-      case 1:
-        c.RemarkName, _ = jsonparser.ParseString(v2)
-      case 2:
-        c.UserName, _ = jsonparser.ParseString(v2)
-      case 3:
-        flag, _ := jsonparser.ParseInt(v2)
-        if flag != 0 {
-          c.VerifyFlag = int(flag)
-        }
-      }
-    }, path1, path2, path3, path4)
-    if c.UserName != "" {
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
       arr = append(arr, c)
     }
   }, "MemberList")

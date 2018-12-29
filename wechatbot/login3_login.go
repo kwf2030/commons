@@ -30,7 +30,7 @@ func (r *loginReq) Run(s *flow.Step) {
   r.req.Sid = login.WXSid
   r.req.Skey = login.SKey
   r.req.PassTicket = login.PassTicket
-  r.req.BaseReq = &baseRequest{login.WXUin, login.WXSid, login.SKey, deviceID()}
+  r.req.BaseReq = &baseReq{login.WXUin, login.WXSid, login.SKey, deviceID()}
   r.selectBaseURL()
   r.req.op <- &op{what: opLogin}
   s.Complete(nil)
@@ -87,15 +87,15 @@ type loginResp struct {
   XMLName     xml.Name `xml:"error"`
   Ret         int      `xml:"ret"`
   Message     string   `xml:"message"`
-  WXUin       int      `xml:"wxuin"`
+  WXUin       int64    `xml:"wxuin"`
   WXSid       string   `xml:"wxsid"`
   SKey        string   `xml:"skey"`
   PassTicket  string   `xml:"pass_ticket"`
   IsGrayScale int      `xml:"isgrayscale"`
 }
 
-type baseRequest struct {
-  Uin      int    `json:"Uin"`
+type baseReq struct {
+  Uin      int64  `json:"Uin"`
   Sid      string `json:"Sid"`
   Skey     string `json:"Skey"`
   DeviceID string `json:"DeviceID"`

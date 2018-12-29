@@ -10,7 +10,7 @@ import (
   "github.com/kwf2030/commons/flow"
 )
 
-const statusNotifyURL = "/webwxstatusnotify"
+const statusNotifyUrl = "/webwxstatusnotify"
 
 const opStatusNotify = 0x5001
 
@@ -30,7 +30,7 @@ func (r *statusNotifyReq) Run(s *flow.Step) {
 }
 
 func (r *statusNotifyReq) do() error {
-  addr, _ := url.Parse(r.req.BaseUrl + statusNotifyURL)
+  addr, _ := url.Parse(r.req.BaseUrl + statusNotifyUrl)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
   addr.RawQuery = q.Encode()
@@ -41,7 +41,6 @@ func (r *statusNotifyReq) do() error {
   m["ToUserName"] = r.req.UserName
   m["ClientMsgId"] = timestampString13()
   buf, _ := json.Marshal(m)
-  // 请求必须加上Content-Type和Cookies
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
   req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)

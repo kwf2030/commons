@@ -12,13 +12,13 @@ import (
   "github.com/kwf2030/commons/times"
 )
 
-const scanStateURL = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
+const scanStateUrl = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
 
 const opScanState = 0x2001
 
 var (
-  scanSTCodeRegexp        = regexp.MustCompile(`code\s*=\s*(\d+)\s*;`)
-  scanSTRedirectURLRegexp = regexp.MustCompile(`redirect_uri\s*=\s*"(.*)"`)
+  scanStCodeRegex        = regexp.MustCompile(`code\s*=\s*(\d+)\s*;`)
+  scanStRedirectURLRegex = regexp.MustCompile(`redirect_uri\s*=\s*"(.*)"`)
 )
 
 type scanStateReq struct {
@@ -44,8 +44,11 @@ func (r *scanStateReq) Run(s *flow.Step) {
 func (r *scanStateReq) check(ch chan<- string) {
   loop := true
   t := time.AfterFunc(time.Minute*2, func() {
-    loop = false
-    ch <- ""
+    if loop {
+      loop = false
+      r.req.State = StateTimeout
+      ch <- ""
+    }
   })
 out:
   for loop {
@@ -57,8 +60,8 @@ out:
     }
     switch code {
     case 200:
-      loop = false
       t.Stop()
+      loop = false
       r.req.State = StateConfirmed
       ch <- addr
       break out
@@ -69,15 +72,17 @@ out:
       continue
 
     case 408:
+      t.Stop()
+      loop = false
       r.req.State = StateTimeout
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      continue
+      ch <- ""
+      break out
     }
   }
 }
 
 func (r *scanStateReq) do() (int, string, error) {
-  addr, _ := url.Parse(scanStateURL)
+  addr, _ := url.Parse(scanStateUrl)
   q := addr.Query()
   q.Set("uuid", r.req.UUID)
   q.Set("tip", "0")
@@ -111,19 +116,20 @@ func parseScanStateResp(resp *http.Response) (int, string, error) {
   // 如果是200，返回：window.code=200;window.redirect_uri=xxx
   // 如果是201，返回：window.code=201;window.userAvatar = 'data:img/jpg;base64,xxx'
   data := string(body)
-  code := scanSTCodeRegexp.FindStringSubmatch(data)
-  if len(code) != 2 {
+  arr := scanStCodeRegex.FindStringSubmatch(data)
+  if len(arr) != 2 {
     return 0, "", ErrResp
   }
-  c, e := strconv.Atoi(code[1])
+  code, e := strconv.Atoi(arr[1])
   if e != nil {
     return 0, "", ErrResp
   }
-  if c == 200 {
-    addr := scanSTRedirectURLRegexp.FindStringSubmatch(data)
-    if len(addr) >= 2 {
-      return c, addr[1], nil
-    }
+  if code != 200 {
+    return code, "", nil
   }
-  return c, "", ErrResp
+  arr = scanStRedirectURLRegex.FindStringSubmatch(data)
+  if len(arr) < 2 {
+    return code, "", ErrResp
+  }
+  return code, arr[1], nil
 }

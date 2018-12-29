@@ -11,13 +11,13 @@ import (
 )
 
 const (
-  uuidURL = "https://login.weixin.qq.com/jslogin"
-  qrURL   = "https://login.weixin.qq.com/qrcode"
+  uuidUrl = "https://login.weixin.qq.com/jslogin"
+  qrUrl   = "https://login.weixin.qq.com/qrcode"
 )
 
 const opUUID = 0x1001
 
-var uuidRegexp = regexp.MustCompile(`uuid\s*=\s*"(.*)"`)
+var uuidRegex = regexp.MustCompile(`uuid\s*=\s*"(.*)"`)
 
 type uuidReq struct {
   req *req
@@ -34,12 +34,12 @@ func (r *uuidReq) Run(s *flow.Step) {
     return
   }
   r.req.UUID = uuid
-  r.req.op <- &op{what: opUUID, str: fmt.Sprintf("%s/%s", qrURL, uuid)}
+  r.req.op <- &op{what: opUUID, str: fmt.Sprintf("%s/%s", qrUrl, uuid)}
   s.Complete(nil)
 }
 
 func (r *uuidReq) do() (string, error) {
-  addr, _ := url.Parse(uuidURL)
+  addr, _ := url.Parse(uuidUrl)
   q := addr.Query()
   q.Set("appid", "wx782c26e4c19acffb")
   q.Set("fun", "new")
@@ -67,7 +67,7 @@ func parseUUIDResp(resp *http.Response) (string, error) {
     return "", e
   }
   data := string(body)
-  match := uuidRegexp.FindStringSubmatch(data)
+  match := uuidRegex.FindStringSubmatch(data)
   if len(match) != 2 {
     return "", ErrResp
   }
