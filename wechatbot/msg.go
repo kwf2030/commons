@@ -105,14 +105,14 @@ const (
 )
 
 var (
-  jsonKeyContent      = []string{"Content"}
-  jsonKeyCreateTime   = []string{"CreateTime"}
-  jsonKeyFromUserName = []string{"FromUserName"}
-  jsonKeyToUserName   = []string{"ToUserName"}
-  jsonKeyMsgId        = []string{"MsgId"}
-  jsonKeyNewMsgId     = []string{"NewMsgId"}
-  jsonKeyMsgType      = []string{"MsgType"}
-  jsonKeyUrl          = []string{"Url"}
+  jsonPathContent      = []string{"Content"}
+  jsonPathCreateTime   = []string{"CreateTime"}
+  jsonPathFromUserName = []string{"FromUserName"}
+  jsonPathToUserName   = []string{"ToUserName"}
+  jsonPathMsgId        = []string{"MsgId"}
+  jsonPathNewMsgId     = []string{"NewMsgId"}
+  jsonPathMsgType      = []string{"MsgType"}
+  jsonPathUrl          = []string{"Url"}
 )
 
 type Message struct {
@@ -172,7 +172,7 @@ func buildMessage(data []byte) *Message {
     case 7:
       ret.Url, _ = jsonparser.ParseString(v)
     }
-  }, jsonKeyContent, jsonKeyCreateTime, jsonKeyFromUserName, jsonKeyToUserName, jsonKeyMsgId, jsonKeyNewMsgId, jsonKeyMsgType, jsonKeyUrl)
+  }, jsonPathContent, jsonPathCreateTime, jsonPathFromUserName, jsonPathToUserName, jsonPathMsgId, jsonPathNewMsgId, jsonPathMsgType, jsonPathUrl)
   if ret.FromUserName == "" && ret.Type == MsgVerify {
     ret.FromUserName, _ = jsonparser.GetString(data, "RecommendInfo", "UserName")
   }

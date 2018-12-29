@@ -24,10 +24,10 @@ const (
 )
 
 var (
-  jsonKeyNickName   = []string{"NickName"}
-  jsonKeyRemarkName = []string{"RemarkName"}
-  jsonKeyUserName   = []string{"UserName"}
-  jsonKeyVerifyFlag = []string{"VerifyFlag"}
+  jsonPathNickName   = []string{"NickName"}
+  jsonPathRemarkName = []string{"RemarkName"}
+  jsonPathUserName   = []string{"UserName"}
+  jsonPathVerifyFlag = []string{"VerifyFlag"}
 )
 
 type Contact struct {
@@ -87,7 +87,7 @@ func buildContact(data []byte) *Contact {
         ret.VerifyFlag = int(vf)
       }
     }
-  }, jsonKeyNickName, jsonKeyRemarkName, jsonKeyUserName, jsonKeyVerifyFlag)
+  }, jsonPathNickName, jsonPathRemarkName, jsonPathUserName, jsonPathVerifyFlag)
   if ret.RemarkName != "" {
     id := getIdByRemarkName(ret.RemarkName)
     if id != 0 {

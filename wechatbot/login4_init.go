@@ -18,6 +18,13 @@ const initUrl = "/webwxinit"
 
 const opInit = 0x4001
 
+var (
+  jsonPathUserHeadImgUrl = []string{"User", "HeadImgUrl"}
+  jsonPathUserNickName   = []string{"User", "NickName"}
+  jsonPathUserSyncKey    = []string{"User", "SyncKey"}
+  jsonPathUserUserName   = []string{"User", "UserName"}
+)
+
 type initReq struct {
   req *req
 }
@@ -78,7 +85,6 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
   if e != nil {
     return nil, e
   }
-  paths := [][]string{{"User", "HeadImgUrl"}, {"User", "NickName"}, {"User", "SyncKey"}, {"User", "UserName"}}
   c := &Contact{Raw: body, Attr: &sync.Map{}}
   jsonparser.EachKey(body, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
@@ -94,17 +100,14 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
       c.NickName, _ = jsonparser.ParseString(v)
     case 2:
       sk := &syncKeys{}
-      e = json.Unmarshal(v, sk)
-      if e != nil {
-        return
-      }
+      json.Unmarshal(v, sk)
       if sk.Count > 0 {
         c.Attr.Store("SyncKeys", sk)
       }
     case 3:
       c.UserName, _ = jsonparser.ParseString(v)
     }
-  }, paths...)
+  }, jsonPathUserHeadImgUrl, jsonPathUserNickName, jsonPathUserSyncKey, jsonPathUserUserName)
   return c, nil
 }
 

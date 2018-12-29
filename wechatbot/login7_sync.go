@@ -17,8 +17,8 @@ import (
 )
 
 const (
-  syncCheckURL = "/synccheck"
-  syncURL      = "/webwxsync"
+  syncCheckUrl = "/synccheck"
+  syncUrl      = "/webwxsync"
 )
 
 const (
@@ -29,7 +29,18 @@ const (
   opExit       = 0x7005
 )
 
-var syncCheckRegexp = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
+var (
+  jsonPathSyncCheckKey    = []string{"SyncCheckKey"}
+  jsonPathModContactCount = []string{"ModContactCount"}
+  jsonPathDelContactCount = []string{"DelContactCount"}
+  jsonPathAddMsgCount     = []string{"AddMsgCount"}
+
+  jsonPathModContactList = "ModContactList"
+  jsonPathDelContactList = "DelContactList"
+  jsonPathAddMsgList     = "AddMsgList"
+)
+
+var syncCheckRegex = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
 
 type syncReq struct {
   req *req
@@ -103,14 +114,14 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
 // selector=6：未知，
 // selector=7：操作了手机，如进入/关闭聊天页面
 func (r *syncReq) doSyncCheck() (int, int, error) {
-  addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckURL))
+  addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckUrl))
   q := addr.Query()
   q.Set("r", timestampString13())
   q.Set("sid", r.req.Sid)
-  q.Set("uin", strconv.Itoa(r.req.Uin))
+  q.Set("uin", strconv.FormatInt(r.req.Uin, 10))
   q.Set("skey", r.req.Skey)
   q.Set("deviceid", deviceID())
-  q.Set("synckey", r.req.SyncKeys.flat())
+  q.Set("synckey", r.req.SyncKeys.expand())
   q.Set("_", timestampString13())
   addr.RawQuery = q.Encode()
   req, _ := http.NewRequest("GET", addr.String(), nil)
@@ -128,10 +139,6 @@ func (r *syncReq) doSyncCheck() (int, int, error) {
 }
 
 func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
-  path1 := []string{"SyncCheckKey"}
-  path2 := []string{"ModContactCount"}
-  path3 := []string{"DelContactCount"}
-  path4 := []string{"AddMsgCount"}
   for range syncChan {
     data, e := r.doSync()
     if e != nil {
@@ -147,54 +154,30 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
       switch i {
       case 0:
         sk := &syncKeys{}
-        e := json.Unmarshal(v, sk)
-        if e != nil {
-          return
-        }
+        json.Unmarshal(v, sk)
         if sk.Count > 0 {
           r.req.SyncKeys = sk
         }
-      case 1, 2:
+      case 1:
         n, _ := jsonparser.ParseInt(v)
-        if n > 0 {
-          p := "ModContactList"
-          if i == 2{
-            p = "DelContactList"
-          }
-          arr := make([]*Contact, 0, n)
-          _, _ = jsonparser.ArrayEach(v, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
-            if e != nil {
-              return
-            }
-            c := buildContact(v)
-            if c != nil && c.UserName != "" {
-              arr = append(arr, c)
-            }
-          }, p)
+        if n <= 0 {
+          return
         }
+        modContact(int(n), v, r.req.op)
+      case 2:
+        n, _ := jsonparser.ParseInt(v)
+        if n <= 0 {
+          return
+        }
+        delContact(int(n), v, r.req.op)
       case 3:
         n, _ := jsonparser.ParseInt(v)
-        if n > 0 {
-          arr := make([]*Contact, 0, n)
-          _, _ = jsonparser.ArrayEach(v, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
-            if e != nil {
-              return
-            }
-            c := buildContact(v)
-            if c != nil && c.UserName != "" {
-              arr = append(arr, c)
-            }
-          }, "AddMsgList")
-          // todo
-          // 没开启验证如果被添加好友，
-          // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
-          // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
-          // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
-          // 不添加的话下次登录时好友列表中也没有此人，
-          // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
+        if n <= 0 {
+          return
         }
+        addMessage(int(n), v, r.req.op)
       }
-    }, path1, path2, path3, path4)
+    }, jsonPathSyncCheckKey, jsonPathModContactCount, jsonPathDelContactCount, jsonPathAddMsgCount)
 
     time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
     syncCheckChan <- struct{}{}
@@ -202,7 +185,7 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
 }
 
 func (r *syncReq) doSync() ([]byte, error) {
-  addr, _ := url.Parse(r.req.BaseUrl + syncURL)
+  addr, _ := url.Parse(r.req.BaseUrl + syncUrl)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
   q.Set("sid", r.req.Sid)
@@ -238,14 +221,62 @@ func parseSyncCheckResp(resp *http.Response) (int, int, error) {
     return 0, 0, e
   }
   data := string(body)
-  match := syncCheckRegexp.FindStringSubmatch(data)
-  if len(match) < 2 {
+  arr := syncCheckRegex.FindStringSubmatch(data)
+  if len(arr) < 2 {
     return 0, 0, ErrResp
   }
-  code, _ := strconv.Atoi(match[1])
+  code, _ := strconv.Atoi(arr[1])
   selector := 0
-  if len(match) >= 3 {
-    selector, _ = strconv.Atoi(match[2])
+  if len(arr) >= 3 {
+    selector, _ = strconv.Atoi(arr[2])
   }
   return code, selector, nil
+}
+
+func modContact(count int, data []byte, ch chan<- *op) {
+  arr := make([]*Contact, 0, count)
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
+      arr = append(arr, c)
+    }
+  }, jsonPathModContactList)
+  // todo 通知
+}
+
+func delContact(count int, data []byte, ch chan<- *op) {
+  arr := make([]*Contact, 0, count)
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
+      arr = append(arr, c)
+    }
+  }, jsonPathDelContactList)
+  // todo 通知
+}
+
+func addMessage(count int, data []byte, ch chan<- *op) {
+  arr := make([]*Message, 0, count)
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    msg := buildMessage(v)
+    if msg != nil && msg.Id != "" {
+      arr = append(arr, msg)
+    }
+  }, jsonPathAddMsgList)
+  // todo 通知
+  // 没开启验证如果被添加好友，
+  // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
+  // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
+  // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
+  // 不添加的话下次登录时好友列表中也没有此人，
+  // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
 }
