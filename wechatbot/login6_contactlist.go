@@ -9,7 +9,7 @@ import (
   "github.com/kwf2030/commons/flow"
 )
 
-const contactListUrl = "/webwxgetcontact"
+const contactListUrlPath = "/webwxgetcontact"
 
 const opContactList = 0x6001
 
@@ -29,7 +29,7 @@ func (r *contactListReq) Run(s *flow.Step) {
 }
 
 func (r *contactListReq) do() ([]*Contact, error) {
-  addr, _ := url.Parse(r.req.BaseUrl + contactListUrl)
+  addr, _ := url.Parse(r.req.BaseUrl + contactListUrlPath)
   q := addr.Query()
   q.Set("skey", r.req.Skey)
   q.Set("pass_ticket", r.req.PassTicket)

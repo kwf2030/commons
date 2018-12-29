@@ -34,7 +34,8 @@ func (r *uuidReq) Run(s *flow.Step) {
     return
   }
   r.req.UUID = uuid
-  r.req.op <- &op{what: opUUID, str: fmt.Sprintf("%s/%s", qrUrl, uuid)}
+  r.req.QRCodeUrl = fmt.Sprintf("%s/%s", qrUrl, uuid)
+  r.req.op <- &op{what: opUUID}
   s.Complete(nil)
 }
 

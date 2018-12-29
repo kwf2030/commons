@@ -31,7 +31,7 @@ func (r *loginReq) Run(s *flow.Step) {
   r.req.Skey = login.SKey
   r.req.PassTicket = login.PassTicket
   r.req.BaseReq = &baseReq{login.WXUin, login.WXSid, login.SKey, deviceID()}
-  r.selectBaseURL()
+  r.selectBaseUrl()
   r.req.op <- &op{what: opLogin}
   s.Complete(nil)
 }
@@ -57,7 +57,7 @@ func (r *loginReq) do() (*loginResp, error) {
   return parseLoginResp(resp)
 }
 
-func (r *loginReq) selectBaseURL() {
+func (r *loginReq) selectBaseUrl() {
   u, _ := url.Parse(r.req.RedirectUrl)
   host := u.Hostname()
   r.req.Host = host

@@ -196,23 +196,23 @@ func (msg *Message) GetToContact() *Contact {
   return msg.Bot.Contacts.FindByUserName(msg.ToUserName)
 }
 
-func (msg *Message) ReplyText(content string) error {
-  if content == "" {
+func (msg *Message) ReplyText(text string) error {
+  if text == "" {
     return ErrInvalidArgs
   }
-  return msg.Bot.sendText(msg.FromUserName, content)
+  return msg.Bot.sendText(msg.FromUserName, text)
 }
 
 func (msg *Message) ReplyImage(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
-  return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgImage, sendImageURL)
+  return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgImage, sendImageUrlPath)
 }
 
 func (msg *Message) ReplyVideo(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
-  return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgVideo, sendVideoURL)
+  return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgVideo, sendVideoUrlPath)
 }

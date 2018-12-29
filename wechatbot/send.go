@@ -5,6 +5,7 @@ import (
   "crypto/md5"
   "encoding/json"
   "fmt"
+  "io/ioutil"
   "mime"
   "mime/multipart"
   "net/http"
@@ -13,43 +14,46 @@ import (
   "strings"
   "time"
 
-  "github.com/kwf2030/commons/conv"
+  "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/times"
 )
 
 const (
-  sendTextURL    = "/webwxsendmsg"
-  sendEmotionURL = "/webwxsendemoticon"
-  sendImageURL   = "/webwxsendmsgimg"
-  sendVideoURL   = "/webwxsendvideomsg"
-  uploadURL      = "/webwxuploadmedia"
+  sendTextUrlPath    = "/webwxsendmsg"
+  sendEmotionUrlPath = "/webwxsendemoticon"
+  sendImageUrlPath   = "/webwxsendmsgimg"
+  sendVideoUrlPath   = "/webwxsendvideomsg"
+  uploadUrlPath      = "/webwxuploadmedia"
 )
 
-const dtFormat = "Mon Jan 02 2006 15:04:05 GMT-0700（中国标准时间）"
+const dateTimeFormat = "Mon Jan 02 2006 15:04:05 GMT-0700（中国标准时间）"
 
 const chunk = 512 * 1024
 
-func (r *req) SendText(toUserName, content string) (map[string]interface{}, error) {
-  addr, _ := url.Parse(r.baseURL + sendTextURL)
+var jsonPathMediaId = "MediaId"
+
+func (r *req) SendText(toUserName, text string) ([]byte, error) {
+  addr, _ := url.Parse(r.BaseUrl + sendTextUrlPath)
   q := addr.Query()
-  q.Set("pass_ticket", r.passTicket)
+  q.Set("pass_ticket", r.PassTicket)
   addr.RawQuery = q.Encode()
   n, _ := strconv.ParseInt(timestampString13(), 10, 32)
-  s := strconv.FormatInt(n<<4, 10) + randStringN(4)
+  s := strconv.FormatInt(n<<4, 10) + timestampStringR(4)
   params := map[string]interface{}{
     "Type":         MsgText,
-    "Content":      content,
-    "FromUserName": r.userName,
+    "Content":      text,
+    "FromUserName": r.UserName,
     "ToUserName":   toUserName,
     "LocalID":      s,
     "ClientMsgId":  s,
   }
-  m := r.payload
+  m := make(map[string]interface{}, 3)
+  m["BaseRequest"] = r.BaseReq
   m["Scene"] = 0
   m["Msg"] = params
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
-  req.Header.Set("Referer", r.referer)
+  req.Header.Set("Referer", r.Referer)
   req.Header.Set("User-Agent", userAgent)
   req.Header.Set("Content-Type", contentType)
   resp, e := r.client.Do(req)
@@ -60,33 +64,38 @@ func (r *req) SendText(toUserName, content string) (map[string]interface{}, erro
   if resp.StatusCode != http.StatusOK {
     return nil, ErrReq
   }
-  return conv.ReadJSONToMap(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
+  if e != nil {
+    return nil, e
+  }
+  return body, nil
 }
 
-func (r *req) SendMedia(toUserName, mediaID string, msgType int, sendURL string) (map[string]interface{}, error) {
-  addr, _ := url.Parse(r.baseURL + sendURL)
+func (r *req) SendMedia(toUserName, mediaId string, msgType int, sendUrlPath string) ([]byte, error) {
+  addr, _ := url.Parse(r.BaseUrl + sendUrlPath)
   q := addr.Query()
   q.Set("fun", "async")
   q.Set("f", "json")
-  q.Set("pass_ticket", r.passTicket)
+  q.Set("pass_ticket", r.PassTicket)
   addr.RawQuery = q.Encode()
   n, _ := strconv.ParseInt(timestampString13(), 10, 32)
-  s := strconv.FormatInt(n<<4, 10) + randStringN(4)
+  s := strconv.FormatInt(n<<4, 10) + timestampStringR(4)
   params := map[string]interface{}{
     "Type":         msgType,
-    "MediaId":      mediaID,
-    "FromUserName": r.userName,
+    "MediaId":      mediaId,
+    "FromUserName": r.UserName,
     "ToUserName":   toUserName,
     "LocalID":      s,
     "ClientMsgId":  s,
     "Content":      "",
   }
-  m := r.payload
+  m := make(map[string]interface{}, 3)
+  m["BaseRequest"] = r.BaseReq
   m["Scene"] = 0
   m["Msg"] = params
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
-  req.Header.Set("Referer", r.referer)
+  req.Header.Set("Referer", r.Referer)
   req.Header.Set("User-Agent", userAgent)
   req.Header.Set("Content-Type", contentType)
   resp, e := r.client.Do(req)
@@ -97,14 +106,18 @@ func (r *req) SendMedia(toUserName, mediaID string, msgType int, sendURL string)
   if resp.StatusCode != http.StatusOK {
     return nil, ErrReq
   }
-  return conv.ReadJSONToMap(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
+  if e != nil {
+    return nil, e
+  }
+  return body, nil
 }
 
 // data是上传的数据，如果大于chunk则按chunk分块上传，
 // filename是文件名（非文件路径，用来检测文件类型和设置上传文件名，如1.png）
 func (r *req) UploadMedia(toUserName string, data []byte, filename string) (string, error) {
   l := len(data)
-  addr, _ := url.Parse(r.baseURL + uploadURL)
+  addr, _ := url.Parse(r.BaseUrl + uploadUrlPath)
   addr.Host = "file." + addr.Host
   q := addr.Query()
   q.Set("f", "json")
@@ -131,15 +144,16 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
 
   hash := fmt.Sprintf("%x", md5.Sum(data))
   n, _ := strconv.ParseInt(timestampString13(), 10, 32)
-  s := strconv.FormatInt(n<<4, 10) + randStringN(4)
-  m := r.payload
+  s := strconv.FormatInt(n<<4, 10) + timestampStringR(4)
+  m := make(map[string]interface{}, 10)
+  m["BaseRequest"] = r.BaseReq
   m["UploadType"] = 2
   m["ClientMediaId"] = s
   m["TotalLen"] = l
   m["DataLen"] = l
   m["StartPos"] = 0
   m["MediaType"] = 4
-  m["FromUserName"] = r.userName
+  m["FromUserName"] = r.UserName
   m["ToUserName"] = toUserName
   m["FileMd5"] = hash
   req, _ := json.Marshal(m)
@@ -151,22 +165,22 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
     mime:         mt,
     mediaType:    mt2,
     req:          string(req),
-    fromUserName: r.userName,
+    fromUserName: r.UserName,
     toUserName:   toUserName,
     dataTicket:   r.cookie("webwx_data_ticket"),
     totalLen:     l,
-    wuFile:       r.wuFile,
+    wuFile:       r.WuFile,
     chunks:       0,
     chunk:        0,
     data:         nil,
   }
-  defer func() { r.wuFile++ }()
+  defer func() { r.WuFile++ }()
 
-  var mediaID string
+  var mediaId string
   var err error
   if l <= chunk {
     info.data = data
-    mediaID, err = r.uploadChunk(info)
+    mediaId, err = r.uploadChunk(info)
   } else {
     m := l / chunk
     n := l % chunk
@@ -180,7 +194,7 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
       e := s + chunk
       info.chunk = i
       info.data = data[s:e]
-      mediaID, err = r.uploadChunk(info)
+      mediaId, err = r.uploadChunk(info)
       if err != nil {
         break
       }
@@ -188,10 +202,10 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
     if err == nil && n != 0 {
       info.chunk++
       info.data = data[l-n:]
-      mediaID, err = r.uploadChunk(info)
+      mediaId, err = r.uploadChunk(info)
     }
   }
-  return mediaID, err
+  return mediaId, err
 }
 
 func (r *req) uploadChunk(info *uploadInfo) (string, error) {
@@ -200,7 +214,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   w.WriteField("id", fmt.Sprintf("WU_FILE_%d", info.wuFile))
   w.WriteField("name", info.filename)
   w.WriteField("type", info.mime)
-  w.WriteField("lastModifiedDate", times.Now().Add(time.Hour * -24).Format(dtFormat))
+  w.WriteField("lastModifiedDate", times.Now().Add(time.Hour * -24).Format(dateTimeFormat))
   w.WriteField("size", strconv.Itoa(info.totalLen))
   if info.chunks > 0 {
     w.WriteField("chunks", strconv.Itoa(info.chunks))
@@ -209,7 +223,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   w.WriteField("mediatype", info.mediaType)
   w.WriteField("uploadmediarequest", info.req)
   w.WriteField("webwx_data_ticket", info.dataTicket)
-  w.WriteField("pass_ticket", r.passTicket)
+  w.WriteField("pass_ticket", r.PassTicket)
   fw, e := w.CreateFormFile("filename", info.filename)
   if e != nil {
     return "", e
@@ -220,7 +234,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   w.Close()
 
   req, _ := http.NewRequest("POST", info.addr, &buf)
-  req.Header.Set("Referer", r.referer)
+  req.Header.Set("Referer", r.Referer)
   req.Header.Set("User-Agent", userAgent)
   req.Header.Set("Content-Type", w.FormDataContentType())
   resp, e := r.client.Do(req)
@@ -231,16 +245,12 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   if resp.StatusCode != http.StatusOK {
     return "", ErrReq
   }
-  ret, e := conv.ReadJSONToMap(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return "", e
   }
-  br := conv.GetMap(ret, "BaseResponse")
-  rt := conv.GetInt(br, "Ret", 0)
-  if rt != 0 {
-    return "", ErrReq
-  }
-  return conv.GetString(ret, "MediaId", ""), nil
+  mediaId, _ := jsonparser.GetString(body, jsonPathMediaId)
+  return mediaId, nil
 }
 
 type uploadInfo struct {

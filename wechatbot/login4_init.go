@@ -14,7 +14,7 @@ import (
   "github.com/kwf2030/commons/flow"
 )
 
-const initUrl = "/webwxinit"
+const initUrlPath = "/webwxinit"
 
 const opInit = 0x4001
 
@@ -45,7 +45,7 @@ func (r *initReq) Run(s *flow.Step) {
     return
   }
   if addr, ok := c.Attr.Load("HeadImgUrl"); ok {
-    r.req.AvatarURL = fmt.Sprintf("https://%s%s", r.req.Host, addr.(string))
+    r.req.AvatarUrl = fmt.Sprintf("https://%s%s", r.req.Host, addr.(string))
     c.Attr.Delete("HeadImgUrl")
   }
   r.req.SyncKeys = sk.(*syncKeys)
@@ -57,7 +57,7 @@ func (r *initReq) Run(s *flow.Step) {
 }
 
 func (r *initReq) do() (*Contact, error) {
-  addr, _ := url.Parse(r.req.BaseUrl + initUrl)
+  addr, _ := url.Parse(r.req.BaseUrl + initUrlPath)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
   q.Set("r", timestampString10())

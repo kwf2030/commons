@@ -10,7 +10,7 @@ import (
   "github.com/kwf2030/commons/flow"
 )
 
-const statusNotifyUrl = "/webwxstatusnotify"
+const statusNotifyUrlPath = "/webwxstatusnotify"
 
 const opStatusNotify = 0x5001
 
@@ -30,7 +30,7 @@ func (r *statusNotifyReq) Run(s *flow.Step) {
 }
 
 func (r *statusNotifyReq) do() error {
-  addr, _ := url.Parse(r.req.BaseUrl + statusNotifyUrl)
+  addr, _ := url.Parse(r.req.BaseUrl + statusNotifyUrlPath)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
   addr.RawQuery = q.Encode()

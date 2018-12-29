@@ -454,7 +454,6 @@ func (bot *Bot) Release() {
 
 type op struct {
   what     int
-  str      string
   contact  *Contact
   contacts []*Contact
   msg      *Message
@@ -532,6 +531,7 @@ type session struct {
   BaseUrl       string
   State         int
   UUID          string
+  QRCodeUrl     string
   RedirectUrl   string
   Uin           int64
   Sid           string
@@ -539,7 +539,7 @@ type session struct {
   PassTicket    string
   BaseReq       *baseReq
   UserName      string
-  AvatarURL     string
+  AvatarUrl     string
   SyncKeys      *syncKeys
   WuFile        int
 }
@@ -551,6 +551,7 @@ func (s *session) reset() {
   s.BaseUrl = "https://wx.qq.com/cgi-bin/mmwebwx-bin"
   s.State = StateCreated
   s.UUID = ""
+  s.QRCodeUrl = ""
   s.RedirectUrl = ""
   s.BaseReq = nil
   s.Uin = 0
@@ -558,7 +559,7 @@ func (s *session) reset() {
   s.Skey = ""
   s.PassTicket = ""
   s.UserName = ""
-  s.AvatarURL = ""
+  s.AvatarUrl = ""
   s.SyncKeys = nil
   s.WuFile = 0
 }

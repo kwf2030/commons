@@ -17,8 +17,8 @@ import (
 )
 
 const (
-  syncCheckUrl = "/synccheck"
-  syncUrl      = "/webwxsync"
+  syncCheckUrlPath = "/synccheck"
+  syncUrlPath      = "/webwxsync"
 )
 
 const (
@@ -114,7 +114,7 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
 // selector=6：未知，
 // selector=7：操作了手机，如进入/关闭聊天页面
 func (r *syncReq) doSyncCheck() (int, int, error) {
-  addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckUrl))
+  addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckUrlPath))
   q := addr.Query()
   q.Set("r", timestampString13())
   q.Set("sid", r.req.Sid)
@@ -185,7 +185,7 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
 }
 
 func (r *syncReq) doSync() ([]byte, error) {
-  addr, _ := url.Parse(r.req.BaseUrl + syncUrl)
+  addr, _ := url.Parse(r.req.BaseUrl + syncUrlPath)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
   q.Set("sid", r.req.Sid)

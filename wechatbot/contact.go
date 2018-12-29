@@ -146,14 +146,14 @@ func (c *Contact) SendImage(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
-  return c.Bot.sendMedia(c.UserName, data, filename, MsgImage, sendImageURL)
+  return c.Bot.sendMedia(c.UserName, data, filename, MsgImage, sendImageUrlPath)
 }
 
 func (c *Contact) SendVideo(data []byte, filename string) (string, error) {
   if len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
-  return c.Bot.sendMedia(c.UserName, data, filename, MsgVideo, sendVideoURL)
+  return c.Bot.sendMedia(c.UserName, data, filename, MsgVideo, sendVideoUrlPath)
 }
 
 func (c *Contact) GetAttrString(attr string, defaultValue string) string {
