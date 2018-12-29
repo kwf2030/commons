@@ -261,3 +261,11 @@ func (c *Contacts) initialID() uint64 {
   c.Bot.Attr[attrInitialID] = ret
   return ret
 }
+
+func getIdByRemarkName(remarkName string) uint64 {
+  ret, e := strconv.ParseUint(remarkName, 10, 64)
+  if e == nil && ret > idInitial+idGeneralOffset {
+    return ret
+  }
+  return 0
+}

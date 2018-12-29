@@ -533,11 +533,11 @@ type session struct {
   State         int
   UUID          string
   RedirectUrl   string
-  Uin           int
+  Uin           int64
   Sid           string
   Skey          string
   PassTicket    string
-  BaseReq       *baseRequest
+  BaseReq       *baseReq
   UserName      string
   AvatarURL     string
   SyncKeys      *syncKeys

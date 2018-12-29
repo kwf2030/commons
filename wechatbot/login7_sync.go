@@ -11,7 +11,7 @@ import (
   "strconv"
   "time"
 
-  "github.com/kwf2030/commons/conv"
+  "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/flow"
   "github.com/kwf2030/commons/times"
 )
@@ -50,7 +50,7 @@ func (r *syncReq) Run(s *flow.Step) {
   s.Complete(nil)
 }
 
-func (r *syncReq) bridge(ch chan int, syncCheckChan chan struct{}, syncChan chan struct{}) {
+func (r *syncReq) bridge(ch chan int, syncCheckChan, syncChan chan struct{}) {
   for i := range ch {
     if i == 0 {
       syncCheckChan <- struct{}{}
@@ -60,7 +60,7 @@ func (r *syncReq) bridge(ch chan int, syncCheckChan chan struct{}, syncChan chan
   }
 }
 
-func (r *syncReq) syncCheck(ch chan int, syncCheckChan chan struct{}, syncChan chan struct{}) {
+func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) {
   for range syncCheckChan {
     code, selector, e := r.doSyncCheck()
     if e != nil {
@@ -73,11 +73,11 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan chan struct{}, syncChan c
     case 0:
       break
     default:
-      //close(ch1)
-      //close(ch2)
-      //r.req.op <- &op{what: TerminateOp, Data: code}
-      //close(r.req.op)
-      //continue
+      // close(ch1)
+      // close(ch2)
+      // r.req.op <- &op{what: TerminateOp, Data: code}
+      // close(r.req.op)
+      // continue
     }
 
     switch selector {
@@ -113,7 +113,6 @@ func (r *syncReq) doSyncCheck() (int, int, error) {
   q.Set("synckey", r.req.SyncKeys.flat())
   q.Set("_", timestampString13())
   addr.RawQuery = q.Encode()
-  // 请求必须加上Cookies
   req, _ := http.NewRequest("GET", addr.String(), nil)
   req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
@@ -128,53 +127,81 @@ func (r *syncReq) doSyncCheck() (int, int, error) {
   return parseSyncCheckResp(resp)
 }
 
-func (r *syncReq) sync(ch chan int, ch1 chan struct{}, ch2 chan struct{}) {
-  for range ch2 {
-    resp, e := r.doSync()
-    switch {
-    case e != nil, resp == nil:
-      fallthrough
-
-    case conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0:
+func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
+  path1 := []string{"SyncCheckKey"}
+  path2 := []string{"ModContactCount"}
+  path3 := []string{"DelContactCount"}
+  path4 := []string{"AddMsgCount"}
+  for range syncChan {
+    data, e := r.doSync()
+    if e != nil {
       time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-      ch1 <- struct{}{}
+      syncCheckChan <- struct{}{}
       continue
     }
 
-    //r.req.SyncKeys = conv.GetMap(resp, "SyncCheckKey")
-
-    // 没开启验证如果被添加好友，
-    // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
-    // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
-    // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
-    // 不添加的话下次登录时好友列表中也没有此人，
-    // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
-
-    if conv.GetInt(resp, "ModContactCount", 0) > 0 {
-      data := conv.GetMapSlice(resp, "ModContactList")
-      for _, v := range data {
-        //r.req.op <- &op{what: ContactModOp, Data: v}
+    jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
+      if e != nil {
+        return
       }
-    }
-    if conv.GetInt(resp, "DelContactCount", 0) > 0 {
-      data := conv.GetMapSlice(resp, "DelContactList")
-      for _, v := range data {
-        //r.req.op <- &op{what: ContactDelOp, Data: v}
+      switch i {
+      case 0:
+        sk := &syncKeys{}
+        e := json.Unmarshal(v, sk)
+        if e != nil {
+          return
+        }
+        if sk.Count > 0 {
+          r.req.SyncKeys = sk
+        }
+      case 1, 2:
+        n, _ := jsonparser.ParseInt(v)
+        if n > 0 {
+          p := "ModContactList"
+          if i == 2{
+            p = "DelContactList"
+          }
+          arr := make([]*Contact, 0, n)
+          _, _ = jsonparser.ArrayEach(v, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+            if e != nil {
+              return
+            }
+            c := buildContact(v)
+            if c != nil && c.UserName != "" {
+              arr = append(arr, c)
+            }
+          }, p)
+        }
+      case 3:
+        n, _ := jsonparser.ParseInt(v)
+        if n > 0 {
+          arr := make([]*Contact, 0, n)
+          _, _ = jsonparser.ArrayEach(v, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+            if e != nil {
+              return
+            }
+            c := buildContact(v)
+            if c != nil && c.UserName != "" {
+              arr = append(arr, c)
+            }
+          }, "AddMsgList")
+          // todo
+          // 没开启验证如果被添加好友，
+          // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
+          // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
+          // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
+          // 不添加的话下次登录时好友列表中也没有此人，
+          // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
+        }
       }
-    }
-    if conv.GetInt(resp, "AddMsgCount", 0) > 0 {
-      data := conv.GetMapSlice(resp, "AddMsgList")
-      for _, v := range data {
-        //r.req.op <- &op{what: MsgOp, Data: v}
-      }
-    }
+    }, path1, path2, path3, path4)
 
     time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-    ch1 <- struct{}{}
+    syncCheckChan <- struct{}{}
   }
 }
 
-func (r *syncReq) doSync() (map[string]interface{}, error) {
+func (r *syncReq) doSync() ([]byte, error) {
   addr, _ := url.Parse(r.req.BaseUrl + syncURL)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
@@ -186,7 +213,6 @@ func (r *syncReq) doSync() (map[string]interface{}, error) {
   m["SyncKey"] = r.req.SyncKeys
   m["rr"] = strconv.FormatInt(^(times.Timestamp() / int64(time.Second)), 10)
   buf, _ := json.Marshal(m)
-  // 请求必须加上Content-Type和Cookies
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
   req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
@@ -199,7 +225,11 @@ func (r *syncReq) doSync() (map[string]interface{}, error) {
   if resp.StatusCode != http.StatusOK {
     return nil, ErrReq
   }
-  return conv.ReadJSONToMap(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
+  if e != nil {
+    return nil, e
+  }
+  return body, nil
 }
 
 func parseSyncCheckResp(resp *http.Response) (int, int, error) {
