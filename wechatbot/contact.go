@@ -1,116 +1,120 @@
 package wechatbot
 
 import (
-  "strconv"
   "sync"
-  "time"
 
+  "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/conv"
 )
 
 const (
   ContactUnknown = iota
+
+  // 好友
   ContactFriend
+
+  // 群聊
   ContactGroup
+
+  // 公众号
   ContactMPS
+
+  // 系统
   ContactSystem
 )
 
+var (
+  jsonKeyNickName   = []string{"NickName"}
+  jsonKeyRemarkName = []string{"RemarkName"}
+  jsonKeyUserName   = []string{"UserName"}
+  jsonKeyVerifyFlag = []string{"VerifyFlag"}
+)
+
 type Contact struct {
-  Attr *sync.Map
-  ID         string    `json:"id,omitempty"`
-  Nickname   string    `json:"nickname,omitempty"`
-  CreateTime time.Time `json:"create_time,omitempty"`
+  NickName   string `json:"nick_name,omitempty"`
+  RemarkName string `json:"remark_name,omitempty"`
 
-  // 不是联系人的UIN，是联系人所属Bot的UIN
-  Uin int `json:"uin"`
+  // UserName每次登录都不一样，
+  // 群聊以@@开头，其他以@开头，内置帐号就直接是名字，如：
+  // weixin（微信团队）/filehelper（文件传输助手）/fmessage（朋友消息推荐）
+  UserName string `json:"user_name,omitempty"`
 
-  Raw []byte `json:"raw,omitempty"`
-
-  // VerifyFlag表示联系人类型，
+  // 联系人类型，
   // 个人和群聊帐号为0，
   // 订阅号为8，
   // 企业号为24（包括扩微信支付），
   // 系统号为56(微信团队官方帐号），
   // 29（未知，招行信用卡为29）
-  // Flag是VerifyFlag解析后的值
-  VerifyFlag int
-  Flag int `json:"flag,omitempty"`
+  VerifyFlag int `json:"verify_flag"`
 
-  // UserName每次登录都不一样，
-  // 群聊帐号以@@开头，其他以@开头，内置帐号就直接是名字，如：
-  // weixin（微信团队）/filehelper（文件传输助手）/fmessage(朋友消息推荐)
-  UserName string `json:"-"`
+  // 原始数据
+  Raw []byte `json:"raw,omitempty"`
 
-  RemarkName string
+  Attr *sync.Map `json:"attr,omitempty"`
+
+  id uint64
+  Id string `json:"id,omitempty"`
+
+  // Type是VerifyFlag解析后的值
+  Type int `json:"flag"`
+
+  // todo OwnerUin和Bot需要在初始化联系人的时候赋值
+  // 联系人所属Bot的uin
+  OwnerUin int64 `json:"owner_uin"`
 
   Bot *Bot `json:"-"`
 }
 
-func mapToContact(data map[string]interface{}, bot *Bot) *Contact {
-  if data == nil || len(data) == 0 {
+func buildContact(data []byte) *Contact {
+  if len(data) == 0 {
     return nil
   }
-  ret := &Contact{Raw: data}
-  ret.Bot = bot
-  ret.Uin = bot.req.uin
-  ret.Nickname = conv.GetString(data, "NickName", "")
-  ret.UserName = conv.GetString(data, "UserName", "")
-  if bot != nil && bot.Contacts != nil {
-    if c := bot.Contacts.FindByUserName(ret.UserName); c != nil {
-      ret.ID = c.ID
-      ret.CreateTime = c.CreateTime
+  ret := &Contact{Raw: data, Attr: &sync.Map{}}
+  jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
+    if e != nil {
+      return
     }
-  }
-  if v, ok := data["VerifyFlag"]; ok {
-    switch int(v.(float64)) {
+    switch i {
     case 0:
+      ret.NickName, _ = jsonparser.ParseString(v)
+    case 1:
+      ret.RemarkName, _ = jsonparser.ParseString(v)
+    case 2:
+      ret.UserName, _ = jsonparser.ParseString(v)
+    case 3:
+      vf, _ := jsonparser.ParseInt(v)
+      if vf != 0 {
+        ret.VerifyFlag = int(vf)
+      }
+    }
+  }, jsonKeyNickName, jsonKeyRemarkName, jsonKeyUserName, jsonKeyVerifyFlag)
+  if ret.RemarkName != "" {
+    id := getIdByRemarkName(ret.RemarkName)
+    if id != 0 {
+      ret.id = id
+      ret.Id = ret.RemarkName
+    }
+  }
+  switch ret.VerifyFlag {
+  case 0:
+    if len(ret.UserName) < 2 {
+      ret.Type = ContactUnknown
+    } else {
       if (ret.UserName)[0:2] == "@@" {
-        ret.Flag = ContactGroup
+        ret.Type = ContactGroup
       } else if (ret.UserName)[0:1] == "@" {
-        ret.Flag = ContactFriend
+        ret.Type = ContactFriend
       } else {
-        ret.Flag = ContactSystem
-      }
-    case 8, 24:
-      ret.Flag = ContactMPS
-    case 56:
-      ret.Flag = ContactSystem
-    default:
-      ret.Flag = ContactUnknown
-    }
-  }
-  return ret
-}
-
-func mapsToContacts(data []map[string]interface{}, bot *Bot) []*Contact {
-  if data == nil || len(data) == 0 {
-    return nil
-  }
-  ret := make([]*Contact, 0, len(data))
-  for _, v := range data {
-    contact := mapToContact(v, bot)
-    if contact != nil {
-      ret = append(ret, contact)
-    }
-  }
-  return ret
-}
-
-func FindContactByID(id string) *Contact {
-  if id == "" {
-    return nil
-  }
-  var ret *Contact
-  eachBot(func(b *Bot) bool {
-    if b.Contacts != nil {
-      if c := b.Contacts.FindByID(id); c != nil {
-        ret = c
-        return false
+        ret.Type = ContactSystem
       }
     }
-    return true
-  })
+  case 8, 24:
+    ret.Type = ContactMPS
+  case 56:
+    ret.Type = ContactSystem
+  default:
+    ret.Type = ContactUnknown
+  }
   return ret
 }
 
@@ -131,11 +135,11 @@ func FindContactByUserName(userName string) *Contact {
   return ret
 }
 
-func (c *Contact) SendText(content string) error {
-  if content == "" {
+func (c *Contact) SendText(text string) error {
+  if text == "" {
     return ErrInvalidArgs
   }
-  return c.Bot.sendText(c.UserName, content)
+  return c.Bot.sendText(c.UserName, text)
 }
 
 func (c *Contact) SendImage(data []byte, filename string) (string, error) {
@@ -152,24 +156,50 @@ func (c *Contact) SendVideo(data []byte, filename string) (string, error) {
   return c.Bot.sendMedia(c.UserName, data, filename, MsgVideo, sendVideoURL)
 }
 
-func (c *Contact) GetAttrString(attr string) string {
-  return conv.String(c.Raw, attr)
+func (c *Contact) GetAttrString(attr string, defaultValue string) string {
+  if v, ok := c.Attr.Load(attr); ok {
+    return conv.String(v, defaultValue)
+  }
+  return defaultValue
 }
 
-func (c *Contact) GetAttrInt(attr string) int {
-  return conv.GetInt(c.Raw, attr, 0)
+func (c *Contact) GetAttrInt(attr string, defaultValue int) int {
+  if v, ok := c.Attr.Load(attr); ok {
+    return conv.Int(v, defaultValue)
+  }
+  return defaultValue
 }
 
-func (c *Contact) GetAttrUint64(attr string) uint64 {
-  return conv.GetUint64(c.Raw, attr, 0)
+func (c *Contact) GetAttrInt64(attr string, defaultValue int64) int64 {
+  if v, ok := c.Attr.Load(attr); ok {
+    return conv.Int64(v, defaultValue)
+  }
+  return defaultValue
 }
 
-func (c *Contact) GetAttrBool(attr string) bool {
-  return conv.GetBool(c.Raw, attr, false)
+func (c *Contact) GetAttrUint(attr string, defaultValue uint) uint {
+  if v, ok := c.Attr.Load(attr); ok {
+    return conv.Uint(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (c *Contact) GetAttrUint64(attr string, defaultValue uint64) uint64 {
+  if v, ok := c.Attr.Load(attr); ok {
+    return conv.Uint64(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (c *Contact) GetAttrBool(attr string, defaultValue bool) bool {
+  if v, ok := c.Attr.Load(attr); ok {
+    return conv.Bool(v)
+  }
+  return defaultValue
 }
 
 func (c *Contact) GetAttrBytes(attr string) []byte {
-  if v, ok := c.Raw[attr]; ok {
+  if v, ok := c.Attr.Load(attr); ok {
     switch ret := v.(type) {
     case []byte:
       return ret
@@ -178,12 +208,4 @@ func (c *Contact) GetAttrBytes(attr string) []byte {
     }
   }
   return nil
-}
-
-func parseRemarkToID(remark string) uint64 {
-  ret, e := strconv.ParseUint(remark, 10, 64)
-  if e == nil && ret > idInitial+idGeneralOffset {
-    return ret
-  }
-  return 0
 }

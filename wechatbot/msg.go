@@ -4,7 +4,7 @@ import (
   "strconv"
   "time"
 
-  "github.com/kwf2030/commons/conv"
+  "github.com/buger/jsonparser"
 )
 
 const (
@@ -84,7 +84,8 @@ const (
   MsgVoipNotify = 52
   MsgVoipInvite = 53
   MsgVideoCall  = 62
-  MsgNotice     = 9999
+
+  MsgNotice = 9999
 
   // 系统消息，
   // 例如通过好友验证，系统会发送"你已添加了..."和"如果陌生人..."的消息，
@@ -103,54 +104,80 @@ const (
   MsgRevoke = 10002
 )
 
+var (
+  jsonKeyContent      = []string{"Content"}
+  jsonKeyCreateTime   = []string{"CreateTime"}
+  jsonKeyFromUserName = []string{"FromUserName"}
+  jsonKeyToUserName   = []string{"ToUserName"}
+  jsonKeyMsgId        = []string{"MsgId"}
+  jsonKeyNewMsgId     = []string{"NewMsgId"}
+  jsonKeyMsgType      = []string{"MsgType"}
+  jsonKeyUrl          = []string{"Url"}
+)
+
 type Message struct {
-  ID           string                 `json:"id,omitempty"`
-  FromUserName string                 `json:"from_user_name,omitempty"`
-  ToUserName   string                 `json:"to_user_name,omitempty"`
-  FromUserID   string                 `json:"from_user_id,omitempty"`
-  ToUserID     string                 `json:"to_user_id,omitempty"`
-  Type         int                    `json:"type,omitempty"`
-  URL          string                 `json:"url,omitempty"`
-  Content      string                 `json:"content,omitempty"`
-  CreateTime   time.Time              `json:"create_time,omitempty"`
-  Raw          map[string]interface{} `json:"raw,omitempty"`
-  Bot          *Bot                   `json:"-"`
+  Content      string `json:"content,omitempty"`
+  createTime   int64
+  FromUserName string `json:"from_user_name,omitempty"`
+  ToUserName   string `json:"to_user_name,omitempty"`
+  Id           string `json:"id,omitempty"`
+  id           int64
+  Type         int    `json:"type"`
+  Url          string `json:"url,omitempty"`
+  Raw          []byte `json:"raw,omitempty"`
+
+  CreateTime time.Time `json:"create_time,omitempty"`
+
+  // todo FromUserID/ToUserID/Bot需要在初始化消息的时候赋值
+  FromUserID string `json:"from_user_id,omitempty"`
+  ToUserID   string `json:"to_user_id,omitempty"`
+  Bot        *Bot   `json:"-"`
 }
 
-func mapToMessage(data map[string]interface{}, bot *Bot) *Message {
-  if data == nil || len(data) == 0 {
+func buildMessage(data []byte) *Message {
+  if len(data) == 0 {
     return nil
   }
   ret := &Message{Raw: data}
-  ret.Bot = bot
-  ret.Type = conv.GetInt(data, "MsgType", 0)
-  ret.URL = conv.GetString(data, "Url", "")
-  ret.Content = conv.GetString(data, "Content", "")
-  if v, ok := data["CreateTime"]; ok {
-    if x, ok := v.(float64); ok {
-      ret.CreateTime = time.Unix(int64(x), 0)
+  jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
+    if e != nil {
+      return
     }
-  }
-  ret.ID = conv.GetString(data, "MsgId", "")
-  if ret.ID == "" {
-    if v, ok := data["NewMsgId"]; ok {
-      if x, ok := v.(float64); ok {
-        ret.ID = strconv.FormatUint(uint64(x), 10)
+    switch i {
+    case 0:
+      ret.Content, _ = jsonparser.ParseString(v)
+    case 1:
+      ret.createTime, _ = jsonparser.ParseInt(v)
+    case 2:
+      ret.FromUserName, _ = jsonparser.ParseString(v)
+    case 3:
+      ret.ToUserName, _ = jsonparser.ParseString(v)
+    case 4:
+      id, _ := jsonparser.ParseString(v)
+      if id != "" && ret.id == 0 {
+        ret.Id = id
+        ret.id, _ = strconv.ParseInt(id, 10, 64)
       }
+    case 5:
+      id, _ := jsonparser.ParseInt(v)
+      if id != 0 {
+        ret.Id = strconv.FormatInt(id, 10)
+        ret.id = id
+      }
+    case 6:
+      t, _ := jsonparser.ParseInt(v)
+      if t != 0 {
+        ret.Type = int(t)
+      }
+    case 7:
+      ret.Url, _ = jsonparser.ParseString(v)
     }
-  }
-  ret.FromUserName = conv.GetString(data, "FromUserName", "")
+  }, jsonKeyContent, jsonKeyCreateTime, jsonKeyFromUserName, jsonKeyToUserName, jsonKeyMsgId, jsonKeyNewMsgId, jsonKeyMsgType, jsonKeyUrl)
   if ret.FromUserName == "" && ret.Type == MsgVerify {
-    ret.FromUserName = conv.GetString(conv.GetMap(data, "RecommendInfo"), "UserName", "")
+    ret.FromUserName, _ = jsonparser.GetString(data, "RecommendInfo", "UserName")
   }
-  ret.ToUserName = conv.GetString(data, "ToUserName", "")
-  if bot != nil && bot.Contacts != nil {
-    if c := bot.Contacts.FindByUserName(ret.FromUserName); c != nil {
-      ret.FromUserID = c.ID
-    }
-    if c := bot.Contacts.FindByUserName(ret.ToUserName); c != nil {
-      ret.ToUserID = c.ID
-    }
+  if ret.createTime != 0 {
+    ret.CreateTime = time.Unix(ret.createTime, 0)
   }
   return ret
 }
@@ -188,32 +215,4 @@ func (msg *Message) ReplyVideo(data []byte, filename string) (string, error) {
     return "", ErrInvalidArgs
   }
   return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgVideo, sendVideoURL)
-}
-
-func (msg *Message) GetAttrString(attr string) string {
-  return conv.GetString(msg.Raw, attr, "")
-}
-
-func (msg *Message) GetAttrInt(attr string) int {
-  return conv.GetInt(msg.Raw, attr, 0)
-}
-
-func (msg *Message) GetAttrUint64(attr string) uint64 {
-  return conv.GetUint64(msg.Raw, attr, 0)
-}
-
-func (msg *Message) GetAttrBool(attr string) bool {
-  return conv.GetBool(msg.Raw, attr, false)
-}
-
-func (msg *Message) GetAttrBytes(attr string) []byte {
-  if v, ok := msg.Raw[attr]; ok {
-    switch ret := v.(type) {
-    case []byte:
-      return ret
-    case string:
-      return []byte(ret)
-    }
-  }
-  return nil
 }
