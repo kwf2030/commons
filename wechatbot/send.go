@@ -28,9 +28,7 @@ const (
 
 const dateTimeFormat = "Mon Jan 02 2006 15:04:05 GMT-0700（中国标准时间）"
 
-const chunk = 512 * 1024
-
-var jsonPathMediaId = "MediaId"
+const chunkSize = 512 * 1024
 
 func (r *req) SendText(toUserName, text string) ([]byte, error) {
   addr, _ := url.Parse(r.BaseUrl + sendTextUrlPath)
@@ -176,20 +174,20 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
 
   var mediaId string
   var err error
-  if l <= chunk {
+  if l <= chunkSize {
     info.data = data
     mediaId, err = r.uploadChunk(info)
   } else {
-    m := l / chunk
-    n := l % chunk
+    m := l / chunkSize
+    n := l % chunkSize
     if n == 0 {
       info.chunks = m
     } else {
       info.chunks = m + 1
     }
     for i := 0; i < m; i++ {
-      s := i * chunk
-      e := s + chunk
+      s := i * chunkSize
+      e := s + chunkSize
       info.chunk = i
       info.data = data[s:e]
       mediaId, err = r.uploadChunk(info)
@@ -247,7 +245,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   if e != nil {
     return "", e
   }
-  mediaId, _ := jsonparser.GetString(body, jsonPathMediaId)
+  mediaId, _ := jsonparser.GetString(body, "MediaId")
   return mediaId, nil
 }
 

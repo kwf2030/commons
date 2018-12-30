@@ -135,6 +135,14 @@ func FindContactByUserName(userName string) *Contact {
   return ret
 }
 
+func (c *Contact) withBot(bot *Bot) {
+  if bot == nil {
+    return
+  }
+  c.OwnerUin = bot.req.Uin
+  c.Bot = bot
+}
+
 func (c *Contact) SendText(text string) error {
   if text == "" {
     return ErrInvalidArgs

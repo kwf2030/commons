@@ -13,8 +13,6 @@ const contactListUrlPath = "/webwxgetcontact"
 
 const opContactList = 0x6001
 
-var jsonPathMemberList = "MemberList"
-
 type contactListReq struct {
   req *req
 }
@@ -66,7 +64,7 @@ func parseContactListResp(resp *http.Response) ([]*Contact, error) {
     if c != nil && c.UserName != "" {
       arr = append(arr, c)
     }
-  }, jsonPathMemberList)
+  }, "MemberList")
   if e == nil || e == jsonparser.KeyPathNotFoundError {
     return arr, nil
   }

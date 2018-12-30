@@ -3,7 +3,13 @@ package wechatbot
 import (
   "strconv"
 
-  "github.com/kwf2030/commons/conv"
+  "github.com/buger/jsonparser"
+)
+
+const (
+  jsonPathBaseResponse = "BaseResponse"
+  jsonPathRet          = "Ret"
+  jsonPathContactList  = "ContactList"
 )
 
 func (bot *Bot) DownloadQRCode(dst string) (string, error) {
@@ -48,14 +54,18 @@ func (bot *Bot) sendText(toUserName string, text string) error {
   if e != nil {
     return e
   }
-  if conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0 {
+  ret, e := jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  if e != nil {
+    return e
+  }
+  if ret != 0 {
     return ErrResp
   }
   return nil
 }
 
 func (bot *Bot) SendImageToUserID(id string, data []byte, filename string) (string, error) {
-  if len(data) == 0 || filename == "" {
+  if id == "" || len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -68,7 +78,7 @@ func (bot *Bot) SendImageToUserID(id string, data []byte, filename string) (stri
 }
 
 func (bot *Bot) SendImageToUserName(toUserName string, data []byte, filename string) (string, error) {
-  if len(data) == 0 || filename == "" {
+  if toUserName == "" || len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -81,7 +91,7 @@ func (bot *Bot) SendImageToUserName(toUserName string, data []byte, filename str
 }
 
 func (bot *Bot) SendVideoToUserID(id string, data []byte, filename string) (string, error) {
-  if len(data) == 0 || filename == "" {
+  if id == "" || len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -94,7 +104,7 @@ func (bot *Bot) SendVideoToUserID(id string, data []byte, filename string) (stri
 }
 
 func (bot *Bot) SendVideoToUserName(toUserName string, data []byte, filename string) (string, error) {
-  if len(data) == 0 || filename == "" {
+  if toUserName == "" || len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -121,14 +131,18 @@ func (bot *Bot) sendMedia(toUserName string, data []byte, filename string, msgTy
   if e != nil {
     return "", e
   }
-  if conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0 {
+  ret, e := jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  if e != nil {
+    return "", e
+  }
+  if ret != 0 {
     return "", ErrResp
   }
   return mediaID, nil
 }
 
 func (bot *Bot) ForwardImageToUserID(id, mediaID string) error {
-  if mediaID == "" {
+  if id == "" || mediaID == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -142,7 +156,7 @@ func (bot *Bot) ForwardImageToUserID(id, mediaID string) error {
 }
 
 func (bot *Bot) ForwardImageToUserName(toUserName, mediaID string) error {
-  if mediaID == "" {
+  if toUserName == "" || mediaID == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -156,7 +170,7 @@ func (bot *Bot) ForwardImageToUserName(toUserName, mediaID string) error {
 }
 
 func (bot *Bot) ForwardVideoToUserID(id, mediaID string) error {
-  if mediaID == "" {
+  if id == "" || mediaID == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -170,7 +184,7 @@ func (bot *Bot) ForwardVideoToUserID(id, mediaID string) error {
 }
 
 func (bot *Bot) ForwardVideoToUserName(toUserName, mediaID string) error {
-  if mediaID == "" {
+  if toUserName == "" || mediaID == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
@@ -184,48 +198,67 @@ func (bot *Bot) ForwardVideoToUserName(toUserName, mediaID string) error {
 }
 
 // VerifyAndRemark封装了Verify、GetContacts和Remark三个请求，
-// GetContact成功后会设置ID并添加到本地联系人中，
+// GetContact成功后会设置ID并添加到本地联系人中（如果开启持久化功能的话），
 // 之后再Remark，如果Remark失败，不会影响联系人数据，
 // 但是在下次微信登录后发现联系人没有Remark会再次Remark，ID可能会跟这次不一样
-func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (string, error) {
+func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
   if toUserName == "" || ticket == "" {
-    return "", ErrInvalidArgs
+    return nil, ErrInvalidArgs
   }
   resp, e := bot.req.Verify(toUserName, ticket)
   if e != nil {
-    return "", ErrReq
+    return nil, ErrReq
   }
-  if conv.GetInt(resp, "Ret", 0) != 0 {
-    return "", ErrResp
-  }
-
-  resp, e = bot.req.GetContacts([]string{toUserName})
+  ret, e := jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
   if e != nil {
-    return "", ErrReq
+    return nil, e
   }
-  if conv.GetInt(conv.GetMap(resp, "BaseResponse"), "Ret", 0) != 0 {
-    return "", ErrResp
-  }
-  arr := conv.GetMapSlice(resp, "ContactList")
-  if len(arr) <= 0 {
-    return "", ErrResp
-  }
-  c := mapToContact(arr[0], bot)
-
-  if !bot.Attr[AttrPersistentIDEnabled].(bool) {
-    bot.Contacts.Add(c)
-    return "", nil
+  if ret != 0 {
+    return nil, ErrResp
   }
 
-  id := strconv.FormatUint(bot.Contacts.nextID(), 10)
-  c.ID = id
-  bot.Contacts.Add(c)
-  resp, e = bot.req.Remark(toUserName, id)
+  resp, e = bot.req.GetContacts(toUserName)
   if e != nil {
-    return id, ErrReq
+    return nil, ErrReq
   }
-  if conv.GetInt(resp, "Ret", 0) != 0 {
-    return id, ErrResp
+  ret, e = jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  if e != nil {
+    return nil, e
   }
-  return id, nil
+  if ret != 0 {
+    return nil, ErrResp
+  }
+  var contact *Contact
+  _, _ = jsonparser.ArrayEach(resp, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
+      contact = c
+    }
+  }, jsonPathContactList)
+  // todo 给contact的字段赋值
+
+  if b, ok := bot.Attr.Load(attrIdEnabled); !ok || !b.(bool) {
+    bot.Contacts.Add(contact)
+    return contact, nil
+  }
+
+  id := bot.Contacts.nextID()
+  contact.id = id
+  contact.Id = strconv.FormatUint(id, 10)
+  bot.Contacts.Add(contact)
+  resp, e = bot.req.Remark(toUserName, contact.Id)
+  if e != nil {
+    return nil, ErrReq
+  }
+  ret, e = jsonparser.GetInt(resp, jsonPathRet)
+  if e != nil {
+    return nil, e
+  }
+  if ret != 0 {
+    return nil, ErrResp
+  }
+  return contact, nil
 }

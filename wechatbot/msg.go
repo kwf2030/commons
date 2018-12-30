@@ -182,6 +182,21 @@ func buildMessage(data []byte) *Message {
   return ret
 }
 
+func (msg *Message) withBot(bot *Bot) {
+  if bot == nil {
+    return
+  }
+  if c := bot.Contacts.FindByUserName(msg.FromUserName); c != nil {
+    msg.FromUserID = c.Id
+  }
+  if msg.ToUserName == bot.req.UserName {
+    msg.ToUserID = bot.Self.Id
+  } else if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
+    msg.ToUserID = c.Id
+  }
+  msg.Bot = bot
+}
+
 func (msg *Message) GetFromContact() *Contact {
   if msg.Bot == nil || msg.Bot.Contacts == nil {
     return nil
