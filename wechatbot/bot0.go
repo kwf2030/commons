@@ -6,12 +6,6 @@ import (
   "github.com/buger/jsonparser"
 )
 
-const (
-  jsonPathBaseResponse = "BaseResponse"
-  jsonPathRet          = "Ret"
-  jsonPathContactList  = "ContactList"
-)
-
 func (bot *Bot) DownloadQRCode(dst string) (string, error) {
   return bot.req.DownloadQRCode(dst)
 }
@@ -54,7 +48,7 @@ func (bot *Bot) sendText(toUserName string, text string) error {
   if e != nil {
     return e
   }
-  ret, e := jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  ret, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
   if e != nil {
     return e
   }
@@ -131,7 +125,7 @@ func (bot *Bot) sendMedia(toUserName string, data []byte, filename string, msgTy
   if e != nil {
     return "", e
   }
-  ret, e := jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  ret, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
   if e != nil {
     return "", e
   }
@@ -207,9 +201,9 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
   }
   resp, e := bot.req.Verify(toUserName, ticket)
   if e != nil {
-    return nil, ErrReq
+    return nil, e
   }
-  ret, e := jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  ret, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
   if e != nil {
     return nil, e
   }
@@ -219,46 +213,49 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
 
   resp, e = bot.req.GetContacts(toUserName)
   if e != nil {
-    return nil, ErrReq
+    return nil, e
   }
-  ret, e = jsonparser.GetInt(resp, jsonPathBaseResponse, jsonPathRet)
+  ret, e = jsonparser.GetInt(resp, "BaseResponse", "Ret")
   if e != nil {
     return nil, e
   }
   if ret != 0 {
     return nil, ErrResp
   }
-  var contact *Contact
+  var c *Contact
   _, _ = jsonparser.ArrayEach(resp, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
       return
     }
-    c := buildContact(v)
-    if c != nil && c.UserName != "" {
-      contact = c
+    cc := buildContact(v)
+    if cc != nil && cc.UserName != "" {
+      c = cc
     }
-  }, jsonPathContactList)
-  // todo 给contact的字段赋值
+  }, "ContactList")
+  if c == nil {
+    return nil, ErrResp
+  }
+  c.withBot(bot)
 
   if b, ok := bot.Attr.Load(attrIdEnabled); !ok || !b.(bool) {
-    bot.Contacts.Add(contact)
-    return contact, nil
+    bot.Contacts.Add(c)
+    return c, nil
   }
 
   id := bot.Contacts.nextID()
-  contact.id = id
-  contact.Id = strconv.FormatUint(id, 10)
-  bot.Contacts.Add(contact)
-  resp, e = bot.req.Remark(toUserName, contact.Id)
+  c.id = id
+  c.Id = strconv.FormatUint(id, 10)
+  bot.Contacts.Add(c)
+  resp, e = bot.req.Remark(toUserName, c.Id)
   if e != nil {
-    return nil, ErrReq
+    return c, e
   }
-  ret, e = jsonparser.GetInt(resp, jsonPathRet)
+  ret, e = jsonparser.GetInt(resp, "Ret")
   if e != nil {
-    return nil, e
+    return c, e
   }
   if ret != 0 {
     return nil, ErrResp
   }
-  return contact, nil
+  return c, nil
 }
