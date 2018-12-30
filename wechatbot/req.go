@@ -16,7 +16,7 @@ import (
 var (
   verifyUrlPath   = "/webwxverifyuser"
   remarkUrlPath   = "/webwxoplog"
-  signoutUrlPath  = "/webwxlogout"
+  signOutUrlPath  = "/webwxlogout"
   contactsUrlPath = "/webwxbatchgetcontact"
 )
 
@@ -174,7 +174,7 @@ func (r *req) GetContacts(userNames ...string) ([]byte, error) {
 }
 
 func (r *req) SignOut() ([]byte, error) {
-  addr, _ := url.Parse(r.BaseUrl + signoutUrlPath)
+  addr, _ := url.Parse(r.BaseUrl + signOutUrlPath)
   q := addr.Query()
   q.Set("redirect", "1")
   q.Set("type", "1")

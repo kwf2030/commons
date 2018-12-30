@@ -123,23 +123,21 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
   q.Set("f", "json")
   addr.RawQuery = q.Encode()
 
-  mt := "application/octet-stream"
+  mimeType := "application/octet-stream"
   i := strings.LastIndex(filename, ".")
   if i != -1 {
-    t := mime.TypeByExtension(filename[i:])
-    if t != "" {
-      mt = t
+    mt := mime.TypeByExtension(filename[i:])
+    if mt != "" {
+      mimeType = mt
     }
   }
 
-  var mt2 string
-  switch mt[:strings.Index(mt, "/")] {
+  mediaType := "doc"
+  switch mimeType[:strings.Index(mimeType, "/")] {
   case "image":
-    mt2 = "pic"
+    mediaType = "pic"
   case "video":
-    mt2 = "video"
-  default:
-    mt2 = "doc"
+    mediaType = "video"
   }
 
   hash := fmt.Sprintf("%x", md5.Sum(data))
@@ -156,15 +154,15 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
   m["FromUserName"] = r.UserName
   m["ToUserName"] = toUserName
   m["FileMd5"] = hash
-  req, _ := json.Marshal(m)
+  payload, _ := json.Marshal(m)
 
   info := &uploadInfo{
     addr:         addr.String(),
     filename:     filename,
     md5:          hash,
-    mime:         mt,
-    mediaType:    mt2,
-    req:          string(req),
+    mimeType:     mimeType,
+    mediaType:    mediaType,
+    payload:      string(payload),
     fromUserName: r.UserName,
     toUserName:   toUserName,
     dataTicket:   r.cookie("webwx_data_ticket"),
@@ -199,7 +197,7 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
         break
       }
     }
-    if err == nil && n != 0 {
+    if n != 0 && err == nil {
       info.chunk++
       info.data = data[l-n:]
       mediaId, err = r.uploadChunk(info)
@@ -211,9 +209,10 @@ func (r *req) UploadMedia(toUserName string, data []byte, filename string) (stri
 func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   var buf bytes.Buffer
   w := multipart.NewWriter(&buf)
+  defer w.Close()
   w.WriteField("id", fmt.Sprintf("WU_FILE_%d", info.wuFile))
   w.WriteField("name", info.filename)
-  w.WriteField("type", info.mime)
+  w.WriteField("type", info.mimeType)
   w.WriteField("lastModifiedDate", times.Now().Add(time.Hour * -24).Format(dateTimeFormat))
   w.WriteField("size", strconv.Itoa(info.totalLen))
   if info.chunks > 0 {
@@ -221,7 +220,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
     w.WriteField("chunk", strconv.Itoa(info.chunk))
   }
   w.WriteField("mediatype", info.mediaType)
-  w.WriteField("uploadmediarequest", info.req)
+  w.WriteField("uploadmediarequest", info.payload)
   w.WriteField("webwx_data_ticket", info.dataTicket)
   w.WriteField("pass_ticket", r.PassTicket)
   fw, e := w.CreateFormFile("filename", info.filename)
@@ -231,7 +230,6 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   if _, e = fw.Write(info.data); e != nil {
     return "", e
   }
-  w.Close()
 
   req, _ := http.NewRequest("POST", info.addr, &buf)
   req.Header.Set("Referer", r.Referer)
@@ -257,9 +255,9 @@ type uploadInfo struct {
   addr         string
   filename     string
   md5          string
-  mime         string
+  mimeType     string
   mediaType    string
-  req          string
+  payload      string
   fromUserName string
   toUserName   string
   dataTicket   string
