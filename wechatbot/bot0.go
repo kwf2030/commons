@@ -227,9 +227,9 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
     if e != nil {
       return
     }
-    cc := buildContact(v)
-    if cc != nil && cc.UserName != "" {
-      c = cc
+    contact := buildContact(v)
+    if contact != nil && contact.UserName != "" {
+      c = contact
     }
   }, "ContactList")
   if c == nil {
@@ -242,11 +242,9 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
     return c, nil
   }
 
-  id := bot.Contacts.nextID()
-  c.id = id
-  c.Id = strconv.FormatUint(id, 10)
+  c.Id = strconv.FormatUint(bot.Contacts.nextID(), 10)
   bot.Contacts.Add(c)
-  resp, e = bot.req.Remark(toUserName, c.Id)
+  resp, e = bot.req.Remark(c.UserName, c.Id)
   if e != nil {
     return c, e
   }
