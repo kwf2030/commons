@@ -52,7 +52,6 @@ type Contact struct {
 
   Attr *sync.Map `json:"attr,omitempty"`
 
-  id uint64
   Id string `json:"id,omitempty"`
 
   // Type是VerifyFlag解析后的值
@@ -88,12 +87,8 @@ func buildContact(data []byte) *Contact {
       }
     }
   }, jsonPathNickName, jsonPathRemarkName, jsonPathUserName, jsonPathVerifyFlag)
-  if ret.RemarkName != "" {
-    id := getIdByRemarkName(ret.RemarkName)
-    if id != 0 {
-      ret.id = id
-      ret.Id = ret.RemarkName
-    }
+  if getIdByRemarkName(ret.RemarkName) != 0 {
+    ret.Id = ret.RemarkName
   }
   switch ret.VerifyFlag {
   case 0:

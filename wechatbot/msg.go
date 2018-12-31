@@ -1,10 +1,8 @@
 package wechatbot
 
 import (
-  "strconv"
-  "time"
-
   "github.com/buger/jsonparser"
+  "strconv"
 )
 
 const (
@@ -117,16 +115,13 @@ var (
 
 type Message struct {
   Content      string `json:"content,omitempty"`
-  createTime   int64
+  CreateTime   int64  `json:"create_time"`
   FromUserName string `json:"from_user_name,omitempty"`
   ToUserName   string `json:"to_user_name,omitempty"`
   Id           string `json:"id,omitempty"`
-  id           int64
   Type         int    `json:"type"`
   Url          string `json:"url,omitempty"`
   Raw          []byte `json:"raw,omitempty"`
-
-  CreateTime time.Time `json:"create_time,omitempty"`
 
   // todo FromUserID/ToUserID/Bot需要在初始化消息的时候赋值
   FromUserID string `json:"from_user_id,omitempty"`
@@ -147,22 +142,20 @@ func buildMessage(data []byte) *Message {
     case 0:
       ret.Content, _ = jsonparser.ParseString(v)
     case 1:
-      ret.createTime, _ = jsonparser.ParseInt(v)
+      ret.CreateTime, _ = jsonparser.ParseInt(v)
     case 2:
       ret.FromUserName, _ = jsonparser.ParseString(v)
     case 3:
       ret.ToUserName, _ = jsonparser.ParseString(v)
     case 4:
       id, _ := jsonparser.ParseString(v)
-      if id != "" && ret.id == 0 {
+      if id != "" && ret.Id == "" {
         ret.Id = id
-        ret.id, _ = strconv.ParseInt(id, 10, 64)
       }
     case 5:
       id, _ := jsonparser.ParseInt(v)
       if id != 0 {
         ret.Id = strconv.FormatInt(id, 10)
-        ret.id = id
       }
     case 6:
       t, _ := jsonparser.ParseInt(v)
@@ -175,9 +168,6 @@ func buildMessage(data []byte) *Message {
   }, jsonPathContent, jsonPathCreateTime, jsonPathFromUserName, jsonPathToUserName, jsonPathMsgId, jsonPathNewMsgId, jsonPathMsgType, jsonPathUrl)
   if ret.FromUserName == "" && ret.Type == MsgVerify {
     ret.FromUserName, _ = jsonparser.GetString(data, "RecommendInfo", "UserName")
-  }
-  if ret.createTime != 0 {
-    ret.CreateTime = time.Unix(ret.createTime, 0)
   }
   return ret
 }

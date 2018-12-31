@@ -27,11 +27,11 @@ type Flow struct {
 
   result chan interface{}
 
-  sync.Mutex
+  *sync.Mutex
 }
 
 func NewFlow(timeout time.Duration) *Flow {
-  f := &Flow{timeout: timeout, steps: list.New(), result: make(chan interface{})}
+  f := &Flow{timeout: timeout, steps: list.New(), result: make(chan interface{}), Mutex: &sync.Mutex{}}
   f.head = &headStep{Name: strconv.Itoa(rnd.Int()), Flow: f}
   f.head.ele = f.steps.PushFront(f.head)
   f.tail = &tailStep{Name: strconv.Itoa(rnd.Int()), Flow: f}
