@@ -4,10 +4,6 @@ import (
   "strconv"
   "strings"
   "sync"
-  "time"
-
-  "github.com/kwf2030/commons/conv"
-  "github.com/kwf2030/commons/times"
 )
 
 const (
@@ -17,32 +13,33 @@ const (
   idSelfOffset    = uint64(1E6)
 )
 
-// UserName=>ID
-// 表示一些内置账号的ID的偏移量
-var internalIDs = map[string]uint64{
+// 表示一些内置账号的Id的偏移量，
+// UserName=>Id
+var internalIds = map[string]uint64{
   "weixin":     1,
   "filehelper": 2,
   "fmessage":   3,
 }
 
 type Contacts struct {
-  Bot *Bot
+  mu *sync.RWMutex
 
   // UserName=>*Contact
-  contacts sync.Map
+  userNameMap map[string]*Contact
+  // Id=>*Contact
+  idMap map[string]*Contact
 
-  // ID=>UserName
-  userNames sync.Map
+  // 当前所有联系人最大的id，用于生成下一次的联系人id，
+  // 每次启动时会遍历所有id，找出最大的赋值给maxId，
+  // 后面若要再生成Id，用此值自增转为string即可
+  maxId uint64
 
-  // 当前所有联系人最大的ID，用于生成下一次的联系人ID，
-  // 每次启动时会遍历所有ID，找出最大的赋值给maxID，
-  // 后面若要再生成ID，用此值自增转为string即可
-  maxID uint64
-
-  mu sync.Mutex
+  Bot *Bot
 }
 
-func initContacts(data []*Contact, bot *Bot) *Contacts {
+/*func initContacts(data []*Contact, bot *Bot) *Contacts {
+  m := map[int]string{}
+  m[2] = "22"
   ret := &Contacts{
     Bot:       bot,
     contacts:  sync.Map{},
@@ -123,82 +120,82 @@ func initContacts(data []*Contact, bot *Bot) *Contacts {
     bot.Self.ID = strconv.FormatUint(initial+idSelfOffset, 10)
   }
   return ret
-}
+}*/
 
-func (c *Contacts) Add(contact *Contact) {
-  if contact == nil {
+func (cs *Contacts) Add(c *Contact) {
+  if c == nil {
     return
   }
-  if v, ok := c.contacts.Load(contact.UserName); ok {
-    if o, ok := v.(*Contact); ok {
-      c.contacts.Delete(o.UserName)
-      c.userNames.Delete(o.ID)
-      if contact.ID == "" {
-        contact.ID = o.ID
-      }
+  cs.mu.Lock()
+  defer cs.mu.Unlock()
+  if v, ok := cs.userNameMap[c.UserName]; ok {
+    delete(cs.userNameMap, v.UserName)
+    delete(cs.idMap, v.Id)
+    if c.Id == "" {
+      c.Id = v.Id
     }
   }
-  c.contacts.Store(contact.UserName, contact)
-  if contact.ID != "" {
-    c.userNames.Store(contact.ID, contact.UserName)
+  cs.userNameMap[c.UserName] = c
+  if c.Id != "" {
+    cs.idMap[c.Id] = c
   }
 }
 
-func (c *Contacts) Remove(userName string) {
+func (cs *Contacts) Remove(userName string) {
   if userName == "" {
     return
   }
-  if v, ok := c.contacts.Load(userName); ok {
-    c.contacts.Delete(userName)
-    if vv, ok := v.(*Contact); ok {
-      c.userNames.Delete(vv.ID)
+  cs.mu.Lock()
+  defer cs.mu.Unlock()
+  if v, ok := cs.userNameMap[userName]; ok {
+    delete(cs.userNameMap, userName)
+    if v.Id != "" {
+      delete(cs.idMap, v.Id)
     }
   }
 }
 
-func (c *Contacts) Count() int {
+func (cs *Contacts) Count() int {
   ret := 0
-  c.Each(func(*Contact) bool {
+  cs.Each(func(*Contact) bool {
     ret++
     return true
   })
   return ret
 }
 
-func (c *Contacts) FindByID(id string) *Contact {
+func (cs *Contacts) FindByID(id string) *Contact {
   if id == "" {
     return nil
   }
-  if userName, ok := c.userNames.Load(id); ok {
-    if v, ok := c.contacts.Load(userName); ok {
-      if ret, ok := v.(*Contact); ok {
-        return ret
-      }
-    }
+  cs.mu.RLock()
+  defer cs.mu.RUnlock()
+  if v, ok := cs.idMap[id]; ok {
+    return v
   }
   return nil
 }
 
-func (c *Contacts) FindByUserName(userName string) *Contact {
+func (cs *Contacts) FindByUserName(userName string) *Contact {
   if userName == "" {
     return nil
   }
-  if v, ok := c.contacts.Load(userName); ok {
-    if ret, ok := v.(*Contact); ok {
-      return ret
-    }
+  cs.mu.RLock()
+  defer cs.mu.RUnlock()
+  if v, ok := cs.userNameMap[userName]; ok {
+    return v
   }
   return nil
 }
 
-func (c *Contacts) FindByNickName(nickName string) *Contact {
+func (cs *Contacts) FindByNickName(nickName string) *Contact {
   if nickName == "" {
     return nil
   }
   var ret *Contact
-  c.Each(func(cc *Contact) bool {
-    if nickName == cc.Nickname {
-      ret = cc
+  cs.Each(func(c *Contact) bool {
+    if nickName == c.NickName {
+      ret = c
       return false
     }
     return true
@@ -206,66 +203,66 @@ func (c *Contacts) FindByNickName(nickName string) *Contact {
   return ret
 }
 
-// FindByKeyword根据NickName/拼音查找联系人
-func (c *Contacts) FindByKeyword(keyword string) []*Contact {
-  if keyword == "" {
+// 根据Id/NickName关键字（3个字符及以上）模糊查找联系人
+func (cs *Contacts) FindByKeyword(keyword string) []*Contact {
+  if len(keyword) < 3 {
     return nil
   }
-  ret := make([]*Contact, 0, 1)
-  var py1, py2 string
-  c.Each(func(cc *Contact) bool {
-    py1 = conv.GetString(cc.Raw, "PYInitial", "")
-    py2 = conv.GetString(cc.Raw, "PYQuanPin", "")
-    if strings.Contains(cc.Nickname, keyword) {
-      ret = append(ret, cc)
+  ret := make([]*Contact, 0, 10)
+  cs.Each(func(c *Contact) bool {
+    if strings.Contains(c.Id, keyword) {
+      ret = append(ret, c)
       return true
     }
-    if py1 != "" && strings.Contains(py1, keyword) {
-      ret = append(ret, cc)
-      return true
-    }
-    if py2 != "" && strings.Contains(py2, keyword) {
-      ret = append(ret, cc)
+    if strings.Contains(c.NickName, keyword) {
+      ret = append(ret, c)
       return true
     }
     return true
   })
+  if len(ret) == 0 {
+    return nil
+  }
   return ret
 }
 
-// Each遍历所有联系人，action返回false表示终止遍历
-func (c *Contacts) Each(action func(cc *Contact) bool) {
-  c.contacts.Range(func(k, v interface{}) bool {
-    if vv, ok := v.(*Contact); ok {
-      return action(vv)
+// 遍历所有联系人，action返回false表示终止遍历
+func (cs *Contacts) Each(action func(*Contact) bool) {
+  cs.mu.RLock()
+  defer cs.mu.RUnlock()
+  for _, v := range cs.userNameMap {
+    if !action(v) {
+      break
     }
-    return true
-  })
-}
-
-func (c *Contacts) nextID() uint64 {
-  c.mu.Lock()
-  c.maxID++
-  c.mu.Unlock()
-  return c.maxID
-}
-
-func (c *Contacts) initialID() uint64 {
-  if v, ok := c.Bot.Attr[attrInitialID]; ok {
-    return v.(uint64)
   }
-  str := strconv.FormatUint(c.maxID, 10)
+}
+
+func (cs *Contacts) nextID() uint64 {
+  cs.mu.Lock()
+  cs.maxId++
+  cs.mu.Unlock()
+  return cs.maxId
+}
+
+func (cs *Contacts) initialID() uint64 {
+  if id, ok := cs.Bot.Attr.Load(attrInitialId); ok {
+    return id.(uint64)
+  }
+  str := strconv.FormatUint(cs.maxId, 10)
   str = str[:len(str)-4]
   ret, _ := strconv.ParseUint(str, 10, 64)
   ret *= 10000
-  c.Bot.Attr[attrInitialID] = ret
+  cs.Bot.Attr.Store(attrInitialId, ret)
   return ret
 }
 
 func getIdByRemarkName(remarkName string) uint64 {
-  ret, e := strconv.ParseUint(remarkName, 10, 64)
-  if e == nil && ret > idInitial+idGeneralOffset {
-    return ret
+  if remarkName == "" {
+    return 0
   }
-  return 0
+  ret, e := strconv.ParseUint(remarkName, 10, 64)
+  if e != nil || ret <= idInitial+idGeneralOffset {
+    return 0
+  }
+  return ret
 }
