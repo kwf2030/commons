@@ -51,7 +51,7 @@ func (r *initReq) Run(s *flow.Step) {
   r.req.SyncKeys = sk.(*syncKeys)
   c.Attr.Delete("SyncKeys")
   r.req.UserName = c.UserName
-  // todo 给Bot.Self赋值，Bot.Self需要的session信息保存到Contact.Attr中（Contact没有对应字段的话）
+  // todo 给Bot.Self赋值，Bot.Self需要的session信息保存到Contact.Attr中（Contact没有对应字段的话），Self.Id需要Contacts初始化完成之后才能计算出来
   r.req.op <- &op{what: opInit, contact: c}
   s.Complete(nil)
 }
