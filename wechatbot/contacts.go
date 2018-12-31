@@ -96,8 +96,11 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
     if c.Type != ContactGroup {
       continue
     }
-    // todo 群没有备注，默认用MaxID自增作为ID，然后用该ID和群名称建立对应关系来解决持久化问题，
-    // todo 若群改名，会收到消息，需要在接收消息的地方处理
+    // todo 群聊Id方案
+    // 群没有备注，默认用MaxID自增作为ID，然后用该ID和群名称建立对应关系来解决持久化问题，
+    // 若群改名，会收到消息，需要在接收消息的地方处理
+    ret.userNameMap[c.UserName] = c
+    //ret.idMap[c.Id] = c
   }
   // 第4次循环，处理其他类型的联系人，
   // 这类联系人没有Id，只能通过UserName/NickName或关键字查找，
