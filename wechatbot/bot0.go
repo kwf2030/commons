@@ -14,14 +14,14 @@ func (bot *Bot) DownloadAvatar(dst string) (string, error) {
   return bot.req.DownloadAvatar(dst)
 }
 
-func (bot *Bot) SendTextToUserID(id string, text string) error {
+func (bot *Bot) SendTextToUserId(id string, text string) error {
   if text == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return ErrInvalidState
   }
-  if c := bot.Contacts.FindByID(id); c != nil {
+  if c := bot.Contacts.FindById(id); c != nil {
     return bot.sendText(c.UserName, text)
   }
   return ErrContactNotFound
@@ -58,14 +58,14 @@ func (bot *Bot) sendText(toUserName string, text string) error {
   return nil
 }
 
-func (bot *Bot) SendImageToUserID(id string, data []byte, filename string) (string, error) {
+func (bot *Bot) SendImageToUserId(id string, data []byte, filename string) (string, error) {
   if id == "" || len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return "", ErrInvalidState
   }
-  if c := bot.Contacts.FindByID(id); c != nil {
+  if c := bot.Contacts.FindById(id); c != nil {
     return bot.sendMedia(c.UserName, data, filename, MsgImage, sendImageUrlPath)
   }
   return "", ErrContactNotFound
@@ -84,14 +84,14 @@ func (bot *Bot) SendImageToUserName(toUserName string, data []byte, filename str
   return "", ErrContactNotFound
 }
 
-func (bot *Bot) SendVideoToUserID(id string, data []byte, filename string) (string, error) {
+func (bot *Bot) SendVideoToUserId(id string, data []byte, filename string) (string, error) {
   if id == "" || len(data) == 0 || filename == "" {
     return "", ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return "", ErrInvalidState
   }
-  if c := bot.Contacts.FindByID(id); c != nil {
+  if c := bot.Contacts.FindById(id); c != nil {
     return bot.sendMedia(c.UserName, data, filename, MsgVideo, sendVideoUrlPath)
   }
   return "", ErrContactNotFound
@@ -114,14 +114,14 @@ func (bot *Bot) sendMedia(toUserName string, data []byte, filename string, msgTy
   if bot.req == nil {
     return "", ErrInvalidState
   }
-  mediaID, e := bot.req.UploadMedia(toUserName, data, filename)
+  mediaId, e := bot.req.UploadMedia(toUserName, data, filename)
   if e != nil {
     return "", e
   }
-  if mediaID == "" {
+  if mediaId == "" {
     return "", ErrResp
   }
-  resp, e := bot.req.SendMedia(toUserName, mediaID, msgType, sendUrlPath)
+  resp, e := bot.req.SendMedia(toUserName, mediaId, msgType, sendUrlPath)
   if e != nil {
     return "", e
   }
@@ -132,69 +132,69 @@ func (bot *Bot) sendMedia(toUserName string, data []byte, filename string, msgTy
   if ret != 0 {
     return "", ErrResp
   }
-  return mediaID, nil
+  return mediaId, nil
 }
 
-func (bot *Bot) ForwardImageToUserID(id, mediaID string) error {
-  if id == "" || mediaID == "" {
+func (bot *Bot) ForwardImageToUserId(id, mediaId string) error {
+  if id == "" || mediaId == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return ErrInvalidState
   }
-  if c := bot.Contacts.FindByID(id); c != nil {
-    _, e := bot.req.SendMedia(c.UserName, mediaID, MsgImage, sendImageUrlPath)
+  if c := bot.Contacts.FindById(id); c != nil {
+    _, e := bot.req.SendMedia(c.UserName, mediaId, MsgImage, sendImageUrlPath)
     return e
   }
   return ErrContactNotFound
 }
 
-func (bot *Bot) ForwardImageToUserName(toUserName, mediaID string) error {
-  if toUserName == "" || mediaID == "" {
+func (bot *Bot) ForwardImageToUserName(toUserName, mediaId string) error {
+  if toUserName == "" || mediaId == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return ErrInvalidState
   }
   if c := bot.Contacts.FindByUserName(toUserName); c != nil {
-    _, e := bot.req.SendMedia(c.UserName, mediaID, MsgImage, sendImageUrlPath)
+    _, e := bot.req.SendMedia(c.UserName, mediaId, MsgImage, sendImageUrlPath)
     return e
   }
   return ErrContactNotFound
 }
 
-func (bot *Bot) ForwardVideoToUserID(id, mediaID string) error {
-  if id == "" || mediaID == "" {
+func (bot *Bot) ForwardVideoToUserId(id, mediaId string) error {
+  if id == "" || mediaId == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return ErrInvalidState
   }
-  if c := bot.Contacts.FindByID(id); c != nil {
-    _, e := bot.req.SendMedia(c.UserName, mediaID, MsgVideo, sendVideoUrlPath)
+  if c := bot.Contacts.FindById(id); c != nil {
+    _, e := bot.req.SendMedia(c.UserName, mediaId, MsgVideo, sendVideoUrlPath)
     return e
   }
   return ErrContactNotFound
 }
 
-func (bot *Bot) ForwardVideoToUserName(toUserName, mediaID string) error {
-  if toUserName == "" || mediaID == "" {
+func (bot *Bot) ForwardVideoToUserName(toUserName, mediaId string) error {
+  if toUserName == "" || mediaId == "" {
     return ErrInvalidArgs
   }
   if bot.Contacts == nil {
     return ErrInvalidState
   }
   if c := bot.Contacts.FindByUserName(toUserName); c != nil {
-    _, e := bot.req.SendMedia(c.UserName, mediaID, MsgVideo, sendVideoUrlPath)
+    _, e := bot.req.SendMedia(c.UserName, mediaId, MsgVideo, sendVideoUrlPath)
     return e
   }
   return ErrContactNotFound
 }
 
 // VerifyAndRemark封装了Verify、GetContacts和Remark三个请求，
-// GetContact成功后会设置ID并添加到本地联系人中（如果开启持久化功能的话），
+// GetContact成功后会设置Id并添加到本地联系人中（如果开启持久化功能的话），
 // 之后再Remark，如果Remark失败，不会影响联系人数据，
-// 但是在下次微信登录后发现联系人没有Remark会再次Remark，ID可能会跟这次不一样
+// 但是在下次微信登录后发现联系人没有Remark会再次Remark，Id可能会跟这次不一样
 func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
   if toUserName == "" || ticket == "" {
     return nil, ErrInvalidArgs
@@ -242,7 +242,7 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
     return c, nil
   }
 
-  c.Id = strconv.FormatUint(bot.Contacts.nextID(), 10)
+  c.Id = strconv.FormatUint(bot.Contacts.nextId(), 10)
   bot.Contacts.Add(c)
   resp, e = bot.req.Remark(c.UserName, c.Id)
   if e != nil {

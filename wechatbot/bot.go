@@ -535,7 +535,7 @@ type session struct {
   RedirectUrl   string
   Uin           int64
   Sid           string
-  Skey          string
+  SKey          string
   PassTicket    string
   BaseReq       *baseReq
   UserName      string
@@ -564,7 +564,7 @@ func (s *session) reset() {
   s.WuFile = 0
 }
 
-func deviceID() string {
+func deviceId() string {
   return "e" + timestampStringL(15)
 }
 

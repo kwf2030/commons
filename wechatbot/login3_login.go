@@ -28,9 +28,9 @@ func (r *loginReq) Run(s *flow.Step) {
   }
   r.req.Uin = login.WXUin
   r.req.Sid = login.WXSid
-  r.req.Skey = login.SKey
+  r.req.SKey = login.SKey
   r.req.PassTicket = login.PassTicket
-  r.req.BaseReq = &baseReq{login.WXUin, login.WXSid, login.SKey, deviceID()}
+  r.req.BaseReq = &baseReq{login.WXUin, login.WXSid, login.SKey, deviceId()}
   r.selectBaseUrl()
   r.req.op <- &op{what: opLogin}
   s.Complete(nil)
@@ -98,5 +98,5 @@ type baseReq struct {
   Uin      int64  `json:"Uin"`
   Sid      string `json:"Sid"`
   Skey     string `json:"Skey"`
-  DeviceID string `json:"DeviceID"`
+  DeviceId string `json:"DeviceID"`
 }

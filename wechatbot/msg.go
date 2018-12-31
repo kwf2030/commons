@@ -124,8 +124,8 @@ type Message struct {
   Raw          []byte `json:"raw,omitempty"`
 
   // todo FromUserID/ToUserID/Bot需要在初始化消息的时候赋值
-  FromUserID string `json:"from_user_id,omitempty"`
-  ToUserID   string `json:"to_user_id,omitempty"`
+  FromUserId string `json:"from_user_id,omitempty"`
+  ToUserId   string `json:"to_user_id,omitempty"`
   Bot        *Bot   `json:"-"`
 }
 
@@ -177,12 +177,12 @@ func (msg *Message) withBot(bot *Bot) {
     return
   }
   if c := bot.Contacts.FindByUserName(msg.FromUserName); c != nil {
-    msg.FromUserID = c.Id
+    msg.FromUserId = c.Id
   }
   if msg.ToUserName == bot.req.UserName {
-    msg.ToUserID = bot.Self.Id
+    msg.ToUserId = bot.Self.Id
   } else if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
-    msg.ToUserID = c.Id
+    msg.ToUserId = c.Id
   }
   msg.Bot = bot
 }

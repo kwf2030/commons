@@ -31,7 +31,7 @@ func (r *contactListReq) Run(s *flow.Step) {
 func (r *contactListReq) do() ([]*Contact, error) {
   addr, _ := url.Parse(r.req.BaseUrl + contactListUrlPath)
   q := addr.Query()
-  q.Set("skey", r.req.Skey)
+  q.Set("skey", r.req.SKey)
   q.Set("pass_ticket", r.req.PassTicket)
   q.Set("r", timestampString13())
   q.Set("seq", "0")

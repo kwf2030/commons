@@ -74,7 +74,7 @@ func (r *req) Verify(toUserName, ticket string) ([]byte, error) {
   addr.RawQuery = q.Encode()
   m := make(map[string]interface{}, 8)
   m["BaseRequest"] = r.BaseReq
-  m["skey"] = r.Skey
+  m["skey"] = r.SKey
   m["Opcode"] = 3
   m["SceneListCount"] = 1
   m["SceneList"] = []int{33}
@@ -178,7 +178,7 @@ func (r *req) SignOut() ([]byte, error) {
   q := addr.Query()
   q.Set("redirect", "1")
   q.Set("type", "1")
-  q.Set("skey", r.Skey)
+  q.Set("skey", r.SKey)
   addr.RawQuery = q.Encode()
   form := url.Values{}
   form.Set("sid", r.Sid)

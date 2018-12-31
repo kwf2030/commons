@@ -20,7 +20,7 @@ type Result map[string]interface{}
 
 // 请求/响应/事件通知
 type Message struct {
-  // 请求的ID，响应中会带有相同的ID，每次请求Tab.lastMessageId自增后赋值给Message.Id，
+  // 请求的Id，响应中会带有相同的Id，每次请求Tab.lastMessageId自增后赋值给Message.Id，
   // 事件通知没有该字段
   Id int32 `json:"id,omitempty"`
 

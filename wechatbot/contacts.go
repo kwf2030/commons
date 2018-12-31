@@ -164,7 +164,7 @@ func (cs *Contacts) Count() int {
   return ret
 }
 
-func (cs *Contacts) FindByID(id string) *Contact {
+func (cs *Contacts) FindById(id string) *Contact {
   if id == "" {
     return nil
   }
@@ -237,14 +237,14 @@ func (cs *Contacts) Each(action func(*Contact) bool) {
   }
 }
 
-func (cs *Contacts) nextID() uint64 {
+func (cs *Contacts) nextId() uint64 {
   cs.mu.Lock()
   cs.maxId++
   cs.mu.Unlock()
   return cs.maxId
 }
 
-func (cs *Contacts) initialID() uint64 {
+func (cs *Contacts) initialId() uint64 {
   if id, ok := cs.Bot.Attr.Load(attrInitialId); ok {
     return id.(uint64)
   }
