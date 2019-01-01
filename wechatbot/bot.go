@@ -189,7 +189,7 @@ func FindBotByUUID(uuid string) *Bot {
   return ret
 }
 
-func FindBotByUin(uin int) *Bot {
+func FindBotByUin(uin int64) *Bot {
   var ret *Bot
   eachBot(func(b *Bot) bool {
     if b.req != nil && b.req.Uin == uin {
@@ -255,7 +255,7 @@ func (bot *Bot) Start() <-chan *Event {
 
     bot.StartTime = times.Now()
     bot.req.State = StateRunning
-    bots.Store(bot.Self.Uin, bot)
+    bots.Store(bot.req.Uin, bot)
     bot.evt <- &Event{Type: EventSignInSuccess}
   }()
   return bot.evt
@@ -316,7 +316,7 @@ func (bot *Bot) GetAttrBytes(attr string) []byte {
 }
 
 func (bot *Bot) updatePaths() {
-  uin := strconv.Itoa(bot.Self.Uin)
+  uin := strconv.FormatInt(bot.req.Uin, 10)
   dir := path.Join(rootDir, uin, times.NowStrf(times.DateFormat))
   e := os.MkdirAll(dir, os.ModePerm)
   if e != nil {
@@ -352,7 +352,7 @@ func (bot *Bot) updatePaths() {
 
 func (bot *Bot) dispatch() {
   for op := range bot.op {
-    evt := &Event{}
+    //evt := &Event{}
 
     switch op.what {
     case 1:
@@ -437,7 +437,7 @@ func (bot *Bot) dispatch() {
 func (bot *Bot) Stop() {
   bot.StopTime = times.Now()
   bot.req.State = StateStopped
-  bot.req.Logout()
+  bot.req.SignOut()
 }
 
 func (bot *Bot) Release() {
@@ -457,6 +457,9 @@ type op struct {
   contact  *Contact
   contacts []*Contact
   msg      *Message
+
+  syncCheckCode     int
+  syncCheckSelector int
 }
 
 type Event struct {
@@ -556,7 +559,7 @@ func (s *session) reset() {
   s.BaseReq = nil
   s.Uin = 0
   s.Sid = ""
-  s.Skey = ""
+  s.SKey = ""
   s.PassTicket = ""
   s.UserName = ""
   s.AvatarUrl = ""
