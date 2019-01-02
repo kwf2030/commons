@@ -185,11 +185,11 @@ func (cs *Contacts) FindByKeyword(keyword string) []*Contact {
   }
   ret := make([]*Contact, 0, 10)
   cs.Each(func(c *Contact) bool {
-    if strings.Contains(c.Id, keyword) {
+    if c.Id != "" && strings.Contains(c.Id, keyword) {
       ret = append(ret, c)
       return true
     }
-    if strings.Contains(c.NickName, keyword) {
+    if c.NickName != "" && strings.Contains(c.NickName, keyword) {
       ret = append(ret, c)
       return true
     }
