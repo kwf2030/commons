@@ -374,7 +374,7 @@ func (bot *Bot) dispatch() {
       evt.Type = EventMsg
       evt.Msg = op.msg
     case opModContact:
-      if c := bot.Contacts.FindByUserName(op.contact.UserName); c == nil {
+      /*if c := bot.Contacts.FindByUserName(op.contact.UserName); c == nil {
 
       } else {
         op.contact.Id = c.Id
@@ -393,7 +393,7 @@ func (bot *Bot) dispatch() {
 
         }
       }
-      bot.Contacts.Add(op.contact)
+      bot.Contacts.Add(op.contact)*/
     case opDelContact:
       evt.Type = EventContactDel
       evt.Contact = op.contact
