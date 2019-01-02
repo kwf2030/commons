@@ -179,9 +179,7 @@ func (msg *Message) withBot(bot *Bot) {
   if c := bot.Contacts.FindByUserName(msg.FromUserName); c != nil {
     msg.FromUserId = c.Id
   }
-  if msg.ToUserName == bot.req.UserName {
-    msg.ToUserId = bot.Self.Id
-  } else if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
+  if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
     msg.ToUserId = c.Id
   }
   msg.Bot = bot
