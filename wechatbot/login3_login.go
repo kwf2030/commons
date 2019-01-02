@@ -32,7 +32,7 @@ func (r *loginReq) Run(s *flow.Step) {
   r.req.PassTicket = login.PassTicket
   r.req.BaseReq = &baseReq{login.WXUin, login.WXSid, login.SKey, deviceId()}
   r.selectBaseUrl()
-  r.req.op <- &op{what: opLogin}
+  r.req.bot.op <- &op{what: opLogin}
   s.Complete(nil)
 }
 

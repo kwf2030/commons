@@ -37,7 +37,7 @@ func (r *scanStateReq) Run(s *flow.Step) {
     return
   }
   r.req.RedirectUrl = redirectUrl
-  r.req.op <- &op{what: opScanState}
+  r.req.bot.op <- &op{what: opScanState}
   s.Complete(nil)
 }
 

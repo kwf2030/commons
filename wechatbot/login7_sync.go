@@ -53,7 +53,7 @@ func (r *syncReq) Run(s *flow.Step) {
   go r.syncCheck(ch, syncCheckChan, syncChan)
   go r.sync(ch, syncCheckChan, syncChan)
   syncCheckChan <- struct{}{}
-  r.req.op <- &op{what: opSync}
+  r.req.bot.op <- &op{what: opSync}
   s.Complete(nil)
 }
 
@@ -82,8 +82,8 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
     }
     if code != 0 {
       ch <- -1
-      r.req.op <- &op{what: opExit, syncCheckCode: code, syncCheckSelector: selector}
-      close(r.req.op)
+      r.req.bot.op <- &op{what: opExit, syncCheckCode: code, syncCheckSelector: selector}
+      close(r.req.bot.op)
       break
     }
     if selector == 0 {
@@ -156,21 +156,21 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
           }
         }
       case 1:
-        modContactList = parseModContact(v)
+        modContactList = parseContact(v)
       case 2:
-        delContactList = parseDelContact(v)
+        delContactList = parseContact(v)
       case 3:
-        addMsgList = parseAddMsg(v)
+        addMsgList = parseMsg(v)
       }
     }, jsonPathSyncCheckKey, jsonPathModContactList, jsonPathDelContactList, jsonPathAddMsgList)
     for _, c := range modContactList {
-      r.req.op <- &op{what: opModContact, contact: c}
+      r.req.bot.op <- &op{what: opModContact, contact: c}
     }
     for _, c := range delContactList {
-      r.req.op <- &op{what: opDelContact, contact: c}
+      r.req.bot.op <- &op{what: opDelContact, contact: c}
     }
     for _, m := range addMsgList {
-      r.req.op <- &op{what: opAddMsg, msg: m}
+      r.req.bot.op <- &op{what: opAddMsg, msg: m}
     }
     time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
     syncCheckChan <- struct{}{}
@@ -227,9 +227,11 @@ func parseSyncCheckResp(resp *http.Response) (int, int, error) {
 }
 
 func parseSyncKey(data []byte) *syncKeys {
-  ret := &syncKeys{List: make([]*syncKey, 0, 11)}
   n, _ := jsonparser.GetInt(data, "Count")
-  ret.Count = int(n)
+  if n <= 0 {
+    return nil
+  }
+  ret := &syncKeys{Count: int(n), List: make([]*syncKey, 0, n)}
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, i int, e error) {
     if e != nil {
       return
@@ -241,37 +243,21 @@ func parseSyncKey(data []byte) *syncKeys {
   return ret
 }
 
-func parseModContact(data []byte) []*Contact {
-  /*arr := make([]*Contact, 0, count)
-   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
-     if e != nil {
-       return
-     }
-     c := buildContact(v)
-     if c != nil && c.UserName != "" {
-       arr = append(arr, c)
-     }
-   }, jsonKeyModContactList)*/
-  // todo 通知
-  return nil
-}
-
-func parseDelContact(data []byte) []*Contact {
-  /*arr := make([]*Contact, 0, count)
+func parseContact(data []byte) []*Contact {
+  ret := make([]*Contact, 0, 2)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
       return
     }
     c := buildContact(v)
     if c != nil && c.UserName != "" {
-      arr = append(arr, c)
+      ret = append(ret, c)
     }
-  }, jsonKeyDelContactList)*/
-  // todo 通知
-  return nil
+  })
+  return ret
 }
 
-func parseAddMsg(data []byte) []*Message {
+func parseMsg(data []byte) []*Message {
   /*arr := make([]*Message, 0, count)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {

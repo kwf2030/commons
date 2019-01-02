@@ -25,7 +25,7 @@ func (r *statusNotifyReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  r.req.op <- &op{what: opStatusNotify}
+  r.req.bot.op <- &op{what: opStatusNotify}
   s.Complete(nil)
 }
 

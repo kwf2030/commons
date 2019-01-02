@@ -222,8 +222,9 @@ func CreateBot(enableId bool) *Bot {
     Attr: &sync.Map{},
     evt:  make(chan *Event, cap(ch)),
     op:   ch,
-    req:  newReq(ch),
+    req:  newReq(),
   }
+  bot.req.bot = bot
   // 未获取到uin之前key是随机的，
   // 无论登录成功还是失败，都会删除这个key，
   // 如果登录成功，会用uin存储这个Bot
@@ -352,7 +353,7 @@ func (bot *Bot) updatePaths() {
 
 func (bot *Bot) dispatch() {
   for op := range bot.op {
-    //evt := &Event{}
+    // evt := &Event{}
 
     switch op.what {
     case 1:
@@ -452,42 +453,19 @@ func (bot *Bot) Release() {
   bot.op = nil
 }
 
-type op struct {
-  what     int
-  contact  *Contact
-  contacts []*Contact
-  msg      *Message
-
-  syncCheckCode     int
-  syncCheckSelector int
-}
-
-type Event struct {
-  Err     error
-  Type    int
-  SubType int
-  Int1    int
-  Int2    int
-  Str1    string
-  Str2    string
-  Contact *Contact
-  Msg     *Message
-}
-
 type req struct {
-  op     chan<- *op
+  bot    *Bot
   flow   *flow.Flow
   client *http.Client
   *session
 }
 
-func newReq(op chan<- *op) *req {
+func newReq() *req {
   jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
   sess := &session{}
   sess.reset()
   return &req{
     session: sess,
-    op:      op,
     flow:    flow.NewFlow(0),
     client: &http.Client{
       Jar:     jar,
@@ -565,6 +543,28 @@ func (s *session) reset() {
   s.AvatarUrl = ""
   s.SyncKeys = nil
   s.WuFile = 0
+}
+
+type op struct {
+  what     int
+  contact  *Contact
+  contacts []*Contact
+  msg      *Message
+
+  syncCheckCode     int
+  syncCheckSelector int
+}
+
+type Event struct {
+  Err     error
+  Type    int
+  SubType int
+  Int1    int
+  Int2    int
+  Str1    string
+  Str2    string
+  Contact *Contact
+  Msg     *Message
 }
 
 func deviceId() string {

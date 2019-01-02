@@ -24,7 +24,7 @@ func (r *contactListReq) Run(s *flow.Step) {
     return
   }
   // todo 初始化Bot.Contacts
-  r.req.op <- &op{what: opContactList, contacts: arr}
+  r.req.bot.op <- &op{what: opContactList, contacts: arr}
   s.Complete(nil)
 }
 
