@@ -1,8 +1,9 @@
 package wechatbot
 
 import (
-  "github.com/buger/jsonparser"
   "strconv"
+
+  "github.com/buger/jsonparser"
 )
 
 const (
@@ -123,7 +124,6 @@ type Message struct {
   Url          string `json:"url,omitempty"`
   Raw          []byte `json:"raw,omitempty"`
 
-  // todo FromUserID/ToUserID/Bot需要在初始化消息的时候赋值
   FromUserId string `json:"from_user_id,omitempty"`
   ToUserId   string `json:"to_user_id,omitempty"`
   Bot        *Bot   `json:"-"`

@@ -57,7 +57,6 @@ type Contact struct {
   // Type是VerifyFlag解析后的值
   Type int `json:"flag"`
 
-  // todo OwnerUin和Bot需要在初始化联系人的时候赋值
   // 联系人所属Bot的uin
   OwnerUin int64 `json:"owner_uin"`
 

@@ -253,9 +253,11 @@ func parseContact(data []byte, bot *Bot) []*Contact {
     if e != nil {
       return
     }
-    c := buildContact(v)
-    if c != nil && c.UserName != "" {
-      c.withBot(bot)
+    userName, _ := jsonparser.GetString(v, "UserName")
+    if userName == "" {
+      return
+    }
+    if c := bot.Contacts.FindByUserName(userName); c != nil {
       ret = append(ret, c)
     }
   })
