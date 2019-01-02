@@ -156,11 +156,11 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
           }
         }
       case 1:
-        modContactList = parseContact(v)
+        modContactList = parseContact(v, r.req.bot)
       case 2:
-        delContactList = parseContact(v)
+        delContactList = parseContact(v, r.req.bot)
       case 3:
-        addMsgList = parseMsg(v)
+        addMsgList = parseMsg(v, r.req.bot)
       }
     }, jsonPathSyncCheckKey, jsonPathModContactList, jsonPathDelContactList, jsonPathAddMsgList)
     for _, c := range modContactList {
@@ -243,7 +243,7 @@ func parseSyncKey(data []byte) *syncKeys {
   return ret
 }
 
-func parseContact(data []byte) []*Contact {
+func parseContact(data []byte, bot *Bot) []*Contact {
   ret := make([]*Contact, 0, 2)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
@@ -251,29 +251,24 @@ func parseContact(data []byte) []*Contact {
     }
     c := buildContact(v)
     if c != nil && c.UserName != "" {
+      c.withBot(bot)
       ret = append(ret, c)
     }
   })
   return ret
 }
 
-func parseMsg(data []byte) []*Message {
-  /*arr := make([]*Message, 0, count)
+func parseMsg(data []byte, bot *Bot) []*Message {
+  ret := make([]*Message, 0, 2)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
       return
     }
     msg := buildMessage(v)
     if msg != nil && msg.Id != "" {
-      arr = append(arr, msg)
+      msg.withBot(bot)
+      ret = append(ret, msg)
     }
-  }, jsonKeyAddMsgList)*/
-  // todo 通知
-  // 没开启验证如果被添加好友，
-  // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
-  // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
-  // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
-  // 不添加的话下次登录时好友列表中也没有此人，
-  // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
-  return nil
+  })
+  return ret
 }

@@ -379,6 +379,12 @@ func (bot *Bot) dispatch() {
 /*func (bot *Bot) dispatch() {
   for o := range bot.op {
     op := &Op{What: o.What}
+  // 没开启验证如果被添加好友，
+  // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
+  // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
+  // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
+  // 不添加的话下次登录时好友列表中也没有此人，
+  // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
     switch o.What {
     case MsgOp:
       op.Msg = mapToMessage(o.Data.(map[string]interface{}), bot)
