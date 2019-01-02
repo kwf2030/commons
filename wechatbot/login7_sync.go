@@ -80,7 +80,7 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
   for range syncCheckChan {
     code, selector, e := r.doSyncCheck()
     if e != nil {
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      times.Sleep()
       ch <- 0
       continue
     }
@@ -91,7 +91,7 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
       break
     }
     if selector == 0 {
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      times.Sleep()
       ch <- 0
       continue
     }
@@ -140,7 +140,7 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
   for range syncChan {
     data, e := r.doSync()
     if e != nil {
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      times.Sleep()
       syncCheckChan <- struct{}{}
       continue
     }
@@ -167,6 +167,12 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
         addMsgList = parseMsg(v, r.req.bot)
       }
     }, jsonPathSyncCheckKey, jsonPathModContactList, jsonPathDelContactList, jsonPathAddMsgList)
+    // 没开启验证如果被添加好友，
+    // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
+    // 所以要先处理完Contact后再处理Message（避免找不到发送者），
+    // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
+    // 不添加的话下次登录时好友列表中也没有此人，
+    // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
     for _, c := range modContactList {
       r.req.bot.op <- &op{what: opModContact, contact: c}
     }
@@ -176,7 +182,7 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
     for _, m := range addMsgList {
       r.req.bot.op <- &op{what: opAddMsg, msg: m}
     }
-    time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+    times.Sleep()
     syncCheckChan <- struct{}{}
   }
 }
@@ -257,9 +263,12 @@ func parseContact(data []byte, bot *Bot) []*Contact {
     if userName == "" {
       return
     }
-    if c := bot.Contacts.FindByUserName(userName); c != nil {
-      ret = append(ret, c)
+    c := bot.Contacts.FindByUserName(userName)
+    if c == nil {
+      c = buildContact(v)
+      c.withBot(bot)
     }
+    ret = append(ret, c)
   })
   return ret
 }

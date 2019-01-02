@@ -237,7 +237,7 @@ func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
   }
   c.withBot(bot)
 
-  if b, ok := bot.Attr.Load(attrIdEnabled); !ok || !b.(bool) {
+  if !bot.isIdEnabled() {
     bot.Contacts.Add(c)
     return c, nil
   }

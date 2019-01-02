@@ -59,7 +59,7 @@ out:
     // 200（已确认），201（已扫描），408（未扫描）
     code, addr, e := r.do()
     if e != nil {
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      times.Sleep()
       continue
     }
     switch code {
@@ -72,7 +72,7 @@ out:
 
     case 201:
       r.req.State = StateScanned
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
+      times.Sleep()
       continue
 
     case 408:

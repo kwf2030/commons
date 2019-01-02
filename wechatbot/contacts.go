@@ -1,27 +1,18 @@
 package wechatbot
 
 import (
-  "github.com/kwf2030/commons/times"
   "strconv"
   "strings"
   "sync"
-  "time"
+
+  "github.com/kwf2030/commons/times"
 )
 
 const (
   idInitial      = uint64(2018E4)
   idOffset       = uint64(1E7)
   idOffsetFriend = uint64(300)
-  idOffsetSelf   = uint64(1E6)
 )
-
-// 表示一些内置账号的Id的偏移量，
-// UserName=>Id
-var internalIds = map[string]uint64{
-  "weixin":     1,
-  "filehelper": 2,
-  "fmessage":   3,
-}
 
 type Contacts struct {
   mu *sync.RWMutex
@@ -46,9 +37,10 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
     idMap:       make(map[string]*Contact, 5000),
     Bot:         bot,
   }
-  if b, ok := bot.Attr.Load(attrIdEnabled); !ok || !b.(bool) {
+  if !bot.isIdEnabled() {
     for _, c := range contacts {
       c.withBot(bot)
+      ret.userNameMap[c.UserName] = c
     }
     return ret
   }
@@ -67,29 +59,22 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
       ret.idMap[c.Id] = c
     }
   }
-  // 如果Bot从未设置过联系人的备注，那么起始Id是根据当前已经运行的Bot的个数来决定的
+  // 如果未设置过任何联系人的备注，那么起始Id是根据当前已经运行的Bot的个数来决定的，
   // 这是为了当有多个Bot的时候，每个Bot的联系人Id唯一且不重复
   if ret.maxId == 0 {
     ret.maxId = idInitial + (uint64(CountBots()-1) * idOffset) + idOffsetFriend
   }
-  // 第2次循环，处理未备注的好友或系统账号
-  initialId := ret.initialId()
+  // 第2次循环，处理未备注的好友
   for _, c := range contacts {
-    if c.Id != "" || (c.Type != ContactFriend && c.Type != ContactSystem) {
+    if c.Type != ContactFriend || c.Id != "" || c.UserName == c.Bot.req.UserName {
       continue
     }
-    if id, ok := internalIds[c.UserName]; ok {
-      c.Id = strconv.FormatUint(initialId+id, 10)
-    } else if c.UserName == c.Bot.req.UserName {
-      c.Id = strconv.FormatUint(initialId+idOffsetSelf, 10)
-    } else {
-      // 生成一个Id并备注
-      c.Id = strconv.FormatUint(ret.nextId(), 10)
-      ret.Bot.req.Remark(c.UserName, c.Id)
-      time.Sleep(times.RandMillis(times.OneSecondInMillis, times.ThreeSecondsInMillis))
-    }
+    // 生成一个Id并备注
+    c.Id = strconv.FormatUint(ret.nextId(), 10)
     ret.userNameMap[c.UserName] = c
     ret.idMap[c.Id] = c
+    ret.Bot.req.Remark(c.UserName, c.Id)
+    times.Sleep()
   }
   // 第3次循环，处理群聊
   for _, c := range contacts {
@@ -99,7 +84,7 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
     // todo 群聊Id方案
     // 群没有备注，默认用MaxID自增作为ID，然后用该ID和群名称建立对应关系来解决持久化问题，
     // 若群改名，会收到消息，需要在接收消息的地方处理
-    ret.userNameMap[c.UserName] = c
+    // ret.userNameMap[c.UserName] = c
     // ret.idMap[c.Id] = c
   }
   // 第4次循环，处理其他类型的联系人，
@@ -114,16 +99,15 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
 }
 
 func (cs *Contacts) Add(c *Contact) {
-  if c == nil {
+  if c == nil || c.UserName == "" {
     return
   }
   cs.mu.Lock()
   defer cs.mu.Unlock()
   if v, ok := cs.userNameMap[c.UserName]; ok {
     delete(cs.userNameMap, v.UserName)
-    delete(cs.idMap, v.Id)
-    if c.Id == "" {
-      c.Id = v.Id
+    if v.Id != "" {
+      delete(cs.idMap, v.Id)
     }
   }
   cs.userNameMap[c.UserName] = c

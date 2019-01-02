@@ -77,6 +77,10 @@ func RandMillis(min, max int) time.Duration {
   return time.Millisecond * time.Duration(n)
 }
 
+func Sleep() {
+  time.Sleep(RandMillis(OneSecondInMillis, ThreeSecondsInMillis))
+}
+
 func UntilTomorrow() time.Duration {
   t1 := Now()
   t2 := t1.Add(time.Hour * 24)

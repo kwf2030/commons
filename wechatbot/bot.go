@@ -219,6 +219,8 @@ type Bot struct {
   req *req
 }
 
+// enableId是否启用持久化Id功能（对好友进行备注并作为Id），
+// 如果为false，Contact.Id不会有值，所有操作只能通过UserName进行
 func CreateBot(enableId bool) *Bot {
   ch := make(chan *op, 4)
   bot := &Bot{
@@ -319,7 +321,17 @@ func (bot *Bot) GetAttrBytes(attr string) []byte {
   return nil
 }
 
+func (bot *Bot) isIdEnabled() bool {
+  if b, ok := bot.Attr.Load(attrIdEnabled); ok && b.(bool) {
+    return true
+  }
+  return false
+}
+
 func (bot *Bot) updatePaths() {
+  if bot.req.Uin == 0 {
+    return
+  }
   uin := strconv.FormatInt(bot.req.Uin, 10)
   dir := path.Join(rootDir, uin, times.NowStrf(times.DateFormat))
   e := os.MkdirAll(dir, os.ModePerm)
@@ -356,93 +368,60 @@ func (bot *Bot) updatePaths() {
 
 func (bot *Bot) dispatch() {
   for op := range bot.op {
-    // evt := &Event{}
-
+    evt := &Event{Type: -1}
     switch op.what {
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-    case 9:
+    case opAddMsg:
+      evt.Type = EventMsg
+      evt.Msg = op.msg
+    case opModContact:
+      if c := bot.Contacts.FindByUserName(op.contact.UserName); c == nil {
+
+      } else {
+        op.contact.Id = c.Id
+      }
+      if bot.isIdEnabled() {
+        c := bot.Contacts.FindByUserName(op.contact.UserName)
+        if c == nil || c.Id == "" {
+
+        }
+        if op.contact.Type == ContactFriend {
+          // 关闭好友验证的情况下，被添加好友时会收到此类消息
+          op.contact.Id = strconv.FormatUint(bot.Contacts.nextId(), 10)
+          op.contact.Attr.Store("CreateTime", times.Now())
+          bot.req.Remark(op.contact.UserName, op.contact.Id)
+        } else if op.contact.Type == ContactGroup {
+
+        }
+      }
+      bot.Contacts.Add(op.contact)
+    case opDelContact:
+      evt.Type = EventContactDel
+      evt.Contact = op.contact
+      bot.Contacts.Remove(op.contact.UserName)
+    case opUUID:
+      evt.Type = EventQRCode
+      evt.Str = bot.req.QRCodeUrl
+    case opLogin:
+      bot.updatePaths()
+    case opInit:
+      bot.Self = op.contact
+    case opContactList:
+      bot.Contacts = initContacts(op.contacts, bot)
+    case opExit:
+      bot.Stop()
+      // todo 区分主动和被动
+      // op.syncCheckCode
+      // op.syncCheckSelector
+    }
+    if evt.Type != -1 {
+      bot.evt <- evt
     }
   }
-
-  // op不用关闭，在Logout之后，syncCheck请求会收到非零的响应，
-  // 由它负责关闭op（谁发送谁关闭的原则），
-  // 但evt是在dispatch的时候发送给调用方的，所以应该在此处关闭，
-  // 不能放在Stop方法里（如果在Stop里面关闭了evt，那就没法发送TerminateOp事件了），
-  // 而且会引起"send on closed channel"的panic
+  // 如果syncCheck请求收到非零的响应，由它负责关闭op（谁发送谁关闭的原则），
+  // 但evt是在这里是发送方，所以应该在此处关闭，
+  // 不能放在Stop方法里（如果在Stop里面关闭了evt，就没法发送退出事件了）
   close(bot.evt)
 }
-
-/*func (bot *Bot) dispatch() {
-  for o := range bot.op {
-    op := &Op{What: o.What}
-  // 没开启验证如果被添加好友，
-  // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
-  // 要先处理完Contact后再处理Message（否则会出现找不到发送者的问题），
-  // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
-  // 不添加的话下次登录时好友列表中也没有此人，
-  // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
-    switch o.What {
-    case MsgOp:
-      op.Msg = mapToMessage(o.Data.(map[string]interface{}), bot)
-
-    case ContactModOp:
-      op.Contact = bot.modContact(o.Data.(map[string]interface{}))
-
-    case ContactDelOp:
-      c := mapToContact(o.Data.(map[string]interface{}), bot)
-      bot.Contacts.Remove(c.UserName)
-      op.Contact = c
-
-    case ContactSelfOp:
-      bot.updatePaths()
-      bot.Self = mapToContact(o.Data.(map[string]interface{}), bot)
-
-    case ContactListOp:
-      bot.Contacts = initContacts(mapsToContacts(o.Data.([]map[string]interface{}), bot), bot)
-
-    case TerminateOp:
-      bot.Stop()
-    }
-    bot.opForward <- op
-  }
-}*/
-
-/*func (bot *Bot) modContact(m map[string]interface{}) *Contact {
-  c := mapToContact(m, bot)
-  if !bot.Attr[AttrPersistentIDEnabled].(bool) {
-    bot.Contacts.Add(c)
-    return c
-  }
-  switch c.Flag {
-  case ContactFriend:
-    // 如果ID是空，说明是新联系人
-    if c.ID == "" {
-      // 关闭好友验证的情况下，被添加好友时会收到此类消息，
-      // ContactModOp会先于MsgOp事件发出，所以收到MsgOp时，该联系人一定已存在
-      c.ID = strconv.FormatUint(bot.Contacts.nextID(), 10)
-      c.CreateTime = times.Now()
-      bot.req.Remark(c.UserName, c.ID)
-    }
-  case ContactGroup:
-
-  case ContactSystem:
-    n, ok := internalIDs[c.UserName]
-    if !ok {
-      n = uint64(len(internalIDs) + 1)
-      internalIDs[c.UserName] = n
-    }
-    c.ID = strconv.FormatUint(bot.Contacts.initialID()+n, 10)
-  }
-  bot.Contacts.Add(c)
-  return c
-}*/
 
 func (bot *Bot) Stop() {
   bot.StopTime = times.Now()
@@ -570,10 +549,8 @@ type Event struct {
   Err     error
   Type    int
   SubType int
-  Int1    int
-  Int2    int
-  Str1    string
-  Str2    string
+  Int     int
+  Str     string
   Contact *Contact
   Msg     *Message
 }
