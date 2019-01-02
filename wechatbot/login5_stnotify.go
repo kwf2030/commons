@@ -20,6 +20,10 @@ type statusNotifyReq struct {
 }
 
 func (r *statusNotifyReq) Run(s *flow.Step) {
+  if e, ok := s.Arg.(error); ok {
+    s.Complete(e)
+    return
+  }
   e := r.do()
   if e != nil {
     s.Complete(e)

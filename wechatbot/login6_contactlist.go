@@ -18,6 +18,10 @@ type contactListReq struct {
 }
 
 func (r *contactListReq) Run(s *flow.Step) {
+  if e, ok := s.Arg.(error); ok {
+    s.Complete(e)
+    return
+  }
   arr, e := r.do()
   if e != nil {
     s.Complete(e)

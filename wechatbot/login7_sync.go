@@ -43,6 +43,10 @@ type syncReq struct {
 }
 
 func (r *syncReq) Run(s *flow.Step) {
+  if e, ok := s.Arg.(error); ok {
+    s.Complete(e)
+    return
+  }
   // syncCheck一直执行，有消息时才会执行sync，
   // web微信syncCheck的时间间隔约为25秒左右，
   // 即在没有新消息的时候，服务器会保持（阻塞）连接25秒左右

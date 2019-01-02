@@ -17,6 +17,10 @@ type loginReq struct {
 }
 
 func (r *loginReq) Run(s *flow.Step) {
+  if e, ok := s.Arg.(error); ok {
+    s.Complete(e)
+    return
+  }
   login, e := r.do()
   if e != nil {
     s.Complete(e)
@@ -97,6 +101,6 @@ type loginResp struct {
 type baseReq struct {
   Uin      int64  `json:"Uin"`
   Sid      string `json:"Sid"`
-  Skey     string `json:"Skey"`
+  SKey     string `json:"Skey"`
   DeviceId string `json:"DeviceID"`
 }

@@ -26,6 +26,10 @@ type scanStateReq struct {
 }
 
 func (r *scanStateReq) Run(s *flow.Step) {
+  if e, ok := s.Arg.(error); ok {
+    s.Complete(e)
+    return
+  }
   ch := make(chan string)
   go r.check(ch)
   redirectUrl := <-ch

@@ -8,7 +8,6 @@ import (
   "net/url"
   "os"
   "path"
-  "runtime"
   "strconv"
   "sync"
   "time"
@@ -122,11 +121,15 @@ var (
   ErrTimeout = errors.New("timeout")
 )
 
-// 所有Bot，int=>*Bot
-// 若处于Created/Scanned/Confirmed状态，key是随机生成的，
-// 若处于Running和Stopped状态，key是uin，
-// 调用Bot.Release()会把Bot从bots中删除
-var bots = &sync.Map{}
+var (
+  // 所有Bot，int=>*Bot
+  // 若处于Created/Scanned/Confirmed状态，key是随机生成的，
+  // 若处于Running和Stopped状态，key是uin，
+  // 调用Bot.Release()会把Bot从bots中删除
+  bots = &sync.Map{}
+
+  rnd = rand.New(rand.NewSource(times.Timestamp()))
+)
 
 func init() {
   e := os.MkdirAll(rootDir, os.ModePerm)
@@ -210,25 +213,25 @@ type Bot struct {
   StartTime time.Time
   StopTime  time.Time
 
-  evt chan *Event
   op  chan *op
+  evt chan *Event
 
   req *req
 }
 
 func CreateBot(enableId bool) *Bot {
-  ch := make(chan *op, runtime.NumCPU()+1)
+  ch := make(chan *op, 4)
   bot := &Bot{
     Attr: &sync.Map{},
-    evt:  make(chan *Event, cap(ch)),
     op:   ch,
+    evt:  make(chan *Event, 8),
     req:  newReq(),
   }
   bot.req.bot = bot
   // 未获取到uin之前key是随机的，
   // 无论登录成功还是失败，都会删除这个key，
   // 如果登录成功，会用uin存储这个Bot
-  k := rand.Int()
+  k := rnd.Int()
   bot.Attr.Store(attrRandUin, k)
   bot.Attr.Store(attrIdEnabled, enableId)
   bots.Store(k, bot)
@@ -248,15 +251,15 @@ func (bot *Bot) Start() <-chan *Event {
 
     if e != nil {
       // 登录Bot出现了问题或一直没扫描超时了
+      bot.evt <- &Event{Type: EventSignInFailed, Err: e}
       close(bot.op)
       bot.Release()
-      bot.evt <- &Event{Type: EventSignInFailed, Err: e}
       return
     }
 
+    bots.Store(bot.req.Uin, bot)
     bot.StartTime = times.Now()
     bot.req.State = StateRunning
-    bots.Store(bot.req.Uin, bot)
     bot.evt <- &Event{Type: EventSignInSuccess}
   }()
   return bot.evt
@@ -450,6 +453,7 @@ func (bot *Bot) Stop() {
 func (bot *Bot) Release() {
   bots.Delete(bot.req.Uin)
   bot.req.reset()
+  bot.req.bot = nil
   bot.req.flow = nil
   bot.req.client = nil
   bot.req = nil
@@ -457,6 +461,7 @@ func (bot *Bot) Release() {
   bot.Self = nil
   bot.Contacts = nil
   bot.op = nil
+  bot.evt = nil
 }
 
 type req struct {
