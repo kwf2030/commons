@@ -2,6 +2,7 @@ package wechatbot
 
 import (
   "errors"
+  "github.com/buger/jsonparser"
   "math/rand"
   "net/http"
   "net/http/cookiejar"
@@ -371,29 +372,21 @@ func (bot *Bot) dispatch() {
     evt := &Event{Type: -1}
     switch op.what {
     case opAddMsg:
+      if op.msg.Type == MsgVerify {
+        v, _, _, _ := jsonparser.Get(op.msg.Raw, "RecommendInfo")
+        t, _ := jsonparser.GetString(v, "Ticket")
+        c := buildContact(v)
+        c.Attr.Store("Ticket", t)
+        evt.Type = EventContactNew
+        evt.Contact = c
+        break
+      }
       evt.Type = EventMsg
       evt.Msg = op.msg
     case opModContact:
-      /*if c := bot.Contacts.FindByUserName(op.contact.UserName); c == nil {
-
-      } else {
-        op.contact.Id = c.Id
-      }
-      if bot.isIdEnabled() {
-        c := bot.Contacts.FindByUserName(op.contact.UserName)
-        if c == nil || c.Id == "" {
-
-        }
-        if op.contact.Type == ContactFriend {
-          // 关闭好友验证的情况下，被添加好友时会收到此类消息
-          op.contact.Id = strconv.FormatUint(bot.Contacts.nextId(), 10)
-          op.contact.Attr.Store("CreateTime", times.Now())
-          bot.req.Remark(op.contact.UserName, op.contact.Id)
-        } else if op.contact.Type == ContactGroup {
-
-        }
-      }
-      bot.Contacts.Add(op.contact)*/
+      evt.Type = EventContactMod
+      evt.Contact = op.contact
+      bot.Contacts.Add(op.contact)
     case opDelContact:
       evt.Type = EventContactDel
       evt.Contact = op.contact
@@ -408,10 +401,11 @@ func (bot *Bot) dispatch() {
     case opContactList:
       bot.Contacts = initContacts(op.contacts, bot)
     case opExit:
-      bot.Stop()
       // todo 区分主动和被动
       // op.syncCheckCode
       // op.syncCheckSelector
+      evt.Type = EventSignOut
+      bot.Stop()
     }
     if evt.Type != -1 {
       bot.evt <- evt

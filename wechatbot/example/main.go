@@ -3,53 +3,49 @@ package main
 import (
   "bytes"
   "fmt"
+  "github.com/kwf2030/commons/times"
   "html"
   "os/exec"
   "runtime"
   "time"
 
-  "github.com/kwf2030/commons/conv"
   "github.com/kwf2030/commons/wechatbot"
 )
 
 func main() {
   bot := wechatbot.CreateBot(false)
+  event := bot.Start()
 
-  // 用来接收二维码
-  qrChan := make(chan string)
-  go func(c chan string) {
-    // 读取到的是完整的二维码地址
-    <-c
+  // 不要阻塞消息接收的channel，
+  // 耗时操作放到goroutine中执行
+  for evt := range event {
+    switch evt.Type {
+    // 收到消息
+    case wechatbot.EventMsg:
+      processMsg(evt.Msg)
 
-    // 下载二维码，
-    // 参数为完整路径，如果为空就下载到系统临时目录，
-    // 返回二维码图片的完整路径
-    p, e := bot.DownloadQRCode("")
-    if e != nil {
-      panic(e)
+    // 被添加好友，
+    // 自动通过验证、备注并添加到联系人
+    case wechatbot.EventContactNew:
+      bot.VerifyAndRemark(evt.Contact.UserName, evt.Contact.GetAttrString("Ticket", ""))
+      evt.Msg.ReplyText("你好，朋友")
+
+      // 获取到二维码，需扫码登录
+    // evt.Str为二维码链接
+    case wechatbot.EventQRCode:
+      // 这里使用自带的方法下载二维码并自动打开，
+      // 参数为完整路径，如果为空就下载到系统临时目录，
+      // 返回二维码图片的完整路径
+      p, _ := bot.DownloadQRCode("")
+      switch runtime.GOOS {
+      case "windows":
+        exec.Command("cmd.exe", "/c", p).Start()
+      case "linux":
+        exec.Command("eog", p).Start()
+      default:
+        fmt.Printf("二维码已保存至[%s]，请打开后扫码登录", p)
+      }
     }
-
-    switch runtime.GOOS {
-    case "windows":
-      e = exec.Command("cmd.exe", "/c", p).Start()
-    case "linux":
-      e = exec.Command("eog", p).Start()
-    default:
-      fmt.Printf("QR Code saved to [%s], please open it manually", p)
-    }
-  }(qrChan)
-
-  // 启动Bot，会一直阻塞到登录成功
-  ch, e := bot.Start(qrChan)
-  if e != nil {
-    println(e.Error())
-    return
-  }
-
-  // 登录成功后即可开始接收消息，
-  // 不要阻塞消息接收的channel（缓存大小为NumCPU+1）
-  for op := range ch {
-    go dispatch(op, bot)
   }
 
   var buf bytes.Buffer
@@ -57,18 +53,17 @@ func main() {
   buf.WriteString("  started at: %s\n")
   buf.WriteString("  stopped at: %s\n")
   buf.WriteString("  totally online for %.2f hours\n")
-  fmt.Printf(buf.String(), bot.Self.Nickname, bot.StartTimeStr, bot.StopTimeStr, bot.StopTime.Sub(bot.StartTime).Hours())
+  fmt.Printf(buf.String(), bot.Self.NickName,
+    bot.StartTime.Format(times.DateTimeFormat),
+    bot.StopTime.Format(times.DateTimeFormat),
+    bot.StopTime.Sub(bot.StartTime).Hours())
 
-  // 完全退出前最好等待1秒左右时间，以便退出请求和各种清理操作完成
+  // 退出前等待1秒左右，以便退出请求和各种清理操作完成
   time.Sleep(time.Second)
 }
 
-func dispatch(op *wechatbot.Op, bot *wechatbot.Bot) {
-  if op.What != wechatbot.MsgOp {
-    return
-  }
-  msg := op.Msg
-  fmt.Printf("[*]MsgType=%d\n%s\n", msg.Type, html.UnescapeString(msg.Content))
+func processMsg(msg *wechatbot.Message) {
+  fmt.Printf("MsgType=%d\n%s\n", msg.Type, html.UnescapeString(msg.Content))
 
   var reply string
   switch msg.Type {
@@ -95,24 +90,10 @@ func dispatch(op *wechatbot.Op, bot *wechatbot.Bot) {
 
   case wechatbot.MsgVideo:
     reply = "收到视频"
-
-  case wechatbot.MsgVerify:
-    // 自动通过验证、备注并添加到联系人
-    info := msg.Raw["RecommendInfo"].(map[string]interface{})
-    _, e := bot.VerifyAndRemark(conv.String(info, "UserName"), conv.String(info, "Ticket"))
-    if e != nil {
-      println(e.Error())
-      return
-    }
-    reply = "你好，朋友"
   }
 
   if reply == "" {
     return
   }
-
-  e := msg.ReplyText(reply)
-  if e != nil {
-    println(e.Error())
-  }
+  msg.ReplyText(reply)
 }
