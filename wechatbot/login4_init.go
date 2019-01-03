@@ -4,6 +4,7 @@ import (
   "bytes"
   "encoding/json"
   "fmt"
+  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
@@ -84,72 +85,11 @@ func (r *initReq) do() (*Contact, error) {
 }
 
 func parseInitResp(resp *http.Response) (*Contact, error) {
-  // {
-  //   "BaseResponse": {
-  //     "Ret": 0,
-  //     "ErrMsg": ""
-  //   },
-  //   "Count": 2,
-  //   "ContactList": [
-  //     {
-  //       "Uin": 0,
-  //       "UserName": "filehelper",
-  //       "NickName": "文件传输助手",
-  //       ...
-  //     },
-  //     {
-  //       "Uin": 0,
-  //       "UserName": "weixin",
-  //       "NickName": "微信团队",
-  //       ...
-  //     }
-  //   ],
-  //   "SyncKey": {
-  //     "Count": 4,
-  //     "List": [
-  //       {
-  //         "Key": 1,
-  //         "Val": 123456789
-  //       },
-  //       ...
-  //     ]
-  //   },
-  //   "User": {
-  //     "Uin": 123456,
-  //     "UserName": "@ xxx//xxx",
-  //     "NickName": "xxx",
-  //     "HeadImgUrl": "/cgi-bin/mmwebwx-bin/webwxgeticon?seq=123456789&user //name=@123456789// 123&skey=@crypt_123456789abc_123456789abc",
-  //     "RemarkName": "",
-  //     "PYInitial": "",
-  //     "PYQuanPin": "",
-  //     "RemarkPYInitial": "",
-  //     "RemarkPYQuanPin": "",
-  //     "HideInputBarFlag": 0,
-  //     "StarFriend": 0,
-  //     "Sex": 0,
-  //     "Signature": "xxx",
-  //     "AppAccountFlag": 0,
-  //     "VerifyFlag": 0,
-  //     "ContactFlag": 0,
-  //     "WebWxPluginSwitch": 0,
-  //     "HeadImgFlag": 1,
-  //     "SnsFlag": 0
-  //   },
-  //   "ChatSet": "filehelper,weixin,",
-  //   "SKey": "@crypt_123456789abc_123456789abc",
-  //   "ClientVersion": 123456789,
-  //   "SystemTime": 123456789,
-  //   "GrayScale": 1,
-  //   "InviteStartCount": 40,
-  //   "MPSubscribeMsgCount": 0,
-  //   "MPSubscribeMsgList": [
-  //   ],
-  //   "ClickReportInterval": 600000
-  // }
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
   }
+  dumpToFile("4_"+times.NowStrf(times.DateTimeMsFormat5), body)
   c := &Contact{Raw: body, Attr: &sync.Map{}}
   jsonparser.EachKey(body, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {

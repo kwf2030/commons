@@ -203,126 +203,16 @@ func (r *syncReq) doSync() ([]byte, error) {
   if e != nil {
     return nil, e
   }
+  dumpToFile("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_sync", body)
   return body, nil
-  // {
-  //   "BaseResponse": {
-  //     "Ret": 0,
-  //     "ErrMsg": ""
-  //   },
-  //   "AddMsgCount": 1,
-  //   "AddMsgList": [
-  //     {
-  //       "MsgId": "123456789",
-  //       "FromUserName": "@123456789// 123456789abc",
-  //       "ToUserName": "@123456789// 123456789abc",
-  //       "MsgType": 51,
-  //       "Content": "",
-  //       "Status": 3,
-  //       "ImgStatus": 1,
-  //       "CreateTime": 123456789,
-  //       "VoiceLength": 0,
-  //       "PlayLength": 0,
-  //       "FileName": "",
-  //       "FileSize": "",
-  //       "MediaId": "",
-  //       "Url": "",
-  //       "AppMsgType": 0,
-  //       "StatusNotifyCode": 4,
-  //       "StatusNotifyUserName": // "filehelper,@123456789abc",
-  //       "RecommendInfo": {
-  //         "UserName": "",
-  //         "NickName": "",
-  //         "QQNum": 0,
-  //         "Province": "",
-  //         "City": "",
-  //         "Content": "",
-  //         "Signature": "",
-  //         "Alias": "",
-  //         "Scene": 0,
-  //         "VerifyFlag": 0,
-  //         "AttrStatus": 0,
-  //         "Sex": 0,
-  //         "Ticket": "",
-  //         "OpCode": 0
-  //       },
-  //       "ForwardFlag": 0,
-  //       "AppInfo": {
-  //         "AppID": "",
-  //         "Type": 0
-  //       },
-  //       "HasProductId": 0,
-  //       "Ticket": "",
-  //       "ImgHeight": 0,
-  //       "ImgWidth": 0,
-  //       "SubMsgType": 0,
-  //       "NewMsgId": 123456789,
-  //       "OriContent": "",
-  //       "EncryFileName": ""
-  //     }
-  //   ],
-  //   "ModContactCount": 0,
-  //   "ModContactList": [
-  //   ],
-  //   "DelContactCount": 0,
-  //   "DelContactList": [
-  //   ],
-  //   "ModChatRoomMemberCount": 0,
-  //   "ModChatRoomMemberList": [
-  //   ],
-  //   "Profile": {
-  //     "BitFlag": 0,
-  //     "UserName": {
-  //       "Buff": ""
-  //     },
-  //     "NickName": {
-  //       "Buff": ""
-  //     },
-  //     "BindUin": 0,
-  //     "BindEmail": {
-  //       "Buff": ""
-  //     },
-  //     "BindMobile": {
-  //       "Buff": ""
-  //     },
-  //     "Status": 0,
-  //     "Sex": 0,
-  //     "PersonalCard": 0,
-  //     "Alias": "",
-  //     "HeadImgUpdateFlag": 0,
-  //     "HeadImgUrl": "",
-  //     "Signature": ""
-  //   },
-  //   "ContinueFlag": 0,
-  //   "SyncKey": {
-  //     "Count": 7,
-  //     "List": [
-  //       {
-  //         "Key": 1,
-  //         "Val": 123456789
-  //       },
-  //       ...
-  //     ]
-  //   },
-  //   "SKey": "",
-  //   "SyncCheckKey": {
-  //     "Count": 7,
-  //     "List": [
-  //       {
-  //         "Key": 1,
-  //         "Val": 123456789
-  //       },
-  //       ...
-  //     ]
-  //   }
-  // }
 }
 
 func parseSyncCheckResp(resp *http.Response) (int, int, error) {
   // window.synccheck={retcode:"0",selector:"2"}
   // retcode=0：正常，
   // retcode=1100：失败/已退出，
-  // retcode=1101：在其他地方登录了Web微信，
-  // retcode=1102：主动退出，
+  // retcode=1101：在手机上点击退出Web微信，
+  // retcode=1102：在其他地方登录了Web微信，
   // selector=0：正常，
   // selector=2：有新消息，
   // selector=4：保存群聊到通讯录/修改群名称/新增或删除联系人/群聊成员数目变化，
@@ -336,12 +226,16 @@ func parseSyncCheckResp(resp *http.Response) (int, int, error) {
   data := string(body)
   arr := syncCheckRegex.FindStringSubmatch(data)
   if len(arr) < 2 {
+    dumpToFile("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_check", body)
     return 0, 0, ErrResp
   }
   code, _ := strconv.Atoi(arr[1])
   selector := 0
   if len(arr) >= 3 {
     selector, _ = strconv.Atoi(arr[2])
+  }
+  if code != 0 || selector != 0 {
+    dumpToFile("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_check", body)
   }
   return code, selector, nil
 }

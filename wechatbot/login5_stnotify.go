@@ -3,6 +3,7 @@ package wechatbot
 import (
   "bytes"
   "encoding/json"
+  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
@@ -57,13 +58,10 @@ func (r *statusNotifyReq) do() error {
   if resp.StatusCode != http.StatusOK {
     return ErrReq
   }
-  ioutil.ReadAll(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
+  if e != nil {
+    return e
+  }
+  dumpToFile("5_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return nil
-  // {
-  //   "BaseResponse": {
-  //     "Ret": 0,
-  //     "ErrMsg": ""
-  //   },
-  //   "MsgID": "1705849647846578983"
-  // }
 }

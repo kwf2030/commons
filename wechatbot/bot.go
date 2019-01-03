@@ -2,6 +2,7 @@ package wechatbot
 
 import (
   "errors"
+  "io/ioutil"
   "math/rand"
   "net/http"
   "net/http/cookiejar"
@@ -103,7 +104,9 @@ const (
   // 未登录成功时会随机生成uin作为key，保证bots中有记录且可查询这个Bot
   attrRandUin = "wechatbot.rand_uin"
 
-  rootDir     = "wechatbot"
+  rootDir = "wechatbot"
+  dumpDir = rootDir + "/dump/"
+
   contentType = "application/json; charset=UTF-8"
   userAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
 )
@@ -130,10 +133,12 @@ var (
   bots = &sync.Map{}
 
   rnd = rand.New(rand.NewSource(times.Timestamp()))
+
+  dumpToFileEnabled = false
 )
 
 func init() {
-  e := os.MkdirAll(rootDir, os.ModePerm)
+  e := os.MkdirAll(dumpDir, os.ModePerm)
   if e != nil {
     return
   }
@@ -156,6 +161,10 @@ func eachBot(f func(*Bot) bool) {
     }
     return true
   })
+}
+
+func EnableDumpToFile(enabled bool) {
+  dumpToFileEnabled = enabled
 }
 
 func RunningBots() []*Bot {
@@ -576,4 +585,10 @@ func timestampStringR(l int) string {
     return s[i:]
   }
   return s
+}
+
+func dumpToFile(filename string, data []byte) {
+  if dumpToFileEnabled {
+    ioutil.WriteFile(dumpDir+filename, data, os.ModePerm)
+  }
 }

@@ -2,6 +2,7 @@ package wechatbot
 
 import (
   "encoding/xml"
+  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
@@ -80,19 +81,11 @@ func (r *loginReq) selectBaseUrl() {
 }
 
 func parseLoginResp(resp *http.Response) (*loginResp, error) {
-  // <error>
-  //   <ret>0</ret>
-  //   <message></message>
-  //   <skey>@crypt_7be66f24_74523cd7d1f1f5cdb34b1fb1ea5040cf</skey>
-  //   <wxsid>cbj6tfPFvr+Eq08O</wxsid>
-  //   <wxuin>951790778</wxuin>
-  //   <pass_ticket>xvDQbSZVALSZQ%2BiCR%2BGI83zvZwLoGOKViqY2qeJmg2fgSikwR85a7ipplVbOYeuv</pass_ticket>
-  //   <isgrayscale>1</isgrayscale>
-  // </error>
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
   }
+  dumpToFile("3_"+times.NowStrf(times.DateTimeMsFormat5), body)
   ret := &loginResp{}
   e = xml.Unmarshal(body, ret)
   if e != nil {

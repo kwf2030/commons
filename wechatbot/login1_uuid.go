@@ -2,6 +2,7 @@ package wechatbot
 
 import (
   "fmt"
+  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
@@ -68,6 +69,7 @@ func parseUUIDResp(resp *http.Response) (string, error) {
   if e != nil {
     return "", e
   }
+  dumpToFile("1_"+times.NowStrf(times.DateTimeMsFormat5), body)
   data := string(body)
   match := uuidRegex.FindStringSubmatch(data)
   if len(match) != 2 {

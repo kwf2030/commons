@@ -4,6 +4,7 @@ import (
   "bytes"
   "encoding/json"
   "fmt"
+  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
@@ -29,14 +30,15 @@ func (r *req) DownloadQRCode(dst string) (string, error) {
   if resp.StatusCode != http.StatusOK {
     return "", ErrReq
   }
-  data, e := ioutil.ReadAll(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return "", e
   }
+  dumpToFile("DownloadQRCode_"+times.NowStrf(times.DateTimeMsFormat5), body)
   if dst == "" {
     dst = path.Join(os.TempDir(), "wechatbot_qrcode.jpg")
   }
-  e = ioutil.WriteFile(dst, data, os.ModePerm)
+  e = ioutil.WriteFile(dst, body, os.ModePerm)
   if e != nil {
     return "", e
   }
@@ -52,14 +54,15 @@ func (r *req) DownloadAvatar(dst string) (string, error) {
   if resp.StatusCode != http.StatusOK {
     return "", ErrReq
   }
-  data, e := ioutil.ReadAll(resp.Body)
+  body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return "", e
   }
+  dumpToFile("DownloadAvatar_"+times.NowStrf(times.DateTimeMsFormat5), body)
   if dst == "" {
     dst = path.Join(os.TempDir(), fmt.Sprintf("wechatbot_%d.jpg", r.Uin))
   }
-  e = ioutil.WriteFile(dst, data, os.ModePerm)
+  e = ioutil.WriteFile(dst, body, os.ModePerm)
   if e != nil {
     return "", e
   }
@@ -103,6 +106,7 @@ func (r *req) Verify(toUserName, ticket string) ([]byte, error) {
   if e != nil {
     return nil, e
   }
+  dumpToFile("Verify_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return body, nil
 }
 
@@ -133,6 +137,7 @@ func (r *req) Remark(toUserName, remark string) ([]byte, error) {
   if e != nil {
     return nil, e
   }
+  dumpToFile("Remark_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return body, nil
 }
 
@@ -170,6 +175,7 @@ func (r *req) GetContacts(userNames ...string) ([]byte, error) {
   if e != nil {
     return nil, e
   }
+  dumpToFile("GetContacts_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return body, nil
 }
 
@@ -199,5 +205,6 @@ func (r *req) SignOut() ([]byte, error) {
   if e != nil {
     return nil, e
   }
+  dumpToFile("SignOut_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return body, nil
 }

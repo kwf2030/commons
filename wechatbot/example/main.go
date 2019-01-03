@@ -13,6 +13,10 @@ import (
 )
 
 func main() {
+  // 启用dump，将每个收到的数据作为一个文件写入wechatbot/dump目录内，
+  // 调试分析数据时非常有用
+  wechatbot.EnableDumpToFile(true)
+
   bot := wechatbot.CreateBot(false)
   event := bot.Start()
 

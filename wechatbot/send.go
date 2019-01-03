@@ -66,6 +66,7 @@ func (r *req) SendText(toUserName, text string) ([]byte, error) {
   if e != nil {
     return nil, e
   }
+  dumpToFile("SendText_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return body, nil
 }
 
@@ -108,6 +109,7 @@ func (r *req) SendMedia(toUserName, mediaId string, msgType int, sendUrlPath str
   if e != nil {
     return nil, e
   }
+  dumpToFile("SendMedia_"+times.NowStrf(times.DateTimeMsFormat5), body)
   return body, nil
 }
 
@@ -245,6 +247,7 @@ func (r *req) uploadChunk(info *uploadInfo) (string, error) {
   if e != nil {
     return "", e
   }
+  dumpToFile("uploadChunk_"+times.NowStrf(times.DateTimeMsFormat5), body)
   mediaId, _ := jsonparser.GetString(body, "MediaId")
   return mediaId, nil
 }

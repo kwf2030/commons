@@ -119,6 +119,7 @@ func parseScanStateResp(resp *http.Response) (int, string, error) {
   if e != nil {
     return 0, "", e
   }
+  dumpToFile("2_"+times.NowStrf(times.DateTimeMsFormat5), body)
   data := string(body)
   arr := scanStCodeRegex.FindStringSubmatch(data)
   if len(arr) != 2 {
