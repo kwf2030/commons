@@ -166,9 +166,6 @@ func buildMessage(data []byte) *Message {
       ret.Url, _ = jsonparser.ParseString(v)
     }
   }, jsonPathContent, jsonPathCreateTime, jsonPathFromUserName, jsonPathToUserName, jsonPathMsgId, jsonPathNewMsgId, jsonPathMsgType, jsonPathUrl)
-  if ret.FromUserName == "" && ret.Type == MsgVerify {
-    ret.FromUserName, _ = jsonparser.GetString(data, "RecommendInfo", "UserName")
-  }
   return ret
 }
 

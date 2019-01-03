@@ -3,12 +3,12 @@ package main
 import (
   "bytes"
   "fmt"
-  "github.com/kwf2030/commons/times"
   "html"
   "os/exec"
   "runtime"
   "time"
 
+  "github.com/kwf2030/commons/times"
   "github.com/kwf2030/commons/wechatbot"
 )
 
@@ -25,12 +25,12 @@ func main() {
       processMsg(evt.Msg)
 
     // 被添加好友，
-    // 自动通过验证、备注并添加到联系人
+    // 自动通过验证、添加到联系人并备注
     case wechatbot.EventContactNew:
-      bot.VerifyAndRemark(evt.Contact.UserName, evt.Contact.GetAttrString("Ticket", ""))
+      bot.Accept(evt.Contact)
       evt.Msg.ReplyText("你好，朋友")
 
-      // 获取到二维码，需扫码登录
+    // 获取到二维码，需扫码登录
     // evt.Str为二维码链接
     case wechatbot.EventQRCode:
       // 这里使用自带的方法下载二维码并自动打开，
@@ -45,6 +45,12 @@ func main() {
       default:
         fmt.Printf("二维码已保存至[%s]，请打开后扫码登录", p)
       }
+
+    case wechatbot.EventSignInSuccess:
+      fmt.Println("登录成功")
+
+    case wechatbot.EventSignInFailed:
+      fmt.Println("登录失败")
     }
   }
 

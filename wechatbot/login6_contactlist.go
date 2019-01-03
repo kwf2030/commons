@@ -54,6 +54,84 @@ func (r *contactListReq) do() ([]*Contact, error) {
 }
 
 func parseContactListResp(resp *http.Response) ([]*Contact, error) {
+  // {
+  //   "BaseResponse": {
+  //     "Ret": 0,
+  //     "ErrMsg": ""
+  //   },
+  //   "MemberCount": 67,
+  //   "MemberList": [
+  //     {
+  //       "Uin": 0,
+  //       "UserName": "weixin",
+  //       "NickName": "微信团队",
+  //       "HeadImgUrl": "/cgi-bin/mmwebwx-bin/webwxgeticon?seq=123456789&us// ername=weixin&skey=@crypt_123456789abc_123456789abc// ab",
+  //       "ContactFlag": 1,
+  //       "MemberCount": 0,
+  //       "MemberList": [
+  //       ],
+  //       "RemarkName": "",
+  //       "HideInputBarFlag": 0,
+  //       "Sex": 0,
+  //       "Signature": "微信团队官方帐号",
+  //       "VerifyFlag": 56,
+  //       "OwnerUin": 0,
+  //       "PYInitial": "WXTD",
+  //       "PYQuanPin": "weixintuandui",
+  //       "RemarkPYInitial": "",
+  //       "RemarkPYQuanPin": "",
+  //       "StarFriend": 0,
+  //       "AppAccountFlag": 0,
+  //       "Statues": 0,
+  //       "AttrStatus": 4,
+  //       "Province": "",
+  //       "City": "",
+  //       "Alias": "",
+  //       "SnsFlag": 0,
+  //       "UniFriend": 0,
+  //       "DisplayName": "",
+  //       "ChatRoomId": 0,
+  //       "KeyWord": "wei",
+  //       "EncryChatRoomId": "",
+  //       "IsOwner": 0
+  //     },
+  //     {
+  //       "Uin": 0,
+  //       "UserName": "@123456789abc",
+  //       "NickName": "xxx",
+  //       "HeadImgUrl": "/cgi-bin/mmwebwx-bin/webwxgeticon?seq=123456789abc&us// ername=@123456789abc&skey=@crypt_123456789abc_123// 123456789abc",
+  //       "ContactFlag": 3,
+  //       "MemberCount": 0,
+  //       "MemberList": [
+  //       ],
+  //       "RemarkName": "xxx",
+  //       "HideInputBarFlag": 0,
+  //       "Sex": 2,
+  //       "Signature": "xxx",
+  //       "VerifyFlag": 0,
+  //       "OwnerUin": 0,
+  //       "PYInitial": "xxx",
+  //       "PYQuanPin": "xxx",
+  //       "RemarkPYInitial": "xxx",
+  //       "RemarkPYQuanPin": "xxx",
+  //       "StarFriend": 0,
+  //       "AppAccountFlag": 0,
+  //       "Statues": 0,
+  //       "AttrStatus": 104503,
+  //       "Province": "陕西",
+  //       "City": "西安",
+  //       "Alias": "",
+  //       "SnsFlag": 49,
+  //       "UniFriend": 0,
+  //       "DisplayName": "",
+  //       "ChatRoomId": 0,
+  //       "KeyWord": "xxx",
+  //       "EncryChatRoomId": "",
+  //       "IsOwner": 0
+  //     }
+  //   ],
+  //   "Seq": 0
+  // }
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e

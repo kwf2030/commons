@@ -113,12 +113,12 @@ func (r *scanStateReq) do() (int, string, error) {
 }
 
 func parseScanStateResp(resp *http.Response) (int, string, error) {
+  // 如果是200，返回：window.code=200;window.redirect_uri=xxx
+  // 如果是201，返回：window.code=201;window.userAvatar = 'data:img/jpg;base64,xxx'
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return 0, "", e
   }
-  // 如果是200，返回：window.code=200;window.redirect_uri=xxx
-  // 如果是201，返回：window.code=201;window.userAvatar = 'data:img/jpg;base64,xxx'
   data := string(body)
   arr := scanStCodeRegex.FindStringSubmatch(data)
   if len(arr) != 2 {

@@ -191,69 +191,70 @@ func (bot *Bot) ForwardVideoToUserName(toUserName, mediaId string) error {
   return ErrContactNotFound
 }
 
-// VerifyAndRemark封装了Verify、GetContacts和Remark三个请求，
+// 通过验证、添加到联系人并备注，
+// Accept封装了Verify、GetContacts和Remark三个请求，
 // GetContact成功后会设置Id并添加到本地联系人中（如果开启持久化功能的话），
 // 之后再Remark，如果Remark失败，不会影响联系人数据，
 // 但是在下次微信登录后发现联系人没有Remark会再次Remark，Id可能会跟这次不一样
-func (bot *Bot) VerifyAndRemark(toUserName, ticket string) (*Contact, error) {
-  if toUserName == "" || ticket == "" {
+func (bot *Bot) Accept(c *Contact) (*Contact, error) {
+  if c == nil || c.UserName == "" || c.GetAttrString("Ticket", "") == "" {
     return nil, ErrInvalidArgs
   }
-  resp, e := bot.req.Verify(toUserName, ticket)
+  resp, e := bot.req.Verify(c.UserName, c.GetAttrString("Ticket", ""))
   if e != nil {
     return nil, e
   }
-  ret, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
+  code, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
   if e != nil {
     return nil, e
   }
-  if ret != 0 {
+  if code != 0 {
     return nil, ErrResp
   }
 
-  resp, e = bot.req.GetContacts(toUserName)
+  resp, e = bot.req.GetContacts(c.UserName)
   if e != nil {
     return nil, e
   }
-  ret, e = jsonparser.GetInt(resp, "BaseResponse", "Ret")
+  code, e = jsonparser.GetInt(resp, "BaseResponse", "Ret")
   if e != nil {
     return nil, e
   }
-  if ret != 0 {
+  if code != 0 {
     return nil, ErrResp
   }
-  var c *Contact
+  var ret *Contact
   _, _ = jsonparser.ArrayEach(resp, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
       return
     }
-    contact := buildContact(v)
-    if contact != nil && contact.UserName != "" {
-      c = contact
+    cc := buildContact(v)
+    if cc != nil && cc.UserName != "" {
+      cc.withBot(bot)
+      ret = cc
     }
   }, "ContactList")
-  if c == nil {
+  if ret == nil {
     return nil, ErrResp
   }
-  c.withBot(bot)
 
-  if !bot.isIdEnabled() {
-    bot.Contacts.Add(c)
-    return c, nil
+  if !bot.idEnabled() {
+    bot.Contacts.Add(ret)
+    return ret, nil
   }
 
-  c.Id = strconv.FormatUint(bot.Contacts.nextId(), 10)
-  bot.Contacts.Add(c)
-  resp, e = bot.req.Remark(c.UserName, c.Id)
+  ret.Id = strconv.FormatUint(bot.Contacts.nextId(), 10)
+  bot.Contacts.Add(ret)
+  resp, e = bot.req.Remark(ret.UserName, ret.Id)
   if e != nil {
-    return c, e
+    return ret, e
   }
-  ret, e = jsonparser.GetInt(resp, "Ret")
+  code, e = jsonparser.GetInt(resp, "Ret")
   if e != nil {
-    return c, e
+    return ret, e
   }
-  if ret != 0 {
-    return nil, ErrResp
+  if code != 0 {
+    return ret, ErrResp
   }
-  return c, nil
+  return ret, nil
 }

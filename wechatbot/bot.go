@@ -2,7 +2,6 @@ package wechatbot
 
 import (
   "errors"
-  "github.com/buger/jsonparser"
   "math/rand"
   "net/http"
   "net/http/cookiejar"
@@ -13,6 +12,7 @@ import (
   "sync"
   "time"
 
+  "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/conv"
   "github.com/kwf2030/commons/flow"
   "github.com/kwf2030/commons/times"
@@ -221,7 +221,8 @@ type Bot struct {
 }
 
 // enableId是否启用持久化Id功能（对好友进行备注并作为Id），
-// 如果为false，Contact.Id不会有值，所有操作只能通过UserName进行
+// 如果为false，Contact.Id不会有值，所有操作只能通过UserName进行，
+// 且每次登录UserName都不一样
 func CreateBot(enableId bool) *Bot {
   ch := make(chan *op, 4)
   bot := &Bot{
@@ -256,7 +257,6 @@ func (bot *Bot) Start() <-chan *Event {
       // 登录Bot出现了问题或一直没扫描超时了
       bot.evt <- &Event{Type: EventSignInFailed, Err: e}
       close(bot.op)
-      bot.Release()
       return
     }
 
@@ -322,7 +322,7 @@ func (bot *Bot) GetAttrBytes(attr string) []byte {
   return nil
 }
 
-func (bot *Bot) isIdEnabled() bool {
+func (bot *Bot) idEnabled() bool {
   if b, ok := bot.Attr.Load(attrIdEnabled); ok && b.(bool) {
     return true
   }
@@ -498,9 +498,9 @@ type session struct {
   UUID          string
   QRCodeUrl     string
   RedirectUrl   string
-  Uin           int64
-  Sid           string
   SKey          string
+  Sid           string
+  Uin           int64
   PassTicket    string
   BaseReq       *baseReq
   UserName      string
@@ -519,9 +519,9 @@ func (s *session) reset() {
   s.QRCodeUrl = ""
   s.RedirectUrl = ""
   s.BaseReq = nil
-  s.Uin = 0
-  s.Sid = ""
   s.SKey = ""
+  s.Sid = ""
+  s.Uin = 0
   s.PassTicket = ""
   s.UserName = ""
   s.AvatarUrl = ""

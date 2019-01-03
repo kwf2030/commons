@@ -30,11 +30,16 @@ func (r *loginReq) Run(s *flow.Step) {
     s.Complete(ErrResp)
     return
   }
-  r.req.Uin = login.WXUin
-  r.req.Sid = login.WXSid
   r.req.SKey = login.SKey
+  r.req.Sid = login.WXSid
+  r.req.Uin = login.WXUin
   r.req.PassTicket = login.PassTicket
-  r.req.BaseReq = &baseReq{login.WXUin, login.WXSid, login.SKey, deviceId()}
+  r.req.BaseReq = &baseReq{
+    SKey:     login.SKey,
+    Sid:      login.WXSid,
+    Uin:      login.WXUin,
+    DeviceId: deviceId(),
+  }
   r.selectBaseUrl()
   r.req.bot.op <- &op{what: opLogin}
   s.Complete(nil)
@@ -75,6 +80,15 @@ func (r *loginReq) selectBaseUrl() {
 }
 
 func parseLoginResp(resp *http.Response) (*loginResp, error) {
+  // <error>
+  //   <ret>0</ret>
+  //   <message></message>
+  //   <skey>@crypt_7be66f24_74523cd7d1f1f5cdb34b1fb1ea5040cf</skey>
+  //   <wxsid>cbj6tfPFvr+Eq08O</wxsid>
+  //   <wxuin>951790778</wxuin>
+  //   <pass_ticket>xvDQbSZVALSZQ%2BiCR%2BGI83zvZwLoGOKViqY2qeJmg2fgSikwR85a7ipplVbOYeuv</pass_ticket>
+  //   <isgrayscale>1</isgrayscale>
+  // </error>
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
@@ -99,8 +113,8 @@ type loginResp struct {
 }
 
 type baseReq struct {
-  Uin      int64  `json:"Uin"`
-  Sid      string `json:"Sid"`
   SKey     string `json:"Skey"`
+  Sid      string `json:"Sid"`
+  Uin      int64  `json:"Uin"`
   DeviceId string `json:"DeviceID"`
 }

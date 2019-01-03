@@ -19,9 +19,9 @@ const initUrlPath = "/webwxinit"
 const opInit = 0x4001
 
 var (
+  jsonPathSyncKey        = []string{"SyncKey"}
   jsonPathUserHeadImgUrl = []string{"User", "HeadImgUrl"}
   jsonPathUserNickName   = []string{"User", "NickName"}
-  jsonPathUserSyncKey    = []string{"User", "SyncKey"}
   jsonPathUserUserName   = []string{"User", "UserName"}
 )
 
@@ -84,6 +84,68 @@ func (r *initReq) do() (*Contact, error) {
 }
 
 func parseInitResp(resp *http.Response) (*Contact, error) {
+  // {
+  //   "BaseResponse": {
+  //     "Ret": 0,
+  //     "ErrMsg": ""
+  //   },
+  //   "Count": 2,
+  //   "ContactList": [
+  //     {
+  //       "Uin": 0,
+  //       "UserName": "filehelper",
+  //       "NickName": "文件传输助手",
+  //       ...
+  //     },
+  //     {
+  //       "Uin": 0,
+  //       "UserName": "weixin",
+  //       "NickName": "微信团队",
+  //       ...
+  //     }
+  //   ],
+  //   "SyncKey": {
+  //     "Count": 4,
+  //     "List": [
+  //       {
+  //         "Key": 1,
+  //         "Val": 123456789
+  //       },
+  //       ...
+  //     ]
+  //   },
+  //   "User": {
+  //     "Uin": 123456,
+  //     "UserName": "@ xxx//xxx",
+  //     "NickName": "xxx",
+  //     "HeadImgUrl": "/cgi-bin/mmwebwx-bin/webwxgeticon?seq=123456789&user //name=@123456789// 123&skey=@crypt_123456789abc_123456789abc",
+  //     "RemarkName": "",
+  //     "PYInitial": "",
+  //     "PYQuanPin": "",
+  //     "RemarkPYInitial": "",
+  //     "RemarkPYQuanPin": "",
+  //     "HideInputBarFlag": 0,
+  //     "StarFriend": 0,
+  //     "Sex": 0,
+  //     "Signature": "xxx",
+  //     "AppAccountFlag": 0,
+  //     "VerifyFlag": 0,
+  //     "ContactFlag": 0,
+  //     "WebWxPluginSwitch": 0,
+  //     "HeadImgFlag": 1,
+  //     "SnsFlag": 0
+  //   },
+  //   "ChatSet": "filehelper,weixin,",
+  //   "SKey": "@crypt_123456789abc_123456789abc",
+  //   "ClientVersion": 123456789,
+  //   "SystemTime": 123456789,
+  //   "GrayScale": 1,
+  //   "InviteStartCount": 40,
+  //   "MPSubscribeMsgCount": 0,
+  //   "MPSubscribeMsgList": [
+  //   ],
+  //   "ClickReportInterval": 600000
+  // }
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
@@ -95,22 +157,21 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
     }
     switch i {
     case 0:
+      sk := parseSyncKey(v)
+      if sk != nil && sk.Count > 0 {
+        c.Attr.Store("SyncKeys", sk)
+      }
+    case 1:
       str, _ := jsonparser.ParseString(v)
       if str != "" {
         c.Attr.Store("HeadImgUrl", str)
       }
-    case 1:
-      c.NickName, _ = jsonparser.ParseString(v)
     case 2:
-      sk := &syncKeys{}
-      json.Unmarshal(v, sk)
-      if sk.Count > 0 {
-        c.Attr.Store("SyncKeys", sk)
-      }
+      c.NickName, _ = jsonparser.ParseString(v)
     case 3:
       c.UserName, _ = jsonparser.ParseString(v)
     }
-  }, jsonPathUserHeadImgUrl, jsonPathUserNickName, jsonPathUserSyncKey, jsonPathUserUserName)
+  }, jsonPathSyncKey, jsonPathUserHeadImgUrl, jsonPathUserNickName, jsonPathUserUserName)
   return c, nil
 }
 
@@ -122,6 +183,23 @@ type syncKey struct {
 type syncKeys struct {
   Count int        `json:"Count"`
   List  []*syncKey `json:"List"`
+}
+
+func parseSyncKey(data []byte) *syncKeys {
+  n, _ := jsonparser.GetInt(data, "Count")
+  if n <= 0 {
+    return nil
+  }
+  ret := &syncKeys{Count: int(n), List: make([]*syncKey, 0, n)}
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, i int, e error) {
+    if e != nil {
+      return
+    }
+    key, _ := jsonparser.GetInt(v, "Key")
+    val, _ := jsonparser.GetInt(v, "Val")
+    ret.List = append(ret.List, &syncKey{int(key), int(val)})
+  }, "List")
+  return ret
 }
 
 func (sk *syncKeys) expand() string {

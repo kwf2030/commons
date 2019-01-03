@@ -99,18 +99,6 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
   }
 }
 
-// 检查是否有新消息，类似于心跳，
-// window.synccheck={retcode:"0",selector:"2"}
-// retcode=0：正常，
-// retcode=1100：失败/已退出，
-// retcode=1101：在其他地方登录了Web微信，
-// retcode=1102：主动退出，
-// selector=0：正常，
-// selector=2：有新消息，
-// selector=4：保存群聊到通讯录/修改群名称/新增或删除联系人/群聊成员数目变化，
-// selector=5：未知，
-// selector=6：未知，
-// selector=7：操作了手机，如进入/关闭聊天页面
 func (r *syncReq) doSyncCheck() (int, int, error) {
   addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckUrlPath))
   q := addr.Query()
@@ -216,9 +204,131 @@ func (r *syncReq) doSync() ([]byte, error) {
     return nil, e
   }
   return body, nil
+  // {
+  //   "BaseResponse": {
+  //     "Ret": 0,
+  //     "ErrMsg": ""
+  //   },
+  //   "AddMsgCount": 1,
+  //   "AddMsgList": [
+  //     {
+  //       "MsgId": "123456789",
+  //       "FromUserName": "@123456789// 123456789abc",
+  //       "ToUserName": "@123456789// 123456789abc",
+  //       "MsgType": 51,
+  //       "Content": "",
+  //       "Status": 3,
+  //       "ImgStatus": 1,
+  //       "CreateTime": 123456789,
+  //       "VoiceLength": 0,
+  //       "PlayLength": 0,
+  //       "FileName": "",
+  //       "FileSize": "",
+  //       "MediaId": "",
+  //       "Url": "",
+  //       "AppMsgType": 0,
+  //       "StatusNotifyCode": 4,
+  //       "StatusNotifyUserName": // "filehelper,@123456789abc",
+  //       "RecommendInfo": {
+  //         "UserName": "",
+  //         "NickName": "",
+  //         "QQNum": 0,
+  //         "Province": "",
+  //         "City": "",
+  //         "Content": "",
+  //         "Signature": "",
+  //         "Alias": "",
+  //         "Scene": 0,
+  //         "VerifyFlag": 0,
+  //         "AttrStatus": 0,
+  //         "Sex": 0,
+  //         "Ticket": "",
+  //         "OpCode": 0
+  //       },
+  //       "ForwardFlag": 0,
+  //       "AppInfo": {
+  //         "AppID": "",
+  //         "Type": 0
+  //       },
+  //       "HasProductId": 0,
+  //       "Ticket": "",
+  //       "ImgHeight": 0,
+  //       "ImgWidth": 0,
+  //       "SubMsgType": 0,
+  //       "NewMsgId": 123456789,
+  //       "OriContent": "",
+  //       "EncryFileName": ""
+  //     }
+  //   ],
+  //   "ModContactCount": 0,
+  //   "ModContactList": [
+  //   ],
+  //   "DelContactCount": 0,
+  //   "DelContactList": [
+  //   ],
+  //   "ModChatRoomMemberCount": 0,
+  //   "ModChatRoomMemberList": [
+  //   ],
+  //   "Profile": {
+  //     "BitFlag": 0,
+  //     "UserName": {
+  //       "Buff": ""
+  //     },
+  //     "NickName": {
+  //       "Buff": ""
+  //     },
+  //     "BindUin": 0,
+  //     "BindEmail": {
+  //       "Buff": ""
+  //     },
+  //     "BindMobile": {
+  //       "Buff": ""
+  //     },
+  //     "Status": 0,
+  //     "Sex": 0,
+  //     "PersonalCard": 0,
+  //     "Alias": "",
+  //     "HeadImgUpdateFlag": 0,
+  //     "HeadImgUrl": "",
+  //     "Signature": ""
+  //   },
+  //   "ContinueFlag": 0,
+  //   "SyncKey": {
+  //     "Count": 7,
+  //     "List": [
+  //       {
+  //         "Key": 1,
+  //         "Val": 123456789
+  //       },
+  //       ...
+  //     ]
+  //   },
+  //   "SKey": "",
+  //   "SyncCheckKey": {
+  //     "Count": 7,
+  //     "List": [
+  //       {
+  //         "Key": 1,
+  //         "Val": 123456789
+  //       },
+  //       ...
+  //     ]
+  //   }
+  // }
 }
 
 func parseSyncCheckResp(resp *http.Response) (int, int, error) {
+  // window.synccheck={retcode:"0",selector:"2"}
+  // retcode=0：正常，
+  // retcode=1100：失败/已退出，
+  // retcode=1101：在其他地方登录了Web微信，
+  // retcode=1102：主动退出，
+  // selector=0：正常，
+  // selector=2：有新消息，
+  // selector=4：保存群聊到通讯录/修改群名称/新增或删除联系人/群聊成员数目变化，
+  // selector=5：未知，
+  // selector=6：未知，
+  // selector=7：操作了手机，如进入/关闭聊天页面
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return 0, 0, e
@@ -234,23 +344,6 @@ func parseSyncCheckResp(resp *http.Response) (int, int, error) {
     selector, _ = strconv.Atoi(arr[2])
   }
   return code, selector, nil
-}
-
-func parseSyncKey(data []byte) *syncKeys {
-  n, _ := jsonparser.GetInt(data, "Count")
-  if n <= 0 {
-    return nil
-  }
-  ret := &syncKeys{Count: int(n), List: make([]*syncKey, 0, n)}
-  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, i int, e error) {
-    if e != nil {
-      return
-    }
-    key, _ := jsonparser.GetInt(v, "Key")
-    val, _ := jsonparser.GetInt(v, "Val")
-    ret.List = append(ret.List, &syncKey{int(key), int(val)})
-  }, "List")
-  return ret
 }
 
 func parseContact(data []byte, bot *Bot) []*Contact {

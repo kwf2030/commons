@@ -59,4 +59,11 @@ func (r *statusNotifyReq) do() error {
   }
   ioutil.ReadAll(resp.Body)
   return nil
+  // {
+  //   "BaseResponse": {
+  //     "Ret": 0,
+  //     "ErrMsg": ""
+  //   },
+  //   "MsgID": "1705849647846578983"
+  // }
 }

@@ -63,6 +63,7 @@ func (r *uuidReq) do() (string, error) {
 }
 
 func parseUUIDResp(resp *http.Response) (string, error) {
+  // window.QRLogin.code = 200; window.QRLogin.uuid = "wbVC3cUBrQ==";
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return "", e

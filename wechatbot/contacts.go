@@ -37,7 +37,7 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
     idMap:       make(map[string]*Contact, 5000),
     Bot:         bot,
   }
-  if !bot.isIdEnabled() {
+  if !bot.idEnabled() {
     for _, c := range contacts {
       c.withBot(bot)
       ret.userNameMap[c.UserName] = c
