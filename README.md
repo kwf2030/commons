@@ -22,8 +22,5 @@ Handles job as flows.
 ## times
 Utils for time(including a simple time wheel).
 
-## util
-Other utils.
-
 ## wechatbot
 Wechat bot for personal account.
