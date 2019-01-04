@@ -20,5 +20,5 @@
 /.idea/
 /.vscode/
 *.sublime-project
-*.sublime-wo1rkspace
-/example/wechatbot/
+*.sublime-workspace
+/wechatbot/example/wechatbot/
