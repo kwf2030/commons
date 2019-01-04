@@ -13,7 +13,7 @@ import (
 
 const statusNotifyUrlPath = "/webwxstatusnotify"
 
-const opStatusNotify = 0x5001
+const opNotify = 0x5001
 
 // 在手机上显示"已登录Web微信"
 type statusNotifyReq struct {
@@ -30,7 +30,7 @@ func (r *statusNotifyReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  r.req.bot.op <- &op{what: opStatusNotify}
+  r.req.bot.op <- &op{what: opNotify}
   s.Complete(nil)
 }
 

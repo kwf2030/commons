@@ -11,7 +11,7 @@ import (
   "github.com/kwf2030/commons/times"
 )
 
-const opLogin = 0x3001
+const opSignIn = 0x3001
 
 type loginReq struct {
   req *req
@@ -42,7 +42,7 @@ func (r *loginReq) Run(s *flow.Step) {
     DeviceId: deviceId(),
   }
   r.selectBaseUrl()
-  r.req.bot.op <- &op{what: opLogin}
+  r.req.bot.op <- &op{what: opSignIn}
   s.Complete(nil)
 }
 

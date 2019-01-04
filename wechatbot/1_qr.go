@@ -16,7 +16,7 @@ const (
   qrUrl   = "https://login.weixin.qq.com/qrcode"
 )
 
-const opUUID = 0x1001
+const opQR = 0x1001
 
 var uuidRegex = regexp.MustCompile(`uuid\s*=\s*"(.*)"`)
 
@@ -36,7 +36,7 @@ func (r *uuidReq) Run(s *flow.Step) {
   }
   r.req.UUID = uuid
   r.req.QRCodeUrl = fmt.Sprintf("%s/%s", qrUrl, uuid)
-  r.req.bot.op <- &op{what: opUUID}
+  r.req.bot.op <- &op{what: opQR}
   s.Complete(nil)
 }
 

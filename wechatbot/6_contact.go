@@ -12,7 +12,7 @@ import (
 
 const contactListUrlPath = "/webwxgetcontact"
 
-const opContactList = 0x6001
+const opContact = 0x6001
 
 type contactListReq struct {
   req *req
@@ -28,7 +28,7 @@ func (r *contactListReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  r.req.bot.op <- &op{what: opContactList, contacts: arr}
+  r.req.bot.op <- &op{what: opContact, contacts: arr}
   s.Complete(nil)
 }
 

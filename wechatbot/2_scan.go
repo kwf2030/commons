@@ -14,7 +14,7 @@ import (
 
 const scanStateUrl = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
 
-const opScanState = 0x2001
+const opScan = 0x2001
 
 var (
   scanStCodeRegex        = regexp.MustCompile(`code\s*=\s*(\d+)\s*;`)
@@ -41,7 +41,7 @@ func (r *scanStateReq) Run(s *flow.Step) {
     return
   }
   r.req.RedirectUrl = redirectUrl
-  r.req.bot.op <- &op{what: opScanState}
+  r.req.bot.op <- &op{what: opScan}
   s.Complete(nil)
 }
 

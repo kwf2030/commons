@@ -333,14 +333,14 @@ func (bot *Bot) dispatch() {
       evt.Type = EventFriendDel
       evt.Contact = op.contact
       bot.Contacts.Remove(op.contact.UserName)
-    case opUUID:
+    case opQR:
       evt.Type = EventQRCode
       evt.Str = bot.req.QRCodeUrl
-    case opLogin:
+    case opSignIn:
       bot.updatePaths()
     case opInit:
       bot.Self = op.contact
-    case opContactList:
+    case opContact:
       bot.Contacts = initContacts(op.contacts, bot)
     case opExit:
       evt.Type = EventExit
