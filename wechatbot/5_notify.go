@@ -11,16 +11,16 @@ import (
   "github.com/kwf2030/commons/times"
 )
 
-const statusNotifyUrlPath = "/webwxstatusnotify"
+const notifyUrlPath = "/webwxstatusnotify"
 
 const opNotify = 0x5001
 
 // 在手机上显示"已登录Web微信"
-type statusNotifyReq struct {
+type notifyReq struct {
   req *req
 }
 
-func (r *statusNotifyReq) Run(s *flow.Step) {
+func (r *notifyReq) Run(s *flow.Step) {
   if e, ok := s.Arg.(error); ok {
     s.Complete(e)
     return
@@ -34,8 +34,8 @@ func (r *statusNotifyReq) Run(s *flow.Step) {
   s.Complete(nil)
 }
 
-func (r *statusNotifyReq) do() error {
-  addr, _ := url.Parse(r.req.BaseUrl + statusNotifyUrlPath)
+func (r *notifyReq) do() error {
+  addr, _ := url.Parse(r.req.BaseUrl + notifyUrlPath)
   q := addr.Query()
   q.Set("pass_ticket", r.req.PassTicket)
   addr.RawQuery = q.Encode()

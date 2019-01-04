@@ -148,11 +148,11 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
           }
         }
       case 1:
-        modContactList = parseContact(v, r.req.bot)
+        modContactList = parseContactList(v, r.req.bot)
       case 2:
-        delContactList = parseContact(v, r.req.bot)
+        delContactList = parseContactList(v, r.req.bot)
       case 3:
-        addMsgList = parseMsg(v, r.req.bot)
+        addMsgList = parseMsgList(v, r.req.bot)
       }
     }, jsonPathSyncCheckKey, jsonPathModContactList, jsonPathDelContactList, jsonPathAddMsgList)
     // 没开启验证如果被添加好友，
@@ -240,7 +240,7 @@ func parseSyncCheckResp(resp *http.Response) (int, int, error) {
   return code, selector, nil
 }
 
-func parseContact(data []byte, bot *Bot) []*Contact {
+func parseContactList(data []byte, bot *Bot) []*Contact {
   ret := make([]*Contact, 0, 2)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
@@ -260,7 +260,7 @@ func parseContact(data []byte, bot *Bot) []*Contact {
   return ret
 }
 
-func parseMsg(data []byte, bot *Bot) []*Message {
+func parseMsgList(data []byte, bot *Bot) []*Message {
   ret := make([]*Message, 0, 2)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {

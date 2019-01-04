@@ -13,11 +13,11 @@ import (
 
 const opSignIn = 0x3001
 
-type loginReq struct {
+type signInReq struct {
   req *req
 }
 
-func (r *loginReq) Run(s *flow.Step) {
+func (r *signInReq) Run(s *flow.Step) {
   if e, ok := s.Arg.(error); ok {
     s.Complete(e)
     return
@@ -46,7 +46,7 @@ func (r *loginReq) Run(s *flow.Step) {
   s.Complete(nil)
 }
 
-func (r *loginReq) do() (*loginResp, error) {
+func (r *signInReq) do() (*signInResp, error) {
   u, _ := url.Parse(r.req.RedirectUrl)
   // 返回的地址可能没有fun和version两个参数，而此请求必须这两个参数
   q := u.Query()
@@ -64,10 +64,10 @@ func (r *loginReq) do() (*loginResp, error) {
   if resp.StatusCode != http.StatusOK {
     return nil, ErrResp
   }
-  return parseLoginResp(resp)
+  return parseSignInResp(resp)
 }
 
-func (r *loginReq) selectBaseUrl() {
+func (r *signInReq) selectBaseUrl() {
   u, _ := url.Parse(r.req.RedirectUrl)
   host := u.Hostname()
   r.req.Host = host
@@ -80,13 +80,13 @@ func (r *loginReq) selectBaseUrl() {
   }
 }
 
-func parseLoginResp(resp *http.Response) (*loginResp, error) {
+func parseSignInResp(resp *http.Response) (*signInResp, error) {
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
   }
   dumpToFile("3_"+times.NowStrf(times.DateTimeMsFormat5), body)
-  ret := &loginResp{}
+  ret := &signInResp{}
   e = xml.Unmarshal(body, ret)
   if e != nil {
     return nil, e
@@ -94,7 +94,7 @@ func parseLoginResp(resp *http.Response) (*loginResp, error) {
   return ret, nil
 }
 
-type loginResp struct {
+type signInResp struct {
   XMLName     xml.Name `xml:"error"`
   Ret         int      `xml:"ret"`
   Message     string   `xml:"message"`

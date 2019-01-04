@@ -10,15 +10,15 @@ import (
   "github.com/kwf2030/commons/times"
 )
 
-const contactListUrlPath = "/webwxgetcontact"
+const contactsUrlPath = "/webwxgetcontact"
 
-const opContact = 0x6001
+const opContacts = 0x6001
 
-type contactListReq struct {
+type contactsReq struct {
   req *req
 }
 
-func (r *contactListReq) Run(s *flow.Step) {
+func (r *contactsReq) Run(s *flow.Step) {
   if e, ok := s.Arg.(error); ok {
     s.Complete(e)
     return
@@ -28,12 +28,12 @@ func (r *contactListReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  r.req.bot.op <- &op{what: opContact, contacts: arr}
+  r.req.bot.op <- &op{what: opContacts, contacts: arr}
   s.Complete(nil)
 }
 
-func (r *contactListReq) do() ([]*Contact, error) {
-  addr, _ := url.Parse(r.req.BaseUrl + contactListUrlPath)
+func (r *contactsReq) do() ([]*Contact, error) {
+  addr, _ := url.Parse(r.req.BaseUrl + contactsUrlPath)
   q := addr.Query()
   q.Set("skey", r.req.SKey)
   q.Set("pass_ticket", r.req.PassTicket)
@@ -51,10 +51,10 @@ func (r *contactListReq) do() ([]*Contact, error) {
   if resp.StatusCode != http.StatusOK {
     return nil, ErrReq
   }
-  return parseContactListResp(resp)
+  return parseContactsResp(resp)
 }
 
-func parseContactListResp(resp *http.Response) ([]*Contact, error) {
+func parseContactsResp(resp *http.Response) ([]*Contact, error) {
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e

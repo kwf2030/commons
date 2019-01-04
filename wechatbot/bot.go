@@ -340,7 +340,7 @@ func (bot *Bot) dispatch() {
       bot.updatePaths()
     case opInit:
       bot.Self = op.contact
-    case opContact:
+    case opContacts:
       bot.Contacts = initContacts(op.contacts, bot)
     case opExit:
       evt.Type = EventExit

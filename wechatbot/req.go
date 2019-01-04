@@ -30,15 +30,15 @@ const (
 )
 
 var (
-  verifyUrlPath      = "/webwxverifyuser"
-  remarkUrlPath      = "/webwxoplog"
-  signOutUrlPath     = "/webwxlogout"
-  contactsUrlPath    = "/webwxbatchgetcontact"
-  sendTextUrlPath    = "/webwxsendmsg"
-  sendEmotionUrlPath = "/webwxsendemoticon"
-  sendImageUrlPath   = "/webwxsendmsgimg"
-  sendVideoUrlPath   = "/webwxsendvideomsg"
-  uploadUrlPath      = "/webwxuploadmedia"
+  verifyUrlPath        = "/webwxverifyuser"
+  remarkUrlPath        = "/webwxoplog"
+  signOutUrlPath       = "/webwxlogout"
+  batchContactsUrlPath = "/webwxbatchgetcontact"
+  sendTextUrlPath      = "/webwxsendmsg"
+  sendEmotionUrlPath   = "/webwxsendemoticon"
+  sendImageUrlPath     = "/webwxsendmsgimg"
+  sendVideoUrlPath     = "/webwxsendvideomsg"
+  uploadUrlPath        = "/webwxuploadmedia"
 )
 
 type req struct {
@@ -63,12 +63,12 @@ func newReq() *req {
 }
 
 func (r *req) initFlow() {
-  uuid := &uuidReq{r}
-  scanState := &scanStateReq{r}
-  login := &loginReq{r}
+  uuid := &qrReq{r}
+  scanState := &scanReq{r}
+  login := &signInReq{r}
   init := &initReq{r}
-  statusNotify := &statusNotifyReq{r}
-  contactList := &contactListReq{r}
+  statusNotify := &notifyReq{r}
+  contactList := &contactsReq{r}
   syn := &syncReq{r}
   r.flow.AddLast(uuid, "uuid")
   r.flow.AddLast(scanState, "scan_state")
@@ -214,7 +214,7 @@ func (r *req) Remark(toUserName, remark string) ([]byte, error) {
 }
 
 func (r *req) GetContacts(userNames ...string) ([]byte, error) {
-  addr, _ := url.Parse(r.BaseUrl + contactsUrlPath)
+  addr, _ := url.Parse(r.BaseUrl + batchContactsUrlPath)
   q := addr.Query()
   q.Set("type", "ex")
   q.Set("r", timestampString13())

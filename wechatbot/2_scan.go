@@ -12,7 +12,7 @@ import (
   "github.com/kwf2030/commons/times"
 )
 
-const scanStateUrl = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
+const scanUrl = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
 
 const opScan = 0x2001
 
@@ -21,11 +21,11 @@ var (
   scanStRedirectURLRegex = regexp.MustCompile(`redirect_uri\s*=\s*"(.*)"`)
 )
 
-type scanStateReq struct {
+type scanReq struct {
   req *req
 }
 
-func (r *scanStateReq) Run(s *flow.Step) {
+func (r *scanReq) Run(s *flow.Step) {
   if e, ok := s.Arg.(error); ok {
     s.Complete(e)
     return
@@ -45,7 +45,7 @@ func (r *scanStateReq) Run(s *flow.Step) {
   s.Complete(nil)
 }
 
-func (r *scanStateReq) check(ch chan<- string) {
+func (r *scanReq) check(ch chan<- string) {
   loop := true
   t := time.AfterFunc(time.Minute*2, func() {
     if loop {
@@ -85,8 +85,8 @@ out:
   }
 }
 
-func (r *scanStateReq) do() (int, string, error) {
-  addr, _ := url.Parse(scanStateUrl)
+func (r *scanReq) do() (int, string, error) {
+  addr, _ := url.Parse(scanUrl)
   q := addr.Query()
   q.Set("uuid", r.req.UUID)
   q.Set("tip", "0")
@@ -109,10 +109,10 @@ func (r *scanStateReq) do() (int, string, error) {
   // 这个地址可能是根据帐号注册时间分配的，
   // 从下一步reqToken开始所有的请求必须使用相同的Host，否则会返回1100错误码，
   // wx2版本有些请求的query参数被省略了，暂时不用管
-  return parseScanStateResp(resp)
+  return parseScanResp(resp)
 }
 
-func parseScanStateResp(resp *http.Response) (int, string, error) {
+func parseScanResp(resp *http.Response) (int, string, error) {
   // 如果是200，返回：window.code=200;window.redirect_uri=xxx
   // 如果是201，返回：window.code=201;window.userAvatar = 'data:img/jpg;base64,xxx'
   body, e := ioutil.ReadAll(resp.Body)

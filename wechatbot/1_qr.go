@@ -20,11 +20,11 @@ const opQR = 0x1001
 
 var uuidRegex = regexp.MustCompile(`uuid\s*=\s*"(.*)"`)
 
-type uuidReq struct {
+type qrReq struct {
   req *req
 }
 
-func (r *uuidReq) Run(s *flow.Step) {
+func (r *qrReq) Run(s *flow.Step) {
   uuid, e := r.do()
   if e != nil {
     s.Complete(e)
@@ -40,7 +40,7 @@ func (r *uuidReq) Run(s *flow.Step) {
   s.Complete(nil)
 }
 
-func (r *uuidReq) do() (string, error) {
+func (r *qrReq) do() (string, error) {
   addr, _ := url.Parse(uuidUrl)
   q := addr.Query()
   q.Set("appid", "wx782c26e4c19acffb")
@@ -60,10 +60,10 @@ func (r *uuidReq) do() (string, error) {
   if resp.StatusCode != http.StatusOK {
     return "", ErrReq
   }
-  return parseUUIDResp(resp)
+  return parseQRResp(resp)
 }
 
-func parseUUIDResp(resp *http.Response) (string, error) {
+func parseQRResp(resp *http.Response) (string, error) {
   // window.QRLogin.code = 200; window.QRLogin.uuid = "wbVC3cUBrQ==";
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
