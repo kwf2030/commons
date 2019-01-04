@@ -2,13 +2,13 @@ package wechatbot
 
 import (
   "fmt"
-  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
   "regexp"
 
   "github.com/kwf2030/commons/flow"
+  "github.com/kwf2030/commons/times"
 )
 
 const (

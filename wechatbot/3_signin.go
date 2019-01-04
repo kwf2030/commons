@@ -2,13 +2,13 @@ package wechatbot
 
 import (
   "encoding/xml"
-  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
   "strings"
 
   "github.com/kwf2030/commons/flow"
+  "github.com/kwf2030/commons/times"
 )
 
 const opLogin = 0x3001

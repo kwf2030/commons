@@ -4,7 +4,6 @@ import (
   "bytes"
   "encoding/json"
   "fmt"
-  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
@@ -13,6 +12,7 @@ import (
 
   "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/flow"
+  "github.com/kwf2030/commons/times"
 )
 
 const initUrlPath = "/webwxinit"

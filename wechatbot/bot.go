@@ -2,11 +2,7 @@ package wechatbot
 
 import (
   "errors"
-  "io/ioutil"
   "math/rand"
-  "net/http"
-  "net/http/cookiejar"
-  "net/url"
   "os"
   "path"
   "strconv"
@@ -14,10 +10,7 @@ import (
   "time"
 
   "github.com/buger/jsonparser"
-  "github.com/kwf2030/commons/conv"
-  "github.com/kwf2030/commons/flow"
   "github.com/kwf2030/commons/times"
-  "golang.org/x/net/publicsuffix"
 )
 
 const (
@@ -167,6 +160,15 @@ func EnableDumpToFile(enabled bool) {
   dumpToFileEnabled = enabled
 }
 
+func CountBots() int {
+  i := 0
+  eachBot(func(b *Bot) bool {
+    i++
+    return true
+  })
+  return i
+}
+
 func RunningBots() []*Bot {
   ret := make([]*Bot, 0, 2)
   eachBot(func(b *Bot) bool {
@@ -178,13 +180,19 @@ func RunningBots() []*Bot {
   return ret
 }
 
-func CountBots() int {
-  i := 0
-  eachBot(func(b *Bot) bool {
-    i++
-    return true
-  })
-  return i
+type Bot struct {
+  Attr *sync.Map
+
+  Self     *Contact
+  Contacts *Contacts
+
+  StartTime time.Time
+  StopTime  time.Time
+
+  op  chan *op
+  evt chan *Event
+
+  req *req
 }
 
 func FindBotByUUID(uuid string) *Bot {
@@ -212,21 +220,6 @@ func FindBotByUin(uin int64) *Bot {
     return true
   })
   return ret
-}
-
-type Bot struct {
-  Attr *sync.Map
-
-  Self     *Contact
-  Contacts *Contacts
-
-  StartTime time.Time
-  StopTime  time.Time
-
-  op  chan *op
-  evt chan *Event
-
-  req *req
 }
 
 // enableId是否启用持久化Id功能（对好友进行备注并作为Id），
@@ -275,60 +268,6 @@ func (bot *Bot) Start() <-chan *Event {
     bot.evt <- &Event{Type: EventSignInSuccess}
   }()
   return bot.evt
-}
-
-func (bot *Bot) GetAttrString(attr string, defaultValue string) string {
-  if v, ok := bot.Attr.Load(attr); ok {
-    return conv.String(v, defaultValue)
-  }
-  return defaultValue
-}
-
-func (bot *Bot) GetAttrInt(attr string, defaultValue int) int {
-  if v, ok := bot.Attr.Load(attr); ok {
-    return conv.Int(v, defaultValue)
-  }
-  return defaultValue
-}
-
-func (bot *Bot) GetAttrInt64(attr string, defaultValue int64) int64 {
-  if v, ok := bot.Attr.Load(attr); ok {
-    return conv.Int64(v, defaultValue)
-  }
-  return defaultValue
-}
-
-func (bot *Bot) GetAttrUint(attr string, defaultValue uint) uint {
-  if v, ok := bot.Attr.Load(attr); ok {
-    return conv.Uint(v, defaultValue)
-  }
-  return defaultValue
-}
-
-func (bot *Bot) GetAttrUint64(attr string, defaultValue uint64) uint64 {
-  if v, ok := bot.Attr.Load(attr); ok {
-    return conv.Uint64(v, defaultValue)
-  }
-  return defaultValue
-}
-
-func (bot *Bot) GetAttrBool(attr string, defaultValue bool) bool {
-  if v, ok := bot.Attr.Load(attr); ok {
-    return conv.Bool(v)
-  }
-  return defaultValue
-}
-
-func (bot *Bot) GetAttrBytes(attr string) []byte {
-  if v, ok := bot.Attr.Load(attr); ok {
-    switch ret := v.(type) {
-    case []byte:
-      return ret
-    case string:
-      return []byte(ret)
-    }
-  }
-  return nil
 }
 
 func (bot *Bot) idEnabled() bool {
@@ -446,98 +385,6 @@ func (bot *Bot) Release() {
   bot.evt = nil
 }
 
-type req struct {
-  bot    *Bot
-  flow   *flow.Flow
-  client *http.Client
-  *session
-}
-
-func newReq() *req {
-  jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-  sess := &session{}
-  sess.reset()
-  return &req{
-    session: sess,
-    flow:    flow.NewFlow(0),
-    client: &http.Client{
-      Jar:     jar,
-      Timeout: time.Minute * 2,
-    },
-  }
-}
-
-func (r *req) initFlow() {
-  uuid := &uuidReq{r}
-  scanState := &scanStateReq{r}
-  login := &loginReq{r}
-  init := &initReq{r}
-  statusNotify := &statusNotifyReq{r}
-  contactList := &contactListReq{r}
-  syn := &syncReq{r}
-  r.flow.AddLast(uuid, "uuid")
-  r.flow.AddLast(scanState, "scan_state")
-  r.flow.AddLast(login, "login")
-  r.flow.AddLast(init, "init")
-  r.flow.AddLast(statusNotify, "status_notify")
-  r.flow.AddLast(contactList, "contact_list")
-  r.flow.AddLast(syn, "sync")
-}
-
-func (r *req) cookie(key string) string {
-  if key == "" {
-    return ""
-  }
-  addr, _ := url.Parse(r.BaseUrl)
-  arr := r.client.Jar.Cookies(addr)
-  for _, c := range arr {
-    if c.Name == key {
-      return c.Value
-    }
-  }
-  return ""
-}
-
-type session struct {
-  SyncCheckHost string
-  Host          string
-  Referer       string
-  BaseUrl       string
-  State         int
-  UUID          string
-  QRCodeUrl     string
-  RedirectUrl   string
-  SKey          string
-  Sid           string
-  Uin           int64
-  PassTicket    string
-  BaseReq       *baseReq
-  UserName      string
-  AvatarUrl     string
-  SyncKeys      *syncKeys
-  WuFile        int
-}
-
-func (s *session) reset() {
-  s.SyncCheckHost = "webpush.weixin.qq.com"
-  s.Host = "wx.qq.com"
-  s.Referer = "https://wx.qq.com/"
-  s.BaseUrl = "https://wx.qq.com/cgi-bin/mmwebwx-bin"
-  s.State = StateCreated
-  s.UUID = ""
-  s.QRCodeUrl = ""
-  s.RedirectUrl = ""
-  s.BaseReq = nil
-  s.SKey = ""
-  s.Sid = ""
-  s.Uin = 0
-  s.PassTicket = ""
-  s.UserName = ""
-  s.AvatarUrl = ""
-  s.SyncKeys = nil
-  s.WuFile = 0
-}
-
 type op struct {
   what     int
   contact  *Contact
@@ -556,39 +403,4 @@ type Event struct {
   Str     string
   Contact *Contact
   Msg     *Message
-}
-
-func deviceId() string {
-  return "e" + timestampStringL(15)
-}
-
-func timestampString13() string {
-  return timestampStringL(13)
-}
-
-func timestampString10() string {
-  return timestampStringL(10)
-}
-
-func timestampStringL(l int) string {
-  s := strconv.FormatInt(times.Timestamp(), 10)
-  if len(s) > l {
-    return s[:l]
-  }
-  return s
-}
-
-func timestampStringR(l int) string {
-  s := strconv.FormatInt(times.Timestamp(), 10)
-  i := len(s) - l
-  if i > 0 {
-    return s[i:]
-  }
-  return s
-}
-
-func dumpToFile(filename string, data []byte) {
-  if dumpToFileEnabled {
-    ioutil.WriteFile(dumpDir+filename, data, os.ModePerm)
-  }
 }

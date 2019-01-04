@@ -3,12 +3,12 @@ package wechatbot
 import (
   "bytes"
   "encoding/json"
-  "github.com/kwf2030/commons/times"
   "io/ioutil"
   "net/http"
   "net/url"
 
   "github.com/kwf2030/commons/flow"
+  "github.com/kwf2030/commons/times"
 )
 
 const statusNotifyUrlPath = "/webwxstatusnotify"

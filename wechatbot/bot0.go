@@ -1,9 +1,13 @@
 package wechatbot
 
 import (
+  "io/ioutil"
+  "os"
   "strconv"
 
   "github.com/buger/jsonparser"
+  "github.com/kwf2030/commons/conv"
+  "github.com/kwf2030/commons/times"
 )
 
 func (bot *Bot) DownloadQRCode(dst string) (string, error) {
@@ -257,4 +261,93 @@ func (bot *Bot) Accept(c *Contact) (*Contact, error) {
     return ret, ErrResp
   }
   return ret, nil
+}
+
+func (bot *Bot) GetAttrString(attr string, defaultValue string) string {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.String(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrInt(attr string, defaultValue int) int {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Int(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrInt64(attr string, defaultValue int64) int64 {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Int64(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrUint(attr string, defaultValue uint) uint {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Uint(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrUint64(attr string, defaultValue uint64) uint64 {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Uint64(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrBool(attr string, defaultValue bool) bool {
+  if v, ok := bot.Attr.Load(attr); ok {
+    return conv.Bool(v)
+  }
+  return defaultValue
+}
+
+func (bot *Bot) GetAttrBytes(attr string) []byte {
+  if v, ok := bot.Attr.Load(attr); ok {
+    switch ret := v.(type) {
+    case []byte:
+      return ret
+    case string:
+      return []byte(ret)
+    }
+  }
+  return nil
+}
+
+func deviceId() string {
+  return "e" + timestampStringL(15)
+}
+
+func timestampString13() string {
+  return timestampStringL(13)
+}
+
+func timestampString10() string {
+  return timestampStringL(10)
+}
+
+func timestampStringL(l int) string {
+  s := strconv.FormatInt(times.Timestamp(), 10)
+  if len(s) > l {
+    return s[:l]
+  }
+  return s
+}
+
+func timestampStringR(l int) string {
+  s := strconv.FormatInt(times.Timestamp(), 10)
+  i := len(s) - l
+  if i > 0 {
+    return s[i:]
+  }
+  return s
+}
+
+func dumpToFile(filename string, data []byte) {
+  if dumpToFileEnabled {
+    ioutil.WriteFile(dumpDir+filename, data, os.ModePerm)
+  }
 }
