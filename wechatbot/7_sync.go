@@ -210,15 +210,15 @@ func (r *syncReq) doSync() ([]byte, error) {
 func parseSyncCheckResp(resp *http.Response) (int, int, error) {
   // window.synccheck={retcode:"0",selector:"2"}
   // retcode=0：正常，
-  // retcode=1100：失败/已退出，
-  // retcode=1101：在手机上点击退出Web微信，
-  // retcode=1102：在其他地方登录了Web微信，
+  // retcode=1100：退出（原因未知），
+  // retcode=1101：退出（在手机上点击退出Web微信或长时间没有sychecheck），
+  // retcode=1102：退出（原因未知），
   // selector=0：正常，
   // selector=2：有新消息，
   // selector=4：保存群聊到通讯录/修改群名称/新增或删除联系人/群聊成员数目变化，
   // selector=5：未知，
   // selector=6：未知，
-  // selector=7：操作了手机，如进入/关闭聊天页面
+  // selector=7：操作了手机（如进入/关闭聊天页面）
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return 0, 0, e

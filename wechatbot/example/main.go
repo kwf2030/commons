@@ -30,7 +30,7 @@ func main() {
 
     // 被添加好友，
     // 自动通过验证、添加到联系人并备注
-    case wechatbot.EventContactNew:
+    case wechatbot.EventFriendNew:
       bot.Accept(evt.Contact)
       evt.Msg.ReplyText("你好，朋友")
 
@@ -74,6 +74,10 @@ func main() {
 
 func processMsg(msg *wechatbot.Message) {
   fmt.Printf("MsgType=%d\n%s\n", msg.Type, html.UnescapeString(msg.Content))
+
+  if msg.FromContact != nil && msg.FromContact.Type != wechatbot.ContactFriend {
+    return
+  }
 
   var reply string
   switch msg.Type {

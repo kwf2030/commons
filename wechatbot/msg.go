@@ -124,9 +124,11 @@ type Message struct {
   Url          string `json:"url,omitempty"`
   Raw          []byte `json:"raw,omitempty"`
 
-  FromUserId string `json:"from_user_id,omitempty"`
-  ToUserId   string `json:"to_user_id,omitempty"`
-  Bot        *Bot   `json:"-"`
+  FromUserId  string   `json:"from_user_id,omitempty"`
+  ToUserId    string   `json:"to_user_id,omitempty"`
+  FromContact *Contact `json:"-"`
+  ToContact   *Contact `json:"-"`
+  Bot         *Bot     `json:"-"`
 }
 
 func buildMessage(data []byte) *Message {
@@ -175,25 +177,13 @@ func (msg *Message) withBot(bot *Bot) {
   }
   if c := bot.Contacts.FindByUserName(msg.FromUserName); c != nil {
     msg.FromUserId = c.Id
+    msg.FromContact = c
   }
   if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
     msg.ToUserId = c.Id
+    msg.ToContact = c
   }
   msg.Bot = bot
-}
-
-func (msg *Message) GetFromContact() *Contact {
-  if msg.Bot == nil || msg.Bot.Contacts == nil {
-    return nil
-  }
-  return msg.Bot.Contacts.FindByUserName(msg.FromUserName)
-}
-
-func (msg *Message) GetToContact() *Contact {
-  if msg.Bot == nil || msg.Bot.Contacts == nil {
-    return nil
-  }
-  return msg.Bot.Contacts.FindByUserName(msg.ToUserName)
 }
 
 func (msg *Message) ReplyText(text string) error {

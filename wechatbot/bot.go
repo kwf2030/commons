@@ -2,7 +2,6 @@ package wechatbot
 
 import (
   "errors"
-  "math/rand"
   "os"
   "path"
   "strconv"
@@ -22,7 +21,7 @@ const (
   // 已确认（正在登录）
   StateConfirmed
 
-  // 登录成功（此时才可以正常收发消息）
+  // 登录成功（此时可以正常收发消息）
   StateRunning
 
   // 停止/下线（手动、被动或异常）
@@ -43,23 +42,20 @@ const (
   // 登录失败
   EventSignInFailed
 
-  // 主动退出
-  EventSignOut
-
-  // 被动退出
-  EventOffline
+  // 退出（主动或被动）
+  EventExit
 
   // 收到消息
   EventMsg
 
   // 添加好友（主动或被动）
-  EventContactNew
+  EventFriendNew
 
   // 删除好友（主动或被动）
-  EventContactDel
+  EventFriendDel
 
   // 好友资料更新
-  EventContactMod
+  EventFriendUpdate
 
   // 进群（建群、主动或被动加群）
   EventGroupNew
@@ -68,7 +64,7 @@ const (
   EventGroupDel
 
   // 群资料更新（名称更新/群主变更/设置更新等）
-  EventGroupMod
+  EventGroupUpdate
 )
 
 const (
@@ -124,8 +120,6 @@ var (
   // 若处于Running和Stopped状态，key是uin，
   // 调用Bot.Release()会把Bot从bots中删除
   bots = &sync.Map{}
-
-  rnd = rand.New(rand.NewSource(times.Timestamp()))
 
   dumpToFileEnabled = false
 )
@@ -237,7 +231,7 @@ func CreateBot(enableId bool) *Bot {
   // 未获取到uin之前key是随机的，
   // 无论登录成功还是失败，都会删除这个key，
   // 如果登录成功，会用uin存储这个Bot
-  k := rnd.Int()
+  k := times.Timestamp()
   bot.Attr.Store(attrRandUin, k)
   bot.Attr.Store(attrIdEnabled, enableId)
   bots.Store(k, bot)
@@ -325,18 +319,18 @@ func (bot *Bot) dispatch() {
         t, _ := jsonparser.GetString(v, "Ticket")
         c := buildContact(v)
         c.Attr.Store("Ticket", t)
-        evt.Type = EventContactNew
+        evt.Type = EventFriendNew
         evt.Contact = c
         break
       }
       evt.Type = EventMsg
       evt.Msg = op.msg
     case opModContact:
-      evt.Type = EventContactMod
+      evt.Type = EventFriendUpdate
       evt.Contact = op.contact
       bot.Contacts.Add(op.contact)
     case opDelContact:
-      evt.Type = EventContactDel
+      evt.Type = EventFriendDel
       evt.Contact = op.contact
       bot.Contacts.Remove(op.contact.UserName)
     case opUUID:
@@ -349,10 +343,7 @@ func (bot *Bot) dispatch() {
     case opContactList:
       bot.Contacts = initContacts(op.contacts, bot)
     case opExit:
-      // todo 区分主动和被动
-      // op.syncCheckCode
-      // op.syncCheckSelector
-      evt.Type = EventSignOut
+      evt.Type = EventExit
       bot.Stop()
     }
     if evt.Type != -1 {

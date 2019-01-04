@@ -55,7 +55,7 @@ type Contact struct {
   Id string `json:"id,omitempty"`
 
   // Type是VerifyFlag解析后的值
-  Type int `json:"flag"`
+  Type int `json:"type"`
 
   // 联系人所属Bot的uin
   OwnerUin int64 `json:"owner_uin"`
