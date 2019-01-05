@@ -3,7 +3,6 @@ package main
 import (
   "bytes"
   "fmt"
-  "html"
   "os/exec"
   "runtime"
   "time"
@@ -73,9 +72,12 @@ func main() {
 }
 
 func processMsg(msg *wechatbot.Message) {
-  fmt.Printf("MsgType=%d\n%s\n", msg.Type, html.UnescapeString(msg.Content))
-
-  if msg.FromContact != nil && msg.FromContact.Type != wechatbot.ContactFriend {
+  content := "<NULL>"
+  if msg.Content != "" {
+    content = msg.Content
+  }
+  fmt.Printf("From:%s\nTo:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.Type, content)
+  if msg.FromContact == nil || msg.FromContact.Type != wechatbot.ContactFriend {
     return
   }
 
@@ -105,7 +107,6 @@ func processMsg(msg *wechatbot.Message) {
   case wechatbot.MsgVideo:
     reply = "收到视频"
   }
-
   if reply == "" {
     return
   }

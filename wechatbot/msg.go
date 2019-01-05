@@ -124,8 +124,10 @@ type Message struct {
   Url          string `json:"url,omitempty"`
   Raw          []byte `json:"raw,omitempty"`
 
-  FromUserId  string   `json:"from_user_id,omitempty"`
-  ToUserId    string   `json:"to_user_id,omitempty"`
+  // 如果是群聊，Speaker表示消息发送者
+  SpeakerUserName string   `json:"-"`
+  SpeakerContact  *Contact `json:"-"`
+
   FromContact *Contact `json:"-"`
   ToContact   *Contact `json:"-"`
   Bot         *Bot     `json:"-"`
@@ -176,11 +178,11 @@ func (msg *Message) withBot(bot *Bot) {
     return
   }
   if c := bot.Contacts.FindByUserName(msg.FromUserName); c != nil {
-    msg.FromUserId = c.Id
     msg.FromContact = c
   }
-  if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
-    msg.ToUserId = c.Id
+  if msg.ToUserName == bot.req.UserName {
+    msg.ToContact = bot.Self
+  } else if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
     msg.ToContact = c
   }
   msg.Bot = bot

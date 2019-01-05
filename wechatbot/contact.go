@@ -91,17 +91,7 @@ func buildContact(data []byte) *Contact {
   }
   switch ret.VerifyFlag {
   case 0:
-    if len(ret.UserName) < 2 {
-      ret.Type = ContactUnknown
-    } else {
-      if (ret.UserName)[0:2] == "@@" {
-        ret.Type = ContactGroup
-      } else if (ret.UserName)[0:1] == "@" {
-        ret.Type = ContactFriend
-      } else {
-        ret.Type = ContactSystem
-      }
-    }
+    ret.Type = ContactTypeByUserName(ret.UserName)
   case 8, 24:
     ret.Type = ContactMPS
   case 56:
@@ -210,4 +200,17 @@ func (c *Contact) GetAttrBytes(attr string) []byte {
     }
   }
   return nil
+}
+
+func ContactTypeByUserName(userName string) int {
+  switch {
+  case len(userName) < 2:
+    return ContactUnknown
+  case userName[0:2] == "@@":
+    return ContactGroup
+  case userName[0:1] == "@":
+    return ContactFriend
+  default:
+    return ContactSystem
+  }
 }

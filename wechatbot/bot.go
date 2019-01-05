@@ -334,17 +334,7 @@ func (bot *Bot) dispatch() {
     evt := &Event{Type: -1}
     switch op.what {
     case opAddMsg:
-      if op.msg.Type == MsgVerify {
-        v, _, _, _ := jsonparser.Get(op.msg.Raw, "RecommendInfo")
-        t, _ := jsonparser.GetString(v, "Ticket")
-        c := buildContact(v)
-        c.Attr.Store("Ticket", t)
-        evt.Type = EventFriendNew
-        evt.Contact = c
-        break
-      }
-      evt.Type = EventMsg
-      evt.Msg = op.msg
+      bot.processMsg(op, evt)
     case opModContact:
       evt.Type = EventFriendUpdate
       evt.Contact = op.contact
@@ -374,6 +364,27 @@ func (bot *Bot) dispatch() {
   // 但evt是在这里是发送方，所以应该在此处关闭，
   // 不能放在Stop方法里（如果在Stop里面关闭了evt，就没法发送退出事件了）
   close(bot.evt)
+}
+
+func (bot *Bot) processMsg(op *op, evt *Event) {
+  if op.msg.Type == MsgVerify {
+    v, _, _, _ := jsonparser.Get(op.msg.Raw, "RecommendInfo")
+    t, _ := jsonparser.GetString(v, "Ticket")
+    c := buildContact(v)
+    c.Attr.Store("Ticket", t)
+    evt.Type = EventFriendNew
+    evt.Contact = c
+    return
+  }
+  if len(op.msg.Content) >= 39 && op.msg.Content[33:34] == ":" {
+    op.msg.SpeakerUserName = op.msg.Content[1:33]
+    if c := bot.Contacts.FindByUserName(op.msg.SpeakerUserName); c != nil {
+      op.msg.SpeakerContact = c
+    }
+    op.msg.Content = op.msg.Content[39:]
+  }
+  evt.Type = EventMsg
+  evt.Msg = op.msg
 }
 
 type op struct {
