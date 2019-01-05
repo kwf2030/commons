@@ -41,15 +41,15 @@ func (r *notifyReq) do() error {
   addr.RawQuery = q.Encode()
   m := make(map[string]interface{}, 5)
   m["BaseRequest"] = r.req.BaseReq
+  m["ClientMsgId"] = timestampString13()
   m["Code"] = 3
   m["FromUserName"] = r.req.UserName
   m["ToUserName"] = r.req.UserName
-  m["ClientMsgId"] = timestampString13()
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
+  req.Header.Set("Content-Type", contentType)
   req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
-  req.Header.Set("Content-Type", contentType)
   resp, e := r.req.client.Do(req)
   if e != nil {
     return e

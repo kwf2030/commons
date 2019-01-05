@@ -22,24 +22,24 @@ func (r *signInReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  login, e := r.do()
+  signIn, e := r.do()
   if e != nil {
     s.Complete(e)
     return
   }
-  if login == nil || login.WXUin == 0 || login.WXSid == "" || login.SKey == "" || login.PassTicket == "" {
+  if signIn == nil || signIn.PassTicket == "" || signIn.SKey == "" || signIn.WXSid == "" || signIn.WXUin == 0 {
     s.Complete(ErrResp)
     return
   }
-  r.req.SKey = login.SKey
-  r.req.Sid = login.WXSid
-  r.req.Uin = login.WXUin
-  r.req.PassTicket = login.PassTicket
+  r.req.PassTicket = signIn.PassTicket
+  r.req.Sid = signIn.WXSid
+  r.req.SKey = signIn.SKey
+  r.req.Uin = signIn.WXUin
   r.req.BaseReq = &baseReq{
-    SKey:     login.SKey,
-    Sid:      login.WXSid,
-    Uin:      login.WXUin,
     DeviceId: deviceId(),
+    Sid:      signIn.WXSid,
+    SKey:     signIn.SKey,
+    Uin:      signIn.WXUin,
   }
   r.selectBaseUrl()
   r.req.bot.op <- &op{what: opSignIn}
@@ -98,16 +98,16 @@ type signInResp struct {
   XMLName     xml.Name `xml:"error"`
   Ret         int      `xml:"ret"`
   Message     string   `xml:"message"`
-  WXUin       int64    `xml:"wxuin"`
-  WXSid       string   `xml:"wxsid"`
-  SKey        string   `xml:"skey"`
-  PassTicket  string   `xml:"pass_ticket"`
   IsGrayScale int      `xml:"isgrayscale"`
+  PassTicket  string   `xml:"pass_ticket"`
+  SKey        string   `xml:"skey"`
+  WXSid       string   `xml:"wxsid"`
+  WXUin       int64    `xml:"wxuin"`
 }
 
 type baseReq struct {
-  SKey     string `json:"Skey"`
-  Sid      string `json:"Sid"`
-  Uin      int64  `json:"Uin"`
   DeviceId string `json:"DeviceID"`
+  Sid      string `json:"Sid"`
+  SKey     string `json:"Skey"`
+  Uin      int64  `json:"Uin"`
 }

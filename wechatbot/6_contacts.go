@@ -35,10 +35,10 @@ func (r *contactsReq) Run(s *flow.Step) {
 func (r *contactsReq) do() ([]*Contact, error) {
   addr, _ := url.Parse(r.req.BaseUrl + contactsUrlPath)
   q := addr.Query()
-  q.Set("skey", r.req.SKey)
   q.Set("pass_ticket", r.req.PassTicket)
   q.Set("r", timestampString13())
   q.Set("seq", "0")
+  q.Set("skey", r.req.SKey)
   addr.RawQuery = q.Encode()
   req, _ := http.NewRequest("GET", addr.String(), nil)
   req.Header.Set("Referer", r.req.Referer)

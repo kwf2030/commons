@@ -70,9 +70,9 @@ func (r *initReq) do() (*Contact, error) {
   m["BaseRequest"] = r.req.BaseReq
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
+  req.Header.Set("Content-Type", contentType)
   req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
-  req.Header.Set("Content-Type", contentType)
   resp, e := r.req.client.Do(req)
   if e != nil {
     return nil, e
@@ -116,13 +116,13 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
 }
 
 type syncKey struct {
-  Key int `json:"Key"`
-  Val int `json:"Val"`
+  Key int
+  Val int
 }
 
 type syncKeys struct {
-  Count int        `json:"Count"`
-  List  []*syncKey `json:"List"`
+  Count int
+  List  []*syncKey
 }
 
 func parseSyncKey(data []byte) *syncKeys {

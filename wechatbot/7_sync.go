@@ -30,10 +30,10 @@ const (
 )
 
 var (
-  jsonPathSyncCheckKey   = []string{"SyncCheckKey"}
-  jsonPathModContactList = []string{"ModContactList"}
-  jsonPathDelContactList = []string{"DelContactList"}
   jsonPathAddMsgList     = []string{"AddMsgList"}
+  jsonPathDelContactList = []string{"DelContactList"}
+  jsonPathModContactList = []string{"ModContactList"}
+  jsonPathSyncCheckKey   = []string{"SyncCheckKey"}
 )
 
 var syncCheckRegex = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
@@ -102,12 +102,12 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan, syncChan chan struct{}) 
 func (r *syncReq) doSyncCheck() (int, int, error) {
   addr, _ := url.Parse(fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin%s", r.req.SyncCheckHost, syncCheckUrlPath))
   q := addr.Query()
+  q.Set("deviceid", deviceId())
   q.Set("r", timestampString13())
   q.Set("sid", r.req.Sid)
-  q.Set("uin", strconv.FormatInt(r.req.Uin, 10))
   q.Set("skey", r.req.SKey)
-  q.Set("deviceid", deviceId())
   q.Set("synckey", r.req.SyncKeys.expand())
+  q.Set("uin", strconv.FormatInt(r.req.Uin, 10))
   q.Set("_", timestampString13())
   addr.RawQuery = q.Encode()
   req, _ := http.NewRequest("GET", addr.String(), nil)
@@ -132,14 +132,20 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
       syncCheckChan <- struct{}{}
       continue
     }
-    var modContactList, delContactList []*Contact
     var addMsgList []*Message
+    var modContactList, delContactList []*Contact
     jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
       if e != nil {
         return
       }
       switch i {
       case 0:
+        addMsgList = parseMsgList(v, r.req.bot)
+      case 1:
+        delContactList = parseContactList(v, r.req.bot)
+      case 2:
+        modContactList = parseContactList(v, r.req.bot)
+      case 3:
         b, _, _, e := jsonparser.Get(data, "SyncKey")
         if e == nil {
           sk := parseSyncKey(b)
@@ -147,14 +153,8 @@ func (r *syncReq) sync(ch chan int, syncCheckChan, syncChan chan struct{}) {
             r.req.SyncKeys = sk
           }
         }
-      case 1:
-        modContactList = parseContactList(v, r.req.bot)
-      case 2:
-        delContactList = parseContactList(v, r.req.bot)
-      case 3:
-        addMsgList = parseMsgList(v, r.req.bot)
       }
-    }, jsonPathSyncCheckKey, jsonPathModContactList, jsonPathDelContactList, jsonPathAddMsgList)
+    }, jsonPathAddMsgList, jsonPathDelContactList, jsonPathModContactList, jsonPathSyncCheckKey)
     // 没开启验证如果被添加好友，
     // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
     // 所以要先处理完Contact后再处理Message（避免找不到发送者），
@@ -184,13 +184,13 @@ func (r *syncReq) doSync() ([]byte, error) {
   addr.RawQuery = q.Encode()
   m := make(map[string]interface{}, 3)
   m["BaseRequest"] = r.req.BaseReq
-  m["SyncKey"] = r.req.SyncKeys
   m["rr"] = strconv.FormatInt(^(times.Timestamp() / int64(time.Second)), 10)
+  m["SyncKey"] = r.req.SyncKeys
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
+  req.Header.Set("Content-Type", contentType)
   req.Header.Set("Referer", r.req.Referer)
   req.Header.Set("User-Agent", userAgent)
-  req.Header.Set("Content-Type", contentType)
   resp, e := r.req.client.Do(req)
   if e != nil {
     return nil, e
