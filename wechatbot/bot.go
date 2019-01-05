@@ -264,6 +264,26 @@ func (bot *Bot) Start() <-chan *Event {
   return bot.evt
 }
 
+func (bot *Bot) Stop() {
+  bot.StopTime = times.Now()
+  bot.req.State = StateStopped
+  bot.req.SignOut()
+}
+
+func (bot *Bot) Release() {
+  bots.Delete(bot.req.Uin)
+  bot.req.reset()
+  bot.req.bot = nil
+  bot.req.flow = nil
+  bot.req.client = nil
+  bot.req = nil
+  bot.Attr = nil
+  bot.Self = nil
+  bot.Contacts = nil
+  bot.op = nil
+  bot.evt = nil
+}
+
 func (bot *Bot) idEnabled() bool {
   if b, ok := bot.Attr.Load(attrIdEnabled); ok && b.(bool) {
     return true
@@ -354,26 +374,6 @@ func (bot *Bot) dispatch() {
   // 但evt是在这里是发送方，所以应该在此处关闭，
   // 不能放在Stop方法里（如果在Stop里面关闭了evt，就没法发送退出事件了）
   close(bot.evt)
-}
-
-func (bot *Bot) Stop() {
-  bot.StopTime = times.Now()
-  bot.req.State = StateStopped
-  bot.req.SignOut()
-}
-
-func (bot *Bot) Release() {
-  bots.Delete(bot.req.Uin)
-  bot.req.reset()
-  bot.req.bot = nil
-  bot.req.flow = nil
-  bot.req.client = nil
-  bot.req = nil
-  bot.Attr = nil
-  bot.Self = nil
-  bot.Contacts = nil
-  bot.op = nil
-  bot.evt = nil
 }
 
 type op struct {

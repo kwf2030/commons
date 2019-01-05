@@ -22,3 +22,4 @@
 *.sublime-project
 *.sublime-workspace
 /wechatbot/example/wechatbot/
+/wechatbot/example/main
