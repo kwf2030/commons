@@ -16,7 +16,7 @@ func main() {
   // 调试分析数据时非常有用
   wechatbot.EnableDumpToFile(true)
 
-  bot := wechatbot.CreateBot(false)
+  bot := wechatbot.CreateBot()
   event := bot.Start()
 
   // 不要阻塞消息接收的channel，
@@ -26,12 +26,6 @@ func main() {
     // 收到消息
     case wechatbot.EventMsg:
       processMsg(evt.Msg)
-
-    // 被添加好友，
-    // 自动通过验证、添加到联系人并备注
-    case wechatbot.EventFriendNew:
-      bot.Accept(evt.Contact)
-      evt.Msg.ReplyText("你好，朋友")
 
     // 获取到二维码，需扫码登录
     // evt.Str为二维码链接
@@ -77,7 +71,8 @@ func processMsg(msg *wechatbot.Message) {
     content = msg.Content
   }
   fmt.Printf("From:%s\nTo:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.Type, content)
-  if msg.FromContact == nil || msg.FromContact.Type != wechatbot.ContactFriend {
+  c := msg.Bot.Contacts.Get(msg.FromUserName)
+  if c == nil || c.Type != wechatbot.ContactFriend {
     return
   }
 
