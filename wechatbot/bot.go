@@ -8,7 +8,6 @@ import (
   "sync"
   "time"
 
-  "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/times"
 )
 
@@ -47,24 +46,6 @@ const (
 
   // 收到消息
   EventMsg
-
-  // 添加好友（主动或被动）
-  EventFriendNew
-
-  // 删除好友（主动或被动）
-  EventFriendDel
-
-  // 好友资料更新
-  EventFriendUpdate
-
-  // 进群（建群、主动或被动加群）
-  EventGroupNew
-
-  // 退群（主动或被动）
-  EventGroupDel
-
-  // 群资料更新（名称更新/群主变更/设置更新等）
-  EventGroupUpdate
 )
 
 const (
@@ -83,14 +64,7 @@ const (
   // 头像存放路径
   AttrAvatarPath = "wechatbot.avatar_path"
 
-  // 持久化方案，如果禁用则Contact.Id永远不会有值，默认禁用，
-  // 仅会对好友（使用备注实现）和群（使用群名称实现，改名会同步，同名没影响）持久化
-  attrIdEnabled = "wechatbot.id_enabled"
-
-  // 初始Id
-  attrInitialId = "wechatbot.initial_id"
-
-  // 未登录成功时会随机生成uin作为key，保证bots中有记录且可查询这个Bot
+  // 未登录成功时会用时间戳作为key，保证bots中有记录且可查询这个Bot
   attrRandUin = "wechatbot.rand_uin"
 
   rootDir = "wechatbot"
@@ -116,7 +90,7 @@ var (
 
 var (
   // 所有Bot，int=>*Bot
-  // 若处于Created/Scanned/Confirmed状态，key是随机生成的，
+  // 若处于Created/Scanned/Confirmed状态，key是时间戳，
   // 若处于Running和Stopped状态，key是uin，
   // 调用Bot.Release()会把Bot从bots中删除
   bots = &sync.Map{}
@@ -143,10 +117,7 @@ func updatePaths() {
 
 func eachBot(f func(*Bot) bool) {
   bots.Range(func(_, bot interface{}) bool {
-    if b, ok := bot.(*Bot); ok {
-      return f(b)
-    }
-    return true
+    return f(bot.(*Bot))
   })
 }
 
@@ -189,7 +160,7 @@ type Bot struct {
   req *req
 }
 
-func FindBotByUUID(uuid string) *Bot {
+func GetBotByUUID(uuid string) *Bot {
   if uuid == "" {
     return nil
   }
@@ -204,7 +175,7 @@ func FindBotByUUID(uuid string) *Bot {
   return ret
 }
 
-func FindBotByUin(uin int64) *Bot {
+func GetBotByUin(uin int64) *Bot {
   var ret *Bot
   eachBot(func(b *Bot) bool {
     if b.req != nil && b.req.Uin == uin {
@@ -216,10 +187,7 @@ func FindBotByUin(uin int64) *Bot {
   return ret
 }
 
-// enableId是否启用持久化Id功能（对好友进行备注并作为Id），
-// 如果为false，Contact.Id不会有值，所有操作只能通过UserName进行，
-// 且每次登录UserName都不一样
-func CreateBot(enableId bool) *Bot {
+func CreateBot() *Bot {
   ch := make(chan *op, 4)
   bot := &Bot{
     Attr: &sync.Map{},
@@ -228,12 +196,11 @@ func CreateBot(enableId bool) *Bot {
     req:  newReq(),
   }
   bot.req.bot = bot
-  // 未获取到uin之前key是随机的，
+  // 未获取到uin之前key是当前时间戳，
   // 无论登录成功还是失败，都会删除这个key，
   // 如果登录成功，会用uin存储这个Bot
   k := times.Timestamp()
   bot.Attr.Store(attrRandUin, k)
-  bot.Attr.Store(attrIdEnabled, enableId)
   bots.Store(k, bot)
   return bot
 }
@@ -284,13 +251,6 @@ func (bot *Bot) Release() {
   bot.evt = nil
 }
 
-func (bot *Bot) idEnabled() bool {
-  if b, ok := bot.Attr.Load(attrIdEnabled); ok && b.(bool) {
-    return true
-  }
-  return false
-}
-
 func (bot *Bot) updatePaths() {
   if bot.req.Uin == 0 {
     return
@@ -334,14 +294,11 @@ func (bot *Bot) dispatch() {
     evt := &Event{Type: -1}
     switch op.what {
     case opAddMsg:
-      bot.processMsg(op, evt)
+      evt.Type = EventMsg
+      evt.Msg = op.msg
     case opModContact:
-      evt.Type = EventFriendUpdate
-      evt.Contact = op.contact
       bot.Contacts.Add(op.contact)
     case opDelContact:
-      evt.Type = EventFriendDel
-      evt.Contact = op.contact
       bot.Contacts.Remove(op.contact.UserName)
     case opQR:
       evt.Type = EventQRCode
@@ -364,27 +321,6 @@ func (bot *Bot) dispatch() {
   // 但evt是在这里是发送方，所以应该在此处关闭，
   // 不能放在Stop方法里（如果在Stop里面关闭了evt，就没法发送退出事件了）
   close(bot.evt)
-}
-
-func (bot *Bot) processMsg(op *op, evt *Event) {
-  if op.msg.Type == MsgVerify {
-    v, _, _, _ := jsonparser.Get(op.msg.Raw, "RecommendInfo")
-    t, _ := jsonparser.GetString(v, "Ticket")
-    c := buildContact(v)
-    c.Attr.Store("Ticket", t)
-    evt.Type = EventFriendNew
-    evt.Contact = c
-    return
-  }
-  if len(op.msg.Content) >= 39 && op.msg.Content[33:34] == ":" {
-    op.msg.SpeakerUserName = op.msg.Content[1:33]
-    if c := bot.Contacts.FindByUserName(op.msg.SpeakerUserName); c != nil {
-      op.msg.SpeakerContact = c
-    }
-    op.msg.Content = op.msg.Content[39:]
-  }
-  evt.Type = EventMsg
-  evt.Msg = op.msg
 }
 
 type op struct {
