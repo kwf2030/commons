@@ -13,10 +13,10 @@ import (
 
 func main() {
   // 启用dump，将每个收到的数据作为一个文件写入wechatbot/dump目录内，
-  // 调试分析数据时非常有用
+  // 对调试和分析数据非常有用
   wechatbot.EnableDumpToFile(true)
 
-  bot := wechatbot.CreateBot()
+  bot := wechatbot.Create()
   event := bot.Start()
 
   // 不要阻塞消息接收的channel，
@@ -40,7 +40,7 @@ func main() {
       case "linux":
         exec.Command("eog", p).Start()
       default:
-        fmt.Printf("二维码已保存至[%s]，请打开后扫码登录", p)
+        fmt.Printf("二维码已保存至[%s]，请打开后扫码登录\n", p)
       }
 
     case wechatbot.EventSignInSuccess:
@@ -52,10 +52,10 @@ func main() {
   }
 
   var buf bytes.Buffer
-  buf.WriteString("WeChatBot[%s] run stat:\n")
-  buf.WriteString("  started at: %s\n")
-  buf.WriteString("  stopped at: %s\n")
-  buf.WriteString("  totally online for %.2f hours\n")
+  buf.WriteString("WeChatBot[%s] 运行统计:\n")
+  buf.WriteString("  登录: %s\n")
+  buf.WriteString("  下线: %s\n")
+  buf.WriteString("  共在线 %.2f 小时\n")
   fmt.Printf(buf.String(), bot.Self.NickName,
     bot.StartTime.Format(times.DateTimeFormat),
     bot.StopTime.Format(times.DateTimeFormat),
@@ -66,12 +66,23 @@ func main() {
 }
 
 func processMsg(msg *wechatbot.Message) {
+  // 内置了几种Message处理函数，可以将其组装成一个管道依次处理，
+  // 也可以不使用这些函数，完全由自己处理各种消息
+  wechatbot.PipeMsgHandlers(msg, wechatbot.HandleVerifyMsg, wechatbot.HandleGroupMsg)
+
   content := "<NULL>"
   if msg.Content != "" {
     content = msg.Content
   }
-  fmt.Printf("From:%s\nTo:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.Type, content)
-  c := msg.Bot.Contacts.Get(msg.FromUserName)
+  if msg.SpeakerUserName != "" {
+    // 群聊
+    fmt.Printf("From:%s\nTo:%s\nSpeaker:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.SpeakerUserName, msg.Type, content)
+  } else {
+    //单聊
+    fmt.Printf("From:%s\nTo:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.Type, content)
+  }
+
+  c := msg.GetFromContact()
   if c == nil || c.Type != wechatbot.ContactFriend {
     return
   }

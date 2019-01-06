@@ -2,8 +2,10 @@ package wechatbot
 
 import (
   "strconv"
+  "sync"
 
   "github.com/buger/jsonparser"
+  "github.com/kwf2030/commons/conv"
 )
 
 const (
@@ -71,7 +73,7 @@ var (
 )
 
 type GroupMessage struct {
-  FromMemberUserName string
+  SpeakerUserName string
 }
 
 type Message struct {
@@ -84,7 +86,8 @@ type Message struct {
   CreateTime   int64
   Raw          []byte
 
-  Bot *Bot
+  Attr *sync.Map
+  Bot  *Bot
   *GroupMessage
 }
 
@@ -92,7 +95,7 @@ func buildMessage(data []byte) *Message {
   if len(data) == 0 {
     return nil
   }
-  ret := &Message{Raw: data, GroupMessage: &GroupMessage{}}
+  ret := &Message{Raw: data, Attr: &sync.Map{}, GroupMessage: &GroupMessage{}}
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
@@ -135,6 +138,21 @@ func (msg *Message) withBot(bot *Bot) {
   msg.Bot = bot
 }
 
+func (msg *Message) GetFromContact() *Contact {
+  return msg.Bot.Contacts.Get(msg.FromUserName)
+}
+
+func (msg *Message) GetToContact() *Contact {
+  if msg.ToUserName == msg.Bot.req.UserName {
+    return msg.Bot.Self
+  }
+  return msg.Bot.Contacts.Get(msg.ToUserName)
+}
+
+func (msg *Message) GetFromMemberContact() *Contact {
+  return msg.Bot.Contacts.Get(msg.SpeakerUserName)
+}
+
 func (msg *Message) ReplyText(text string) error {
   if text == "" {
     return ErrInvalidArgs
@@ -154,4 +172,46 @@ func (msg *Message) ReplyVideo(data []byte, filename string) (string, error) {
     return "", ErrInvalidArgs
   }
   return msg.Bot.sendMedia(msg.FromUserName, data, filename, MsgVideo, sendVideoUrlPath)
+}
+
+func (msg *Message) GetAttrString(attr string, defaultValue string) string {
+  if v, ok := msg.Attr.Load(attr); ok {
+    return conv.String(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (msg *Message) GetAttrInt(attr string, defaultValue int) int {
+  if v, ok := msg.Attr.Load(attr); ok {
+    return conv.Int(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (msg *Message) GetAttrInt64(attr string, defaultValue int64) int64 {
+  if v, ok := msg.Attr.Load(attr); ok {
+    return conv.Int64(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (msg *Message) GetAttrUint(attr string, defaultValue uint) uint {
+  if v, ok := msg.Attr.Load(attr); ok {
+    return conv.Uint(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (msg *Message) GetAttrUint64(attr string, defaultValue uint64) uint64 {
+  if v, ok := msg.Attr.Load(attr); ok {
+    return conv.Uint64(v, defaultValue)
+  }
+  return defaultValue
+}
+
+func (msg *Message) GetAttrBool(attr string, defaultValue bool) bool {
+  if v, ok := msg.Attr.Load(attr); ok {
+    return conv.Bool(v)
+  }
+  return defaultValue
 }

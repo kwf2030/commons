@@ -129,11 +129,11 @@ func (bot *Bot) ForwardVideo(toUserName, mediaId string) error {
 }
 
 // 通过验证且添加到联系人
-func (bot *Bot) Accept(c *Contact) (*Contact, error) {
-  if c == nil || c.UserName == "" || c.GetAttrString("Ticket", "") == "" {
+func (bot *Bot) Accept(userName, ticket string) (*Contact, error) {
+  if userName == "" || ticket == "" {
     return nil, ErrInvalidArgs
   }
-  resp, e := bot.req.Verify(c.UserName, c.GetAttrString("Ticket", ""))
+  resp, e := bot.req.Verify(userName, ticket)
   if e != nil {
     return nil, e
   }
@@ -145,7 +145,7 @@ func (bot *Bot) Accept(c *Contact) (*Contact, error) {
     return nil, ErrResp
   }
 
-  resp, e = bot.req.GetContacts(c.UserName)
+  resp, e = bot.req.GetContacts(userName)
   if e != nil {
     return nil, e
   }
@@ -161,10 +161,10 @@ func (bot *Bot) Accept(c *Contact) (*Contact, error) {
     if e != nil {
       return
     }
-    cc := buildContact(v)
-    if cc != nil && cc.UserName != "" {
-      cc.withBot(bot)
-      ret = cc
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
+      c.withBot(bot)
+      ret = c
     }
   }, "ContactList")
   if ret == nil {

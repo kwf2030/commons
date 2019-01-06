@@ -187,7 +187,7 @@ func GetBotByUin(uin int64) *Bot {
   return ret
 }
 
-func CreateBot() *Bot {
+func Create() *Bot {
   ch := make(chan *op, 4)
   bot := &Bot{
     Attr: &sync.Map{},
