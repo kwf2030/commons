@@ -250,7 +250,7 @@ func parseContactList(data []byte, bot *Bot) []*Contact {
     if userName == "" {
       return
     }
-    c := bot.Contacts.FindByUserName(userName)
+    c := bot.Contacts.Get(userName)
     if c == nil {
       c = buildContact(v)
       c.withBot(bot)

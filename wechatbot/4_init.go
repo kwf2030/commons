@@ -21,9 +21,9 @@ const opInit = 0x4001
 
 var (
   jsonPathSyncKey        = []string{"SyncKey"}
-  jsonPathUserHeadImgUrl = []string{"User", "HeadImgUrl"}
-  jsonPathUserNickName   = []string{"User", "NickName"}
   jsonPathUserUserName   = []string{"User", "UserName"}
+  jsonPathUserNickName   = []string{"User", "NickName"}
+  jsonPathUserHeadImgUrl = []string{"User", "HeadImgUrl"}
 )
 
 type initReq struct {
@@ -49,13 +49,13 @@ func (r *initReq) Run(s *flow.Step) {
     s.Complete(ErrResp)
     return
   }
+  r.req.UserName = c.UserName
+  r.req.SyncKeys = sk.(*syncKeys)
+  c.Attr.Delete("SyncKeys")
   if addr, ok := c.Attr.Load("HeadImgUrl"); ok {
     r.req.AvatarUrl = fmt.Sprintf("https://%s%s", r.req.Host, addr.(string))
     c.Attr.Delete("HeadImgUrl")
   }
-  r.req.SyncKeys = sk.(*syncKeys)
-  c.Attr.Delete("SyncKeys")
-  r.req.UserName = c.UserName
   r.req.bot.op <- &op{what: opInit, contact: c}
   s.Complete(nil)
 }
@@ -90,7 +90,7 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
     return nil, e
   }
   dumpToFile("4_"+times.NowStrf(times.DateTimeMsFormat5), body)
-  c := &Contact{Raw: body, Attr: &sync.Map{}}
+  c := &Contact{Raw: body, Attr: &sync.Map{}, Friend: &Friend{}, Group: &Group{}}
   jsonparser.EachKey(body, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
@@ -102,16 +102,16 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
         c.Attr.Store("SyncKeys", sk)
       }
     case 1:
+      c.UserName, _ = jsonparser.ParseString(v)
+    case 2:
+      c.NickName, _ = jsonparser.ParseString(v)
+    case 3:
       str, _ := jsonparser.ParseString(v)
       if str != "" {
         c.Attr.Store("HeadImgUrl", str)
       }
-    case 2:
-      c.NickName, _ = jsonparser.ParseString(v)
-    case 3:
-      c.UserName, _ = jsonparser.ParseString(v)
     }
-  }, jsonPathSyncKey, jsonPathUserHeadImgUrl, jsonPathUserNickName, jsonPathUserUserName)
+  }, jsonPathSyncKey, jsonPathUserUserName, jsonPathUserNickName, jsonPathUserHeadImgUrl)
   return c, nil
 }
 
