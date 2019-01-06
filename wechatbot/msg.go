@@ -60,35 +60,31 @@ const (
 )
 
 var (
+  jsonPathNewMsgId     = []string{"NewMsgId"}
+  jsonPathMsgId        = []string{"MsgId"}
+  jsonPathMsgType      = []string{"MsgType"}
   jsonPathContent      = []string{"Content"}
-  jsonPathCreateTime   = []string{"CreateTime"}
+  jsonPathUrl          = []string{"Url"}
   jsonPathFromUserName = []string{"FromUserName"}
   jsonPathToUserName   = []string{"ToUserName"}
-  jsonPathMsgId        = []string{"MsgId"}
-  jsonPathNewMsgId     = []string{"NewMsgId"}
-  jsonPathMsgType      = []string{"MsgType"}
-  jsonPathUrl          = []string{"Url"}
+  jsonPathCreateTime   = []string{"CreateTime"}
 )
 
 type GroupMessage struct {
   FromMemberUserName string
-  FromMemberContact  *Contact
 }
 
 type Message struct {
-  Content      string
-  CreateTime   int64
-  FromUserName string
-  ToUserName   string
   Id           string
   Type         int
+  Content      string
   Url          string
+  FromUserName string
+  ToUserName   string
+  CreateTime   int64
   Raw          []byte
 
-  FromContact *Contact
-  ToContact   *Contact
-  Bot         *Bot
-
+  Bot *Bot
   *GroupMessage
 }
 
@@ -103,52 +99,38 @@ func buildMessage(data []byte) *Message {
     }
     switch i {
     case 0:
-      ret.Content, _ = jsonparser.ParseString(v)
-    case 1:
-      ret.CreateTime, _ = jsonparser.ParseInt(v)
-    case 2:
-      ret.FromUserName, _ = jsonparser.ParseString(v)
-    case 3:
-      ret.ToUserName, _ = jsonparser.ParseString(v)
-    case 4:
-      id, _ := jsonparser.ParseString(v)
-      if id != "" && ret.Id == "" {
-        ret.Id = id
-      }
-    case 5:
       id, _ := jsonparser.ParseInt(v)
       if id != 0 {
         ret.Id = strconv.FormatInt(id, 10)
       }
-    case 6:
+    case 1:
+      id, _ := jsonparser.ParseString(v)
+      if id != "" && ret.Id == "" {
+        ret.Id = id
+      }
+    case 2:
       t, _ := jsonparser.ParseInt(v)
       if t != 0 {
         ret.Type = int(t)
       }
-    case 7:
+    case 3:
+      ret.Content, _ = jsonparser.ParseString(v)
+    case 4:
       ret.Url, _ = jsonparser.ParseString(v)
+    case 5:
+      ret.FromUserName, _ = jsonparser.ParseString(v)
+    case 6:
+      ret.ToUserName, _ = jsonparser.ParseString(v)
+    case 7:
+      ret.CreateTime, _ = jsonparser.ParseInt(v)
     }
-  }, jsonPathContent, jsonPathCreateTime, jsonPathFromUserName, jsonPathToUserName, jsonPathMsgId, jsonPathNewMsgId, jsonPathMsgType, jsonPathUrl)
-  if len(ret.Content) >= 39 && ret.Content[33:34] == ":" {
-    ret.FromMemberUserName = ret.Content[1:33]
-  }
+  }, jsonPathNewMsgId, jsonPathMsgId, jsonPathMsgType, jsonPathContent, jsonPathUrl, jsonPathFromUserName, jsonPathToUserName, jsonPathCreateTime)
   return ret
 }
 
 func (msg *Message) withBot(bot *Bot) {
   if bot == nil {
     return
-  }
-  if c := bot.Contacts.FindByUserName(msg.FromUserName); c != nil {
-    msg.FromContact = c
-  }
-  if msg.ToUserName == bot.req.UserName {
-    msg.ToContact = bot.Self
-  } else if c := bot.Contacts.FindByUserName(msg.ToUserName); c != nil {
-    msg.ToContact = c
-  }
-  if c := bot.Contacts.FindByUserName(msg.FromMemberUserName); c != nil {
-    msg.FromMemberContact = c
   }
   msg.Bot = bot
 }

@@ -24,20 +24,29 @@ const (
 )
 
 var (
+  jsonPathUserName   = []string{"UserName"}
   jsonPathNickName   = []string{"NickName"}
   jsonPathRemarkName = []string{"RemarkName"}
-  jsonPathUserName   = []string{"UserName"}
   jsonPathVerifyFlag = []string{"VerifyFlag"}
 )
 
-type Contact struct {
-  NickName   string `json:"nick_name,omitempty"`
-  RemarkName string `json:"remark_name,omitempty"`
+type Friend struct {
+  RemarkName string
+}
 
+type Group struct {
+  OwnerUserName   string
+  NickNameInGroup string
+}
+
+type Contact struct {
   // UserName每次登录都不一样，
-  // 群聊以@@开头，其他以@开头，内置帐号就直接是名字，如：
+  // 群聊以@@开头，其他以@开头，系统帐号则直接是名字，如：
   // weixin（微信团队）/filehelper（文件传输助手）/fmessage（朋友消息推荐）
-  UserName string `json:"user_name,omitempty"`
+  UserName string
+
+  // 昵称，如果是群聊，表示群名称
+  NickName string
 
   // 联系人类型，
   // 个人和群聊帐号为0，
@@ -45,53 +54,46 @@ type Contact struct {
   // 企业号为24（包括扩微信支付），
   // 系统号为56(微信团队官方帐号），
   // 29（未知，招行信用卡为29）
-  VerifyFlag int `json:"verify_flag"`
-
-  // 原始数据
-  Raw []byte `json:"raw,omitempty"`
-
-  Attr *sync.Map `json:"attr,omitempty"`
-
-  Id string `json:"id,omitempty"`
+  VerifyFlag int
 
   // Type是VerifyFlag解析后的值
-  Type int `json:"type"`
+  Type int
 
-  // 联系人所属Bot的uin
-  OwnerUin int64 `json:"owner_uin"`
+  // 原始数据
+  Raw []byte
 
-  Bot *Bot `json:"-"`
+  Attr *sync.Map
+  Bot  *Bot
+  *Friend
+  *Group
 }
 
 func buildContact(data []byte) *Contact {
   if len(data) == 0 {
     return nil
   }
-  ret := &Contact{Raw: data, Attr: &sync.Map{}}
+  ret := &Contact{Raw: data, Attr: &sync.Map{}, Friend: &Friend{}, Group: &Group{}}
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
     }
     switch i {
     case 0:
-      ret.NickName, _ = jsonparser.ParseString(v)
-    case 1:
-      ret.RemarkName, _ = jsonparser.ParseString(v)
-    case 2:
       ret.UserName, _ = jsonparser.ParseString(v)
+    case 1:
+      ret.NickName, _ = jsonparser.ParseString(v)
+    case 2:
+      ret.RemarkName, _ = jsonparser.ParseString(v)
     case 3:
       vf, _ := jsonparser.ParseInt(v)
       if vf != 0 {
         ret.VerifyFlag = int(vf)
       }
     }
-  }, jsonPathNickName, jsonPathRemarkName, jsonPathUserName, jsonPathVerifyFlag)
-  if getIdByRemarkName(ret.RemarkName) != 0 {
-    ret.Id = ret.RemarkName
-  }
+  }, jsonPathUserName, jsonPathNickName, jsonPathRemarkName, jsonPathVerifyFlag)
   switch ret.VerifyFlag {
   case 0:
-    ret.Type = ContactTypeByUserName(ret.UserName)
+    ret.Type = contactType(ret.UserName)
   case 8, 24:
     ret.Type = ContactMPS
   case 56:
@@ -102,14 +104,14 @@ func buildContact(data []byte) *Contact {
   return ret
 }
 
-func FindContactByUserName(userName string) *Contact {
+func GetContact(userName string) *Contact {
   if userName == "" {
     return nil
   }
   var ret *Contact
   eachBot(func(b *Bot) bool {
     if b.Contacts != nil {
-      if c := b.Contacts.FindByUserName(userName); c != nil {
+      if c := b.Contacts.Get(userName); c != nil {
         ret = c
         return false
       }
@@ -123,7 +125,6 @@ func (c *Contact) withBot(bot *Bot) {
   if bot == nil {
     return
   }
-  c.OwnerUin = bot.req.Uin
   c.Bot = bot
 }
 
@@ -190,19 +191,7 @@ func (c *Contact) GetAttrBool(attr string, defaultValue bool) bool {
   return defaultValue
 }
 
-func (c *Contact) GetAttrBytes(attr string) []byte {
-  if v, ok := c.Attr.Load(attr); ok {
-    switch ret := v.(type) {
-    case []byte:
-      return ret
-    case string:
-      return []byte(ret)
-    }
-  }
-  return nil
-}
-
-func ContactTypeByUserName(userName string) int {
+func contactType(userName string) int {
   switch {
   case len(userName) < 2:
     return ContactUnknown
