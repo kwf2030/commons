@@ -28,7 +28,7 @@ func (r *contactsReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  r.req.bot.op <- &op{what: opContacts, contacts: arr}
+  r.req.bot.op <- op{what: opContacts, data: arr}
   s.Complete(nil)
 }
 

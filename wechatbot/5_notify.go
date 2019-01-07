@@ -30,7 +30,7 @@ func (r *notifyReq) Run(s *flow.Step) {
     s.Complete(e)
     return
   }
-  r.req.bot.op <- &op{what: opNotify}
+  r.req.bot.op <- op{what: opNotify}
   s.Complete(nil)
 }
 

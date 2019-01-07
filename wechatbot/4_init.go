@@ -56,7 +56,7 @@ func (r *initReq) Run(s *flow.Step) {
     r.req.AvatarUrl = fmt.Sprintf("https://%s%s", r.req.Host, addr.(string))
     c.Attr.Delete("HeadImgUrl")
   }
-  r.req.bot.op <- &op{what: opInit, contact: c}
+  r.req.bot.op <- op{what: opInit, data: c}
   s.Complete(nil)
 }
 

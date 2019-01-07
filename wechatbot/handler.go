@@ -1,7 +1,12 @@
 package wechatbot
 
-import (
-  "github.com/buger/jsonparser"
+import "github.com/buger/jsonparser"
+
+var (
+  jsonPathAddMsgList     = []string{"AddMsgList"}
+  jsonPathDelContactList = []string{"DelContactList"}
+  jsonPathModContactList = []string{"ModContactList"}
+  jsonPathSyncCheckKey   = []string{"SyncCheckKey"}
 )
 
 type Handler interface {
@@ -43,14 +48,55 @@ type Handler interface {
   // 第三个参数暂时无用
   OnGroupExit(*HandlerContext, *Contact, int)
 
-  // 收到消息（所有非以上类型的消息）
-  OnMessage(*HandlerContext, *Message)
+  // 收到消息，
+  // 第三个参数暂时无用
+  OnMessage(*HandlerContext, *Message, int)
+
+  // 所有非以上类型的数据，
+  // 第三个参数暂时无用
+  OnData(*HandlerContext, []byte, int)
 }
 
 type DefaultHandler struct{}
 
-func (h *DefaultHandler) OnSignIn(*HandlerContext, error) {
+func (h DefaultHandler) OnSignIn(ctx *HandlerContext, e error) {
+  ctx.FireSignIn(e)
+}
 
+func (h DefaultHandler) OnSignOut(ctx *HandlerContext, e error) {
+  ctx.FireSignOut(e)
+}
+
+func (h DefaultHandler) OnQRCode(ctx *HandlerContext, addr string) {
+  ctx.FireQRCode(addr)
+}
+
+func (h DefaultHandler) OnFriendApply(ctx *HandlerContext, c *Contact, ticket string) {
+  ctx.FireFriendApply(c, ticket)
+}
+
+func (h DefaultHandler) OnFriendUpdate(ctx *HandlerContext, c *Contact, code int) {
+  ctx.FireFriendUpdate(c, code)
+}
+
+func (h DefaultHandler) OnGroupJoin(ctx *HandlerContext, c *Contact, code int) {
+  ctx.FireGroupJoin(c, code)
+}
+
+func (h DefaultHandler) OnGroupUpdate(ctx *HandlerContext, c *Contact, code int) {
+  ctx.FireGroupUpdate(c, code)
+}
+
+func (h DefaultHandler) OnGroupExit(ctx *HandlerContext, c *Contact, code int) {
+  ctx.FireGroupExit(c, code)
+}
+
+func (h DefaultHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
+  ctx.FireMessage(msg, code)
+}
+
+func (h DefaultHandler) OnData(ctx *HandlerContext, data []byte, code int) {
+  ctx.FireData(data, code)
 }
 
 type HandlerContext struct {
@@ -111,26 +157,122 @@ func (ctx *HandlerContext) FireGroupExit(c *Contact, code int) {
   }
 }
 
-func (ctx *HandlerContext) FireMessage(msg *Message) {
+func (ctx *HandlerContext) FireMessage(msg *Message, code int) {
   if next := ctx.next; next != nil {
-    next.handler.OnMessage(next, msg)
+    next.handler.OnMessage(next, msg, code)
   }
 }
 
-func HandleVerifyMsg(msg *Message) *Contact {
+func (ctx *HandlerContext) FireData(data []byte, code int) {
+  if next := ctx.next; next != nil {
+    next.handler.OnData(next, data, code)
+  }
+}
+
+type DispatchHandler struct {
+  DefaultHandler
+}
+
+func (h *DispatchHandler) OnData(ctx *HandlerContext, data []byte, code int) {
+  var addMsgList []*Message
+  var modContactList, delContactList []*Contact
+  jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
+    if e != nil {
+      return
+    }
+    switch i {
+    case 0:
+      addMsgList = parseMsgList(v, r.req.bot)
+    case 1:
+      delContactList = parseContactList(v, r.req.bot)
+    case 2:
+      modContactList = parseContactList(v, r.req.bot)
+    case 3:
+      b, _, _, e := jsonparser.Get(data, "SyncKey")
+      if e == nil {
+        sk := parseSyncKey(b)
+        if sk != nil && sk.Count > 0 {
+          r.req.SyncKeys = sk
+        }
+      }
+    }
+  }, jsonPathAddMsgList, jsonPathDelContactList, jsonPathModContactList, jsonPathSyncCheckKey)
+  // 没开启验证如果被添加好友，
+  // ModContactList（对方信息）和AddMsgList（添加到通讯录的系统提示）会一起收到，
+  // 所以要先处理完Contact后再处理Message（避免找不到发送者），
+  // 虽然之后也能一直收到此人的消息，但要想主动发消息，仍需要手动添加好友，
+  // 不添加的话下次登录时好友列表中也没有此人，
+  // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
+  for _, c := range modContactList {
+    r.req.bot.op <- &op{what: opModContact, contact: c}
+  }
+  for _, c := range delContactList {
+    r.req.bot.op <- &op{what: opDelContact, contact: c}
+  }
+  for _, m := range addMsgList {
+    r.req.bot.op <- &op{what: opAddMsg, msg: m}
+  }
+  times.Sleep()
+  syncCheckChan <- struct{}{}
+}
+
+func (h *DispatchHandler) parseContactList(data []byte, bot *Bot) []*Contact {
+  ret := make([]*Contact, 0, 2)
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    userName, _ := jsonparser.GetString(v, "UserName")
+    if userName == "" {
+      return
+    }
+    c := bot.Contacts.Get(userName)
+    if c == nil {
+      c = buildContact(v)
+      c.withBot(bot)
+    }
+    ret = append(ret, c)
+  })
+  return ret
+}
+
+func  (h *DispatchHandler) parseMsgList(data []byte, bot *Bot) []*Message {
+  ret := make([]*Message, 0, 2)
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    msg := buildMessage(v)
+    if msg != nil && msg.Id != "" {
+      msg.withBot(bot)
+      ret = append(ret, msg)
+    }
+  })
+  return ret
+}
+
+/*type FriendApplyMsgHandler struct {
+  DefaultHandler
+}
+
+func (h *FriendApplyMsgHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
   if msg.Type == MsgVerify {
     v, _, _, _ := jsonparser.Get(msg.Raw, "RecommendInfo")
     u, _ := jsonparser.GetString(v, "UserName")
     t, _ := jsonparser.GetString(v, "Ticket")
     if u != "" && t != "" {
       c, _ := msg.Bot.Accept(u, t)
-      return c
+      //ctx.FireFriendApply(c, )
     }
   }
-  return nil
+  ctx.FireMessage(msg, code)
 }
 
-func HandleGroupMsg(msg *Message) {
+type GroupMsgHandler struct {
+  DefaultHandler
+}
+
+func (h *GroupMsgHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
   if len(msg.Content) >= 39 && msg.Content[33:34] == ":" {
     msg.SpeakerUserName = msg.Content[:33]
     msg.Content = msg.Content[39:]
@@ -138,4 +280,5 @@ func HandleGroupMsg(msg *Message) {
     msg.SpeakerUserName = msg.Content[:33]
     msg.Content = msg.Content[39:]
   }
-}
+  ctx.FireMessage(msg, code)
+}*/

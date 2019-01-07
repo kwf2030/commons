@@ -11,42 +11,42 @@ import (
   "github.com/kwf2030/commons/times"
 )
 
-const opSignIn = 0x3001
+const opRedirect = 0x3001
 
-type signInReq struct {
+type redirectReq struct {
   req *req
 }
 
-func (r *signInReq) Run(s *flow.Step) {
+func (r *redirectReq) Run(s *flow.Step) {
   if e, ok := s.Arg.(error); ok {
     s.Complete(e)
     return
   }
-  signIn, e := r.do()
+  redirect, e := r.do()
   if e != nil {
     s.Complete(e)
     return
   }
-  if signIn == nil || signIn.PassTicket == "" || signIn.SKey == "" || signIn.WXSid == "" || signIn.WXUin == 0 {
+  if redirect == nil || redirect.PassTicket == "" || redirect.SKey == "" || redirect.WXSid == "" || redirect.WXUin == 0 {
     s.Complete(ErrResp)
     return
   }
-  r.req.PassTicket = signIn.PassTicket
-  r.req.Sid = signIn.WXSid
-  r.req.SKey = signIn.SKey
-  r.req.Uin = signIn.WXUin
+  r.req.PassTicket = redirect.PassTicket
+  r.req.Sid = redirect.WXSid
+  r.req.SKey = redirect.SKey
+  r.req.Uin = redirect.WXUin
   r.req.BaseReq = &baseReq{
     DeviceId: deviceId(),
-    Sid:      signIn.WXSid,
-    SKey:     signIn.SKey,
-    Uin:      signIn.WXUin,
+    Sid:      redirect.WXSid,
+    SKey:     redirect.SKey,
+    Uin:      redirect.WXUin,
   }
   r.selectBaseUrl()
-  r.req.bot.op <- &op{what: opSignIn}
+  r.req.bot.op <- op{what: opRedirect}
   s.Complete(nil)
 }
 
-func (r *signInReq) do() (*signInResp, error) {
+func (r *redirectReq) do() (*redirectResp, error) {
   u, _ := url.Parse(r.req.RedirectUrl)
   // 返回的地址可能没有fun和version两个参数，而此请求必须这两个参数
   q := u.Query()
@@ -64,10 +64,10 @@ func (r *signInReq) do() (*signInResp, error) {
   if resp.StatusCode != http.StatusOK {
     return nil, ErrResp
   }
-  return parseSignInResp(resp)
+  return parseRedirectResp(resp)
 }
 
-func (r *signInReq) selectBaseUrl() {
+func (r *redirectReq) selectBaseUrl() {
   u, _ := url.Parse(r.req.RedirectUrl)
   host := u.Hostname()
   r.req.Host = host
@@ -80,13 +80,13 @@ func (r *signInReq) selectBaseUrl() {
   }
 }
 
-func parseSignInResp(resp *http.Response) (*signInResp, error) {
+func parseRedirectResp(resp *http.Response) (*redirectResp, error) {
   body, e := ioutil.ReadAll(resp.Body)
   if e != nil {
     return nil, e
   }
   dumpToFile("3_"+times.NowStrf(times.DateTimeMsFormat5), body)
-  ret := &signInResp{}
+  ret := &redirectResp{}
   e = xml.Unmarshal(body, ret)
   if e != nil {
     return nil, e
@@ -94,7 +94,7 @@ func parseSignInResp(resp *http.Response) (*signInResp, error) {
   return ret, nil
 }
 
-type signInResp struct {
+type redirectResp struct {
   XMLName     xml.Name `xml:"error"`
   Ret         int      `xml:"ret"`
   Message     string   `xml:"message"`

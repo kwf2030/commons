@@ -63,19 +63,19 @@ func newReq() *req {
 }
 
 func (r *req) initFlow() {
-  uuid := &qrReq{r}
-  scanState := &scanReq{r}
-  login := &signInReq{r}
+  qr := &qrReq{r}
+  scan := &scanReq{r}
+  redirect := &redirectReq{r}
   init := &initReq{r}
-  statusNotify := &notifyReq{r}
-  contactList := &contactsReq{r}
+  notify := &notifyReq{r}
+  contacts := &contactsReq{r}
   syn := &syncReq{r}
-  r.flow.AddLast(uuid, "uuid")
-  r.flow.AddLast(scanState, "scan_state")
-  r.flow.AddLast(login, "login")
+  r.flow.AddLast(qr, "qr")
+  r.flow.AddLast(scan, "scan")
+  r.flow.AddLast(redirect, "redirect")
   r.flow.AddLast(init, "init")
-  r.flow.AddLast(statusNotify, "status_notify")
-  r.flow.AddLast(contactList, "contact_list")
+  r.flow.AddLast(notify, "notify")
+  r.flow.AddLast(contacts, "contacts")
   r.flow.AddLast(syn, "sync")
 }
 

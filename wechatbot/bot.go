@@ -30,26 +30,6 @@ const (
   StateTimeout
 )
 
-// Event Type
-const (
-  eventUnknown = iota
-
-  // 登录失败
-  EventSignInFailed
-
-  // 登录成功
-  EventSignInSuccess
-
-  // 退出
-  EventExit
-
-  // 收到二维码
-  EventQRCode
-
-  // 收到消息
-  EventMsg
-)
-
 const (
   // 图片消息存放目录
   AttrImageDir = "wechatbot.image_dir"
@@ -75,6 +55,8 @@ const (
   contentType = "application/json; charset=UTF-8"
   userAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"
 )
+
+const opSignIn = 0x0001
 
 var (
   ErrContactNotFound = errors.New("contact not found")
@@ -156,8 +138,8 @@ type Bot struct {
   StartTime time.Time
   StopTime  time.Time
 
-  op  chan *op
-  evt chan *Event
+  op       chan op
+  pipeline *Pipeline
 
   req *req
 }
@@ -189,14 +171,15 @@ func GetBotByUin(uin int64) *Bot {
   return ret
 }
 
-func Create() *Bot {
-  ch := make(chan *op, 4)
+func Create(h Handler) *Bot {
+  ch := make(chan op, 4)
   bot := &Bot{
-    Attr: &sync.Map{},
-    op:   ch,
-    evt:  make(chan *Event, 8),
-    req:  newReq(),
+    Attr:     &sync.Map{},
+    op:       ch,
+    pipeline: newPipeline(),
+    req:      newReq(),
   }
+  bot.pipeline.AddLast(h)
   bot.req.bot = bot
   // 未获取到uin之前key是当前时间戳，
   // 无论登录成功还是失败，都会删除这个key，
@@ -208,7 +191,7 @@ func Create() *Bot {
 }
 
 // 返回的channel用来接收事件通知
-func (bot *Bot) Start() <-chan *Event {
+func (bot *Bot) Start() {
   go bot.dispatch()
   go func() {
     bot.req.initFlow()
@@ -220,7 +203,7 @@ func (bot *Bot) Start() <-chan *Event {
 
     if e != nil {
       // 登录Bot出现了问题或一直没扫描超时了
-      bot.evt <- &Event{Type: EventSignInFailed}
+      bot.op <- op{what: opSignIn, data: e}
       close(bot.op)
       return
     }
@@ -228,9 +211,8 @@ func (bot *Bot) Start() <-chan *Event {
     bots.Store(bot.req.Uin, bot)
     bot.StartTime = times.Now()
     bot.req.State = StateRunning
-    bot.evt <- &Event{Type: EventSignInSuccess}
+    bot.op <- op{what: opSignIn}
   }()
-  return bot.evt
 }
 
 func (bot *Bot) Stop() {
@@ -250,7 +232,8 @@ func (bot *Bot) Release() {
   bot.Self = nil
   bot.Contacts = nil
   bot.op = nil
-  bot.evt = nil
+  bot.pipeline.Clear()
+  bot.pipeline = nil
 }
 
 func (bot *Bot) updatePaths() {
@@ -293,18 +276,13 @@ func (bot *Bot) updatePaths() {
 
 func (bot *Bot) dispatch() {
   for op := range bot.op {
-    evt := &Event{Type: -1}
     switch op.what {
-    case opAddMsg:
-      evt.Type = EventMsg
-      evt.Msg = op.msg
-    case opModContact:
-      bot.Contacts.Add(op.contact)
-    case opDelContact:
-      bot.Contacts.Remove(op.contact.UserName)
+    case opSync:
+
     case opQR:
-      evt.Type = EventQRCode
-      evt.QRCodeUrl = bot.req.QRCodeUrl
+      if ctx := bot.pipeline.First(); ctx != nil {
+        ctx.FireFriendApply()
+      }
     case opSignIn:
       bot.updatePaths()
     case opInit:
@@ -314,6 +292,10 @@ func (bot *Bot) dispatch() {
     case opExit:
       evt.Type = EventExit
       bot.Stop()
+
+
+
+
     }
     if evt.Type != -1 {
       bot.evt <- evt
@@ -326,18 +308,9 @@ func (bot *Bot) dispatch() {
 }
 
 type op struct {
-  what     int
-  contact  *Contact
-  contacts []*Contact
-  msg      *Message
+  what int
+  data interface{}
 
   syncCheckCode     int
   syncCheckSelector int
-}
-
-type Event struct {
-  Type      int
-  QRCodeUrl string
-  Contact   *Contact
-  Msg       *Message
 }

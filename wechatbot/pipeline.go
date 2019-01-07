@@ -122,12 +122,19 @@ func (p *Pipeline) Last() *HandlerContext {
 }
 
 func (p *Pipeline) Get(h Handler) *HandlerContext {
+  if h == nil {
+    return nil
+  }
   p.m.RLock()
-  defer p.m.RUnlock()
-  return p.get(h)
+  ctx := p.get(h)
+  p.m.RUnlock()
+  return ctx
 }
 
 func (p *Pipeline) get(h Handler) *HandlerContext {
+  if p.len == 0 {
+    return nil
+  }
   for ctx := p.head.next; ctx != nil && ctx != p.tail; ctx = ctx.next {
     if ctx.handler == h {
       return ctx
@@ -140,4 +147,12 @@ func (p *Pipeline) Len() int {
   p.m.RLock()
   defer p.m.RUnlock()
   return p.len
+}
+
+func (p *Pipeline) Clear() {
+  p.m.Lock()
+  p.head.next = p.tail
+  p.tail.prev = p.head
+  p.len = 0
+  p.m.Unlock()
 }
