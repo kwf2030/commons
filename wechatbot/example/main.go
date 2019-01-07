@@ -27,8 +27,7 @@ func main() {
     case wechatbot.EventMsg:
       processMsg(evt.Msg)
 
-    // 获取到二维码，需扫码登录
-    // evt.Str为二维码链接
+    // 收到二维码，需扫码登录
     case wechatbot.EventQRCode:
       // 这里使用自带的方法下载二维码并自动打开，
       // 参数为完整路径，如果为空就下载到系统临时目录，
@@ -66,9 +65,15 @@ func main() {
 }
 
 func processMsg(msg *wechatbot.Message) {
-  // 内置了几种Message处理函数，可以将其组装成一个管道依次处理，
-  // 也可以不使用这些函数，完全由自己处理各种消息
-  wechatbot.PipeMsgHandlers(msg, wechatbot.HandleVerifyMsg, wechatbot.HandleGroupMsg)
+  // 如果是好友申请消息，自动通过验证
+  c := wechatbot.HandleVerifyMsg(msg)
+  if c != nil {
+    fmt.Println("好友申请，已自动通过验证: " + c.NickName)
+    return
+  }
+
+  // 如果是群聊消息，处理Message.Content和SpeakerUserName
+  wechatbot.HandleGroupMsg(msg)
 
   content := "<NULL>"
   if msg.Content != "" {
@@ -78,11 +83,11 @@ func processMsg(msg *wechatbot.Message) {
     // 群聊
     fmt.Printf("From:%s\nTo:%s\nSpeaker:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.SpeakerUserName, msg.Type, content)
   } else {
-    //单聊
+    // 单聊
     fmt.Printf("From:%s\nTo:%s\nType:%d\nContent:%s\n\n", msg.FromUserName, msg.ToUserName, msg.Type, content)
   }
 
-  c := msg.GetFromContact()
+  c = msg.GetFromContact()
   if c == nil || c.Type != wechatbot.ContactFriend {
     return
   }

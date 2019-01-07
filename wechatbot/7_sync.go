@@ -215,7 +215,7 @@ func parseSyncCheckResp(resp *http.Response) (int, int, error) {
   // retcode=1102：退出（原因未知），
   // selector=0：正常，
   // selector=2：有新消息，
-  // selector=4：保存群聊到通讯录/修改群名称/新增或删除联系人/群聊成员数目变化，
+  // selector=4：新增或删除联系人/保存群聊到通讯录/修改群名称/群聊成员数目变化，
   // selector=5：未知，
   // selector=6：未知，
   // selector=7：操作了手机（如进入/关闭聊天页面）

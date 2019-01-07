@@ -32,17 +32,19 @@ const (
 
 // Event Type
 const (
-  // 收到二维码
-  EventQRCode = iota
-
-  // 登录成功
-  EventSignInSuccess
+  eventUnknown = iota
 
   // 登录失败
   EventSignInFailed
 
-  // 退出（主动或被动）
+  // 登录成功
+  EventSignInSuccess
+
+  // 退出
   EventExit
+
+  // 收到二维码
+  EventQRCode
 
   // 收到消息
   EventMsg
@@ -218,7 +220,7 @@ func (bot *Bot) Start() <-chan *Event {
 
     if e != nil {
       // 登录Bot出现了问题或一直没扫描超时了
-      bot.evt <- &Event{Type: EventSignInFailed, Err: e}
+      bot.evt <- &Event{Type: EventSignInFailed}
       close(bot.op)
       return
     }
@@ -302,7 +304,7 @@ func (bot *Bot) dispatch() {
       bot.Contacts.Remove(op.contact.UserName)
     case opQR:
       evt.Type = EventQRCode
-      evt.Str = bot.req.QRCodeUrl
+      evt.QRCodeUrl = bot.req.QRCodeUrl
     case opSignIn:
       bot.updatePaths()
     case opInit:
@@ -334,11 +336,8 @@ type op struct {
 }
 
 type Event struct {
-  Err     error
-  Type    int
-  SubType int
-  Int     int
-  Str     string
-  Contact *Contact
-  Msg     *Message
+  Type      int
+  QRCodeUrl string
+  Contact   *Contact
+  Msg       *Message
 }
