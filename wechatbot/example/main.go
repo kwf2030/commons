@@ -12,6 +12,8 @@ import (
   "github.com/kwf2030/commons/wechatbot"
 )
 
+var wg sync.WaitGroup
+
 type MsgHandler struct {
   // wechatbot.DefaultHandler实现了wechatbot.Handler接口，且具有默认行为，
   // 将DefaultHandler组合到struct中，关心哪个事件，实现接口的哪个方法即可，
@@ -40,6 +42,7 @@ func (h *MsgHandler) OnSignOut(ctx *wechatbot.HandlerContext, _ error) {
     bot.StartTime.Format(times.DateTimeFormat),
     bot.StopTime.Format(times.DateTimeFormat),
     bot.StopTime.Sub(bot.StartTime).Hours())
+  wg.Done()
 }
 
 // 二维码回调，需要扫码登录，
@@ -112,9 +115,6 @@ func (h *MsgHandler) OnMessage(ctx *wechatbot.HandlerContext, msg *wechatbot.Mes
 }
 
 func main() {
-  var wg sync.WaitGroup
-  wg.Add(1)
-
   // 启用dump，将每个收到的数据作为一个文件写入wechatbot/dump目录内，
   // 对调试和分析数据非常有用
   wechatbot.EnableDumpToFile(true)
@@ -126,6 +126,7 @@ func main() {
   bot := wechatbot.Create(&wechatbot.VerifyMsgHandler{}, &wechatbot.GroupMsgHandler{}, &MsgHandler{})
   bot.Start()
 
+  wg.Add(1)
   wg.Wait()
   time.Sleep(time.Second)
 }
