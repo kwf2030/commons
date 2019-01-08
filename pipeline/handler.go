@@ -1,5 +1,13 @@
 package pipeline
 
+type Op struct {
+  What int
+  Msg  string
+  Data []byte
+  Val  interface{}
+  Err  error
+}
+
 type Handler interface {
   Handle(*HandlerContext, int, interface{})
 }
