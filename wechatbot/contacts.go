@@ -60,8 +60,12 @@ func (cs *Contacts) Count() int {
 
 func (cs *Contacts) Each(f func(*Contact) bool) {
   cs.mu.RLock()
-  defer cs.mu.RUnlock()
+  arr := make([]*Contact, 0, len(cs.data))
   for _, c := range cs.data {
+    arr = append(arr, c)
+  }
+  cs.mu.RUnlock()
+  for _, c := range arr {
     if !f(c) {
       break
     }

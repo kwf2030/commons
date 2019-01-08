@@ -6,10 +6,16 @@ type Pipeline struct {
   head, tail *HandlerContext
   len        int
   m          *sync.RWMutex
+  bot        *Bot
 }
 
-func newPipeline() *Pipeline {
-  p := &Pipeline{head: &HandlerContext{}, tail: &HandlerContext{}, m: &sync.RWMutex{}}
+func newPipeline(bot *Bot) *Pipeline {
+  p := &Pipeline{
+    head: &HandlerContext{handler: DefaultHandler{}},
+    tail: &HandlerContext{handler: DefaultHandler{}},
+    m:    &sync.RWMutex{},
+    bot:  bot,
+  }
   p.head.pipeline = p
   p.head.next = p.tail
   p.tail.pipeline = p
@@ -105,20 +111,22 @@ func (p *Pipeline) Replace(h, mark Handler) *Pipeline {
 
 func (p *Pipeline) First() *HandlerContext {
   p.m.RLock()
-  defer p.m.RUnlock()
-  if p.len == 0 {
-    return nil
+  var ctx *HandlerContext
+  if p.len != 0 {
+    ctx = p.head.next
   }
-  return p.head.next
+  p.m.RUnlock()
+  return ctx
 }
 
 func (p *Pipeline) Last() *HandlerContext {
   p.m.RLock()
-  defer p.m.RUnlock()
-  if p.len == 0 {
-    return nil
+  var ctx *HandlerContext
+  if p.len != 0 {
+    ctx = p.tail.prev
   }
-  return p.tail.prev
+  p.m.RUnlock()
+  return ctx
 }
 
 func (p *Pipeline) Get(h Handler) *HandlerContext {
@@ -145,8 +153,9 @@ func (p *Pipeline) get(h Handler) *HandlerContext {
 
 func (p *Pipeline) Len() int {
   p.m.RLock()
-  defer p.m.RUnlock()
-  return p.len
+  n := p.len
+  p.m.RUnlock()
+  return n
 }
 
 func (p *Pipeline) Clear() {

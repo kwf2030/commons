@@ -64,6 +64,7 @@ type Contact struct {
 
   Attr *sync.Map
   Bot  *Bot
+
   *Friend
   *Group
 }
@@ -83,14 +84,14 @@ func buildContact(data []byte) *Contact {
     case 1:
       ret.NickName, _ = jsonparser.ParseString(v)
     case 2:
-      ret.RemarkName, _ = jsonparser.ParseString(v)
-    case 3:
       vf, _ := jsonparser.ParseInt(v)
       if vf != 0 {
         ret.VerifyFlag = int(vf)
       }
+    case 3:
+      ret.RemarkName, _ = jsonparser.ParseString(v)
     }
-  }, jsonPathUserName, jsonPathNickName, jsonPathRemarkName, jsonPathVerifyFlag)
+  }, jsonPathUserName, jsonPathNickName, jsonPathVerifyFlag, jsonPathRemarkName)
   switch ret.VerifyFlag {
   case 0:
     ret.Type = contactType(ret.UserName)

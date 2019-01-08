@@ -1,6 +1,8 @@
 package wechatbot
 
-import "github.com/buger/jsonparser"
+import (
+  "github.com/buger/jsonparser"
+)
 
 var (
   jsonPathAddMsgList     = []string{"AddMsgList"}
@@ -23,7 +25,7 @@ type Handler interface {
   OnQRCode(*HandlerContext, string)
 
   // 收到好友申请，
-  // 这里的Contact参数只有少量信息，且不在Bot.Contacts内，
+  // 这里的Contact只有UserName和NickName，且不在Bot.Contacts内，
   // 第三个参数是用于Bot.Accept的ticket参数，
   // Bot.Accept返回的Contact信息较全，且会自动添加到Bot.Contacts
   OnFriendApply(*HandlerContext, *Contact, string)
@@ -52,9 +54,134 @@ type Handler interface {
   // 第三个参数暂时无用
   OnMessage(*HandlerContext, *Message, int)
 
-  // 所有非以上类型的数据，
-  // 第三个参数暂时无用
-  OnData(*HandlerContext, []byte, int)
+  // 用于内部数据分发和回调，
+  // 不要实现这个方法，因为不会被调用（除非自己调用HandlerContext.FireData），
+  // 第三和四个参数分别表示syncCheck的code和selector，
+  OnData(*HandlerContext, []byte, int, int)
+}
+
+type HandlerContext struct {
+  prev, next *HandlerContext
+  pipeline   *Pipeline
+  handler    Handler
+}
+
+func (ctx *HandlerContext) Bot() *Bot {
+  return ctx.pipeline.bot
+}
+
+func (ctx *HandlerContext) Pipeline() *Pipeline {
+  return ctx.pipeline
+}
+
+func (ctx *HandlerContext) Prev() *HandlerContext {
+  ctx.pipeline.m.RLock()
+  ret := ctx.prev
+  if ret == ctx.pipeline.head {
+    ret = nil
+  }
+  ctx.pipeline.m.RUnlock()
+  return ret
+}
+
+func (ctx *HandlerContext) Next() *HandlerContext {
+  ctx.pipeline.m.RLock()
+  ret := ctx.next
+  if ret == ctx.pipeline.tail {
+    ret = nil
+  }
+  ctx.pipeline.m.RUnlock()
+  return ret
+}
+
+func (ctx *HandlerContext) FireSignIn(e error) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnSignIn(next, e)
+  }
+}
+
+func (ctx *HandlerContext) FireSignOut(e error) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnSignOut(next, e)
+  }
+}
+
+func (ctx *HandlerContext) FireQRCode(addr string) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnQRCode(next, addr)
+  }
+}
+
+func (ctx *HandlerContext) FireFriendApply(c *Contact, ticket string) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnFriendApply(next, c, ticket)
+  }
+}
+
+func (ctx *HandlerContext) FireFriendUpdate(c *Contact, code int) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnFriendUpdate(next, c, code)
+  }
+}
+
+func (ctx *HandlerContext) FireGroupJoin(c *Contact, code int) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnGroupJoin(next, c, code)
+  }
+}
+
+func (ctx *HandlerContext) FireGroupUpdate(c *Contact, code int) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnGroupUpdate(next, c, code)
+  }
+}
+
+func (ctx *HandlerContext) FireGroupExit(c *Contact, code int) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnGroupExit(next, c, code)
+  }
+}
+
+func (ctx *HandlerContext) FireMessage(msg *Message, code int) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnMessage(next, msg, code)
+  }
+}
+
+func (ctx *HandlerContext) FireData(data []byte, code, selector int) {
+  ctx.pipeline.m.RLock()
+  next := ctx.next
+  ctx.pipeline.m.RUnlock()
+  if next != nil {
+    next.handler.OnData(next, data, code, selector)
+  }
 }
 
 type DefaultHandler struct{}
@@ -95,104 +222,34 @@ func (h DefaultHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
   ctx.FireMessage(msg, code)
 }
 
-func (h DefaultHandler) OnData(ctx *HandlerContext, data []byte, code int) {
-  ctx.FireData(data, code)
-}
-
-type HandlerContext struct {
-  prev, next *HandlerContext
-  pipeline   *Pipeline
-  handler    Handler
-}
-
-func (ctx *HandlerContext) Pipeline() *Pipeline {
-  return ctx.pipeline
-}
-
-func (ctx *HandlerContext) FireSignIn(e error) {
-  if next := ctx.next; next != nil {
-    next.handler.OnSignIn(next, e)
-  }
-}
-
-func (ctx *HandlerContext) FireSignOut(e error) {
-  if next := ctx.next; next != nil {
-    next.handler.OnSignOut(next, e)
-  }
-}
-
-func (ctx *HandlerContext) FireQRCode(addr string) {
-  if next := ctx.next; next != nil {
-    next.handler.OnQRCode(next, addr)
-  }
-}
-
-func (ctx *HandlerContext) FireFriendApply(c *Contact, ticket string) {
-  if next := ctx.next; next != nil {
-    next.handler.OnFriendApply(next, c, ticket)
-  }
-}
-
-func (ctx *HandlerContext) FireFriendUpdate(c *Contact, code int) {
-  if next := ctx.next; next != nil {
-    next.handler.OnFriendUpdate(next, c, code)
-  }
-}
-
-func (ctx *HandlerContext) FireGroupJoin(c *Contact, code int) {
-  if next := ctx.next; next != nil {
-    next.handler.OnGroupJoin(next, c, code)
-  }
-}
-
-func (ctx *HandlerContext) FireGroupUpdate(c *Contact, code int) {
-  if next := ctx.next; next != nil {
-    next.handler.OnGroupUpdate(next, c, code)
-  }
-}
-
-func (ctx *HandlerContext) FireGroupExit(c *Contact, code int) {
-  if next := ctx.next; next != nil {
-    next.handler.OnGroupExit(next, c, code)
-  }
-}
-
-func (ctx *HandlerContext) FireMessage(msg *Message, code int) {
-  if next := ctx.next; next != nil {
-    next.handler.OnMessage(next, msg, code)
-  }
-}
-
-func (ctx *HandlerContext) FireData(data []byte, code int) {
-  if next := ctx.next; next != nil {
-    next.handler.OnData(next, data, code)
-  }
+func (h DefaultHandler) OnData(ctx *HandlerContext, data []byte, code, selector int) {
+  ctx.FireData(data, code, selector)
 }
 
 type DispatchHandler struct {
   DefaultHandler
 }
 
-func (h *DispatchHandler) OnData(ctx *HandlerContext, data []byte, code int) {
+func (h *DispatchHandler) OnData(ctx *HandlerContext, data []byte, code, selector int) {
   var addMsgList []*Message
-  var modContactList, delContactList []*Contact
+  var delContactList, modContactList []*Contact
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
     }
     switch i {
     case 0:
-      addMsgList = parseMsgList(v, r.req.bot)
+      addMsgList = h.parseMsgList(v, ctx.Bot())
     case 1:
-      delContactList = parseContactList(v, r.req.bot)
+      delContactList = h.parseContactList(v, ctx.Bot())
     case 2:
-      modContactList = parseContactList(v, r.req.bot)
+      modContactList = h.parseContactList(v, ctx.Bot())
     case 3:
       b, _, _, e := jsonparser.Get(data, "SyncKey")
       if e == nil {
         sk := parseSyncKey(b)
         if sk != nil && sk.Count > 0 {
-          r.req.SyncKeys = sk
+          ctx.Bot().req.SyncKeys = sk
         }
       }
     }
@@ -204,16 +261,24 @@ func (h *DispatchHandler) OnData(ctx *HandlerContext, data []byte, code int) {
   // 不添加的话下次登录时好友列表中也没有此人，
   // 目前Web微信好像没有添加好友的功能，所以只能开启验证（通过验证即可添加好友）
   for _, c := range modContactList {
-    r.req.bot.op <- &op{what: opModContact, contact: c}
+    ctx.Bot().Contacts.Add(c)
+    if c.Type == ContactFriend {
+      ctx.FireFriendUpdate(c, 0)
+    } else if c.Type == ContactGroup {
+      ctx.FireGroupUpdate(c, 0)
+    }
   }
   for _, c := range delContactList {
-    r.req.bot.op <- &op{what: opDelContact, contact: c}
+    ctx.Bot().Contacts.Remove(c.UserName)
+    if c.Type == ContactFriend {
+      ctx.FireFriendUpdate(c, 0)
+    } else if c.Type == ContactGroup {
+      ctx.FireGroupUpdate(c, 0)
+    }
   }
   for _, m := range addMsgList {
-    r.req.bot.op <- &op{what: opAddMsg, msg: m}
+    ctx.FireMessage(m, 0)
   }
-  times.Sleep()
-  syncCheckChan <- struct{}{}
 }
 
 func (h *DispatchHandler) parseContactList(data []byte, bot *Bot) []*Contact {
@@ -236,7 +301,7 @@ func (h *DispatchHandler) parseContactList(data []byte, bot *Bot) []*Contact {
   return ret
 }
 
-func  (h *DispatchHandler) parseMsgList(data []byte, bot *Bot) []*Message {
+func (h *DispatchHandler) parseMsgList(data []byte, bot *Bot) []*Message {
   ret := make([]*Message, 0, 2)
   _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
@@ -251,18 +316,18 @@ func  (h *DispatchHandler) parseMsgList(data []byte, bot *Bot) []*Message {
   return ret
 }
 
-/*type FriendApplyMsgHandler struct {
+type VerifyMsgHandler struct {
   DefaultHandler
 }
 
-func (h *FriendApplyMsgHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
+func (h *VerifyMsgHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
   if msg.Type == MsgVerify {
     v, _, _, _ := jsonparser.Get(msg.Raw, "RecommendInfo")
-    u, _ := jsonparser.GetString(v, "UserName")
     t, _ := jsonparser.GetString(v, "Ticket")
-    if u != "" && t != "" {
-      c, _ := msg.Bot.Accept(u, t)
-      //ctx.FireFriendApply(c, )
+    c := buildContact(v)
+    if c.UserName != "" && t != "" {
+      ctx.FireFriendApply(c, t)
+      return
     }
   }
   ctx.FireMessage(msg, code)
@@ -273,12 +338,12 @@ type GroupMsgHandler struct {
 }
 
 func (h *GroupMsgHandler) OnMessage(ctx *HandlerContext, msg *Message, code int) {
-  if len(msg.Content) >= 39 && msg.Content[33:34] == ":" {
+  if len(msg.Content) >= 39 && msg.Content[33] == ':' {
     msg.SpeakerUserName = msg.Content[:33]
     msg.Content = msg.Content[39:]
-  } else if len(msg.Content) >= 39 && msg.Content[33:34] == ":" {
+  } else if len(msg.Content) >= 71 && msg.Content[65] == ':' {
     msg.SpeakerUserName = msg.Content[:33]
-    msg.Content = msg.Content[39:]
+    msg.Content = msg.Content[71:]
   }
   ctx.FireMessage(msg, code)
-}*/
+}

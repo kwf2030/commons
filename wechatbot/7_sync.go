@@ -21,8 +21,8 @@ const (
 )
 
 const (
-  opSync = 0x7001
-  opExit = 0x7002
+  opSync    = 0x7001
+  opSignOut = 0x7002
 )
 
 var syncCheckRegex = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
@@ -68,24 +68,24 @@ func (r *syncReq) bridge(ch chan int, syncCheckChan chan struct{}, syncChan chan
 
 func (r *syncReq) syncCheck(ch chan int, syncCheckChan chan struct{}, syncChan chan syncCheckResp) {
   for range syncCheckChan {
-    resp, e := r.doSyncCheck()
+    syncCheck, e := r.doSyncCheck()
     if e != nil {
       times.Sleep()
       ch <- 0
       continue
     }
-    if resp.code != 0 {
+    if syncCheck.code != 0 {
       ch <- -1
-      r.req.bot.op <- op{what: opExit, data: resp}
+      r.req.bot.op <- op{what: opSignOut, syncCheck: syncCheck}
       close(r.req.bot.op)
       break
     }
-    if resp.selector == 0 {
+    if syncCheck.selector == 0 {
       times.Sleep()
       ch <- 0
       continue
     }
-    syncChan <- resp
+    syncChan <- syncCheck
   }
 }
 
@@ -115,14 +115,16 @@ func (r *syncReq) doSyncCheck() (syncCheckResp, error) {
 }
 
 func (r *syncReq) sync(ch chan int, syncCheckChan chan struct{}, syncChan chan syncCheckResp) {
-  for resp := range syncChan {
+  for syncCheck := range syncChan {
     data, e := r.doSync()
     if e != nil {
       times.Sleep()
       syncCheckChan <- struct{}{}
       continue
     }
-    r.req.bot.op <- op{what: opSync, data: data, syncCheckCode: resp.code, syncCheckSelector: resp.selector}
+    r.req.bot.op <- op{what: opSync, data: data, syncCheck: syncCheck}
+    times.Sleep()
+    syncCheckChan <- struct{}{}
   }
 }
 
@@ -162,7 +164,7 @@ func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
   // window.synccheck={retcode:"0",selector:"2"}
   // retcode=0：正常，
   // retcode=1100：退出（原因未知），
-  // retcode=1101：退出（在手机上点击退出Web微信或长时间没有sychecheck），
+  // retcode=1101：退出（在手机上点击退出Web微信或长时间没有synccheck），
   // retcode=1102：退出（原因未知），
   // selector=0：正常，
   // selector=2：有新消息，

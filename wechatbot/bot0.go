@@ -18,6 +18,75 @@ func (bot *Bot) DownloadAvatar(dst string) (string, error) {
   return bot.req.DownloadAvatar(dst)
 }
 
+func (bot *Bot) Verify(toUserName, ticket string) error {
+  if toUserName == "" || ticket == "" {
+    return ErrInvalidArgs
+  }
+  resp, e := bot.req.Verify(toUserName, ticket)
+  if e != nil {
+    return e
+  }
+  code, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
+  if e != nil {
+    return e
+  }
+  if code != 0 {
+    return ErrResp
+  }
+  return nil
+}
+
+func (bot *Bot) Remark(toUserName, remark string) error {
+  if toUserName == "" || remark == "" {
+    return ErrInvalidArgs
+  }
+  resp, e := bot.req.Remark(toUserName, remark)
+  if e != nil {
+    return e
+  }
+  code, e := jsonparser.GetInt(resp, "Ret")
+  if e != nil {
+    return e
+  }
+  if code != 0 {
+    return ErrResp
+  }
+  return nil
+}
+
+func (bot *Bot) GetContactFromServer(toUserName string) (*Contact, error) {
+  if toUserName == "" {
+    return nil, ErrInvalidArgs
+  }
+  resp, e := bot.req.GetContacts(toUserName)
+  if e != nil {
+    return nil, e
+  }
+  code, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
+  if e != nil {
+    return nil, e
+  }
+  if code != 0 {
+    return nil, ErrResp
+  }
+  var ret *Contact
+  _, _ = jsonparser.ArrayEach(resp, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
+      c.withBot(bot)
+      ret = c
+    }
+  }, "ContactList")
+  return ret, nil
+}
+
+func (bot *Bot) SignOut() {
+  bot.req.SignOut()
+}
+
 func (bot *Bot) SendText(toUserName string, text string) error {
   if text == "" {
     return ErrInvalidArgs
@@ -129,50 +198,20 @@ func (bot *Bot) ForwardVideo(toUserName, mediaId string) error {
 }
 
 // 通过验证且添加到联系人
-func (bot *Bot) Accept(userName, ticket string) (*Contact, error) {
-  if userName == "" || ticket == "" {
-    return nil, ErrInvalidArgs
-  }
-  resp, e := bot.req.Verify(userName, ticket)
+func (bot *Bot) Accept(toUserName, ticket string) (*Contact, error) {
+  e := bot.Verify(toUserName, ticket)
   if e != nil {
     return nil, e
   }
-  code, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
+  c, e := bot.GetContactFromServer(toUserName)
   if e != nil {
     return nil, e
   }
-  if code != 0 {
+  if c == nil {
     return nil, ErrResp
   }
-
-  resp, e = bot.req.GetContacts(userName)
-  if e != nil {
-    return nil, e
-  }
-  code, e = jsonparser.GetInt(resp, "BaseResponse", "Ret")
-  if e != nil {
-    return nil, e
-  }
-  if code != 0 {
-    return nil, ErrResp
-  }
-  var ret *Contact
-  _, _ = jsonparser.ArrayEach(resp, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
-    if e != nil {
-      return
-    }
-    c := buildContact(v)
-    if c != nil && c.UserName != "" {
-      c.withBot(bot)
-      ret = c
-    }
-  }, "ContactList")
-  if ret == nil {
-    return nil, ErrResp
-  }
-
-  bot.Contacts.Add(ret)
-  return ret, nil
+  bot.Contacts.Add(c)
+  return c, nil
 }
 
 func (bot *Bot) GetAttrString(attr string, defaultValue string) string {

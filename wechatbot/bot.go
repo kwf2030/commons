@@ -70,6 +70,8 @@ var (
   ErrResp = errors.New("response invalid")
 
   ErrTimeout = errors.New("timeout")
+
+  ErrSignOut = errors.New("sign out")
 )
 
 var (
@@ -171,21 +173,24 @@ func GetBotByUin(uin int64) *Bot {
   return ret
 }
 
-func Create(h Handler) *Bot {
+func Create(handlers ...Handler) *Bot {
   ch := make(chan op, 4)
   bot := &Bot{
-    Attr:     &sync.Map{},
-    op:       ch,
-    pipeline: newPipeline(),
-    req:      newReq(),
+    Attr: &sync.Map{},
+    op:   ch,
+    req:  newReq(),
   }
-  bot.pipeline.AddLast(h)
   bot.req.bot = bot
   // 未获取到uin之前key是当前时间戳，
   // 无论登录成功还是失败，都会删除这个key，
   // 如果登录成功，会用uin存储这个Bot
   k := times.Timestamp()
   bot.Attr.Store(attrRandUin, k)
+  bot.pipeline = newPipeline(bot)
+  bot.pipeline.AddLast(&DispatchHandler{})
+  for _, h := range handlers {
+    bot.pipeline.AddLast(h)
+  }
   bots.Store(k, bot)
   return bot
 }
@@ -278,39 +283,42 @@ func (bot *Bot) dispatch() {
   for op := range bot.op {
     switch op.what {
     case opSync:
-
-    case opQR:
-      if ctx := bot.pipeline.First(); ctx != nil {
-        ctx.FireFriendApply()
+      var data []byte
+      if op.data != nil {
+        data = op.data.([]byte)
       }
-    case opSignIn:
+      ctx := bot.pipeline.head
+      ctx.handler.OnData(ctx, data, op.syncCheck.code, op.syncCheck.selector)
+    case opQR:
+      ctx := bot.pipeline.head
+      ctx.handler.OnQRCode(ctx, bot.req.QRCodeUrl)
+    case opRedirect:
       bot.updatePaths()
     case opInit:
-      bot.Self = op.contact
+      bot.Self = op.data.(*Contact)
     case opContacts:
-      bot.Contacts = initContacts(op.contacts, bot)
-    case opExit:
-      evt.Type = EventExit
+      bot.Contacts = initContacts(op.data.([]*Contact), bot)
+    case opSignIn:
+      var e error
+      if op.data != nil {
+        e = op.data.(error)
+      }
+      ctx := bot.pipeline.head
+      ctx.handler.OnSignIn(ctx, e)
+    case opSignOut:
       bot.Stop()
-
-
-
-
-    }
-    if evt.Type != -1 {
-      bot.evt <- evt
+      var e error
+      if op.syncCheck.code != 1101 {
+        e = ErrSignOut
+      }
+      ctx := bot.pipeline.head
+      ctx.handler.OnSignOut(ctx, e)
     }
   }
-  // 如果syncCheck请求收到非零的响应，由它负责关闭op（谁发送谁关闭的原则），
-  // 但evt是在这里是发送方，所以应该在此处关闭，
-  // 不能放在Stop方法里（如果在Stop里面关闭了evt，就没法发送退出事件了）
-  close(bot.evt)
 }
 
 type op struct {
-  what int
-  data interface{}
-
-  syncCheckCode     int
-  syncCheckSelector int
+  what      int
+  data      interface{}
+  syncCheck syncCheckResp
 }

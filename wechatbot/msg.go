@@ -88,6 +88,7 @@ type Message struct {
 
   Attr *sync.Map
   Bot  *Bot
+
   *GroupMessage
 }
 
@@ -149,7 +150,7 @@ func (msg *Message) GetToContact() *Contact {
   return msg.Bot.Contacts.Get(msg.ToUserName)
 }
 
-func (msg *Message) GetFromMemberContact() *Contact {
+func (msg *Message) GetSpeakerContact() *Contact {
   return msg.Bot.Contacts.Get(msg.SpeakerUserName)
 }
 

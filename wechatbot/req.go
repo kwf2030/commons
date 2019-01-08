@@ -213,14 +213,14 @@ func (r *req) Remark(toUserName, remark string) ([]byte, error) {
   return body, nil
 }
 
-func (r *req) GetContacts(userNames ...string) ([]byte, error) {
+func (r *req) GetContacts(toUserNames ...string) ([]byte, error) {
   addr, _ := url.Parse(r.BaseUrl + batchContactsUrlPath)
   q := addr.Query()
   q.Set("type", "ex")
   q.Set("r", timestampString13())
   addr.RawQuery = q.Encode()
-  arr := make([]map[string]string, 0, len(userNames))
-  for _, userName := range userNames {
+  arr := make([]map[string]string, 0, len(toUserNames))
+  for _, userName := range toUserNames {
     m := make(map[string]string, 2)
     m["UserName"] = userName
     m["EncryChatRoomId"] = ""
@@ -228,7 +228,7 @@ func (r *req) GetContacts(userNames ...string) ([]byte, error) {
   }
   m := make(map[string]interface{}, 3)
   m["BaseRequest"] = r.BaseReq
-  m["Count"] = len(userNames)
+  m["Count"] = len(toUserNames)
   m["List"] = arr
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
