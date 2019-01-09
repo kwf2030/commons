@@ -1,6 +1,10 @@
 package pipeline
 
-import "sync"
+import (
+  "fmt"
+  "strings"
+  "sync"
+)
 
 type Pipeline struct {
   head *HandlerContext
@@ -11,8 +15,8 @@ type Pipeline struct {
 
 func New() *Pipeline {
   p := &Pipeline{
-    head: &HandlerContext{handler: &defaultHandler{}},
-    tail: &HandlerContext{handler: &defaultHandler{}},
+    head: &HandlerContext{name: "_head", handler: &defaultHandler{}},
+    tail: &HandlerContext{name: "_tail", handler: &defaultHandler{}},
     mu:   &sync.RWMutex{},
   }
   p.head.pipeline = p
@@ -22,17 +26,17 @@ func New() *Pipeline {
   return p
 }
 
-func (p *Pipeline) Run(what int, val interface{}) {
-  p.head.handler.Handle(p.head, what, val)
+func (p *Pipeline) Run(data interface{}) {
+  p.head.handler.Handle(p.head, data)
 }
 
-func (p *Pipeline) AddFirst(h Handler) *Pipeline {
+func (p *Pipeline) AddFirst(name string, h Handler) *Pipeline {
   if h != nil {
     p.mu.Lock()
-    ctx := &HandlerContext{pipeline: p, handler: h}
+    ctx := &HandlerContext{pipeline: p, name: name, handler: h}
     ctx.prev = p.head
     ctx.next = p.head.next
-    p.head.next.prev = ctx
+    ctx.next.prev = ctx
     p.head.next = ctx
     p.len++
     p.mu.Unlock()
@@ -40,13 +44,13 @@ func (p *Pipeline) AddFirst(h Handler) *Pipeline {
   return p
 }
 
-func (p *Pipeline) AddLast(h Handler) *Pipeline {
+func (p *Pipeline) AddLast(name string, h Handler) *Pipeline {
   if h != nil {
     p.mu.Lock()
-    ctx := &HandlerContext{pipeline: p, handler: h}
+    ctx := &HandlerContext{pipeline: p, name: name, handler: h}
     ctx.prev = p.tail.prev
     ctx.next = p.tail
-    p.tail.prev.next = ctx
+    ctx.prev.next = ctx
     p.tail.prev = ctx
     p.len++
     p.mu.Unlock()
@@ -54,13 +58,14 @@ func (p *Pipeline) AddLast(h Handler) *Pipeline {
   return p
 }
 
-func (p *Pipeline) AddBefore(h, mark Handler) *Pipeline {
-  if h != nil && mark != nil {
+func (p *Pipeline) AddBefore(mark, name string, h Handler) *Pipeline {
+  if mark != "" && name != "" && h != nil {
     p.mu.Lock()
     if markCtx := p.GetUnsafe(mark); markCtx != nil {
-      ctx := &HandlerContext{pipeline: p, handler: h}
+      ctx := &HandlerContext{pipeline: p, name: name, handler: h}
       ctx.prev = markCtx.prev
       ctx.next = markCtx
+      ctx.prev.next = ctx
       markCtx.prev = ctx
       p.len++
     }
@@ -69,13 +74,14 @@ func (p *Pipeline) AddBefore(h, mark Handler) *Pipeline {
   return p
 }
 
-func (p *Pipeline) AddAfter(h, mark Handler) *Pipeline {
-  if h != nil && mark != nil {
+func (p *Pipeline) AddAfter(mark, name string, h Handler) *Pipeline {
+  if mark != "" && name != "" && h != nil {
     p.mu.Lock()
     if markCtx := p.GetUnsafe(mark); markCtx != nil {
-      ctx := &HandlerContext{pipeline: p, handler: h}
+      ctx := &HandlerContext{pipeline: p, name: name, handler: h}
       ctx.prev = markCtx
       ctx.next = markCtx.next
+      ctx.next.prev = ctx
       markCtx.next = ctx
       p.len++
     }
@@ -84,10 +90,18 @@ func (p *Pipeline) AddAfter(h, mark Handler) *Pipeline {
   return p
 }
 
-func (p *Pipeline) Remove(h Handler) *Pipeline {
-  if h != nil {
+func (p *Pipeline) Clear() {
+  p.mu.Lock()
+  p.head.next = p.tail
+  p.tail.prev = p.head
+  p.len = 0
+  p.mu.Unlock()
+}
+
+func (p *Pipeline) Remove(name string) *Pipeline {
+  if name != "" {
     p.mu.Lock()
-    if ctx := p.GetUnsafe(h); ctx != nil {
+    if ctx := p.GetUnsafe(name); ctx != nil {
       ctx.prev.next = ctx.next
       ctx.next.prev = ctx.prev
       p.len--
@@ -97,11 +111,11 @@ func (p *Pipeline) Remove(h Handler) *Pipeline {
   return p
 }
 
-func (p *Pipeline) Replace(h, mark Handler) *Pipeline {
-  if h != nil && mark != nil {
+func (p *Pipeline) Replace(mark, name string, h Handler) *Pipeline {
+  if mark != "" && name != "" && h != nil {
     p.mu.Lock()
     if markCtx := p.GetUnsafe(mark); markCtx != nil {
-      ctx := &HandlerContext{pipeline: p, handler: h}
+      ctx := &HandlerContext{pipeline: p, name: name, handler: h}
       ctx.prev = markCtx.prev
       ctx.next = markCtx.next
       ctx.prev.next = ctx
@@ -132,22 +146,22 @@ func (p *Pipeline) Last() *HandlerContext {
   return ctx
 }
 
-func (p *Pipeline) Get(h Handler) *HandlerContext {
-  if h == nil {
+func (p *Pipeline) Get(name string) *HandlerContext {
+  if name == "" {
     return nil
   }
   p.mu.RLock()
-  ctx := p.GetUnsafe(h)
+  ctx := p.GetUnsafe(name)
   p.mu.RUnlock()
   return ctx
 }
 
-func (p *Pipeline) GetUnsafe(h Handler) *HandlerContext {
+func (p *Pipeline) GetUnsafe(name string) *HandlerContext {
   if p.len == 0 {
     return nil
   }
   for ctx := p.head.next; ctx != nil && ctx != p.tail; ctx = ctx.next {
-    if ctx.handler == h {
+    if ctx.name == name {
       return ctx
     }
   }
@@ -161,10 +175,14 @@ func (p *Pipeline) Len() int {
   return n
 }
 
-func (p *Pipeline) Clear() {
-  p.mu.Lock()
-  p.head.next = p.tail
-  p.tail.prev = p.head
-  p.len = 0
-  p.mu.Unlock()
+func (p *Pipeline) String() string {
+  p.mu.RLock()
+  sb := strings.Builder{}
+  i := 1
+  for ctx := p.head.next; ctx != nil && ctx != p.tail; ctx = ctx.next {
+    fmt.Fprintf(&sb, "[%d]%s(%T)\n", i, ctx.name, ctx.handler)
+    i++
+  }
+  p.mu.RUnlock()
+  return sb.String()
 }

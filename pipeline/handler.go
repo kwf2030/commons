@@ -1,26 +1,11 @@
 package pipeline
 
-type Op struct {
-  What int
-  Msg  string
-  Data []byte
-  Val  interface{}
-  Err  error
-}
-
-type Handler interface {
-  Handle(*HandlerContext, int, interface{})
-}
-
 type HandlerContext struct {
   prev     *HandlerContext
   next     *HandlerContext
   pipeline *Pipeline
+  name     string
   handler  Handler
-}
-
-func (ctx *HandlerContext) Pipeline() *Pipeline {
-  return ctx.pipeline
 }
 
 func (ctx *HandlerContext) Prev() *HandlerContext {
@@ -43,17 +28,33 @@ func (ctx *HandlerContext) Next() *HandlerContext {
   return ret
 }
 
-func (ctx *HandlerContext) FireNext(what int, val interface{}) {
+func (ctx *HandlerContext) Pipeline() *Pipeline {
+  return ctx.pipeline
+}
+
+func (ctx *HandlerContext) Name() string {
+  return ctx.name
+}
+
+func (ctx *HandlerContext) Handler() Handler {
+  return ctx.handler
+}
+
+func (ctx *HandlerContext) Fire(data interface{}) {
   ctx.pipeline.mu.RLock()
   next := ctx.next
   ctx.pipeline.mu.RUnlock()
   if next != nil && next.handler != nil {
-    next.handler.Handle(next, what, val)
+    next.handler.Handle(next, data)
   }
+}
+
+type Handler interface {
+  Handle(*HandlerContext, interface{})
 }
 
 type defaultHandler struct{}
 
-func (*defaultHandler) Handle(ctx *HandlerContext, what int, val interface{}) {
-  ctx.FireNext(what, val)
+func (*defaultHandler) Handle(ctx *HandlerContext, data interface{}) {
+  ctx.Fire(data)
 }
