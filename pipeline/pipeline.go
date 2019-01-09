@@ -26,7 +26,7 @@ func New() *Pipeline {
   return p
 }
 
-func (p *Pipeline) Run(data interface{}) {
+func (p *Pipeline) Fire(data interface{}) {
   p.head.handler.Handle(p.head, data)
 }
 

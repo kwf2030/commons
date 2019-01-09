@@ -44,7 +44,7 @@ func (ctx *HandlerContext) Fire(data interface{}) {
   ctx.pipeline.mu.RLock()
   next := ctx.next
   ctx.pipeline.mu.RUnlock()
-  if next != nil && next.handler != nil {
+  if next != nil {
     next.handler.Handle(next, data)
   }
 }
