@@ -25,5 +25,5 @@ Handles job as flows, efficient and simplified version of flow.
 ## times
 Utils for time(including a simple time wheel).
 
-## wechatbot
+## wxbot
 Wechat bot for personal account.
