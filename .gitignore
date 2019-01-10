@@ -21,7 +21,5 @@
 /.vscode/
 *.sublime-project
 *.sublime-workspace
-/wechatbot/example/wechatbot/
-/wechatbot/example/main
 /wxbot/example/wxbot/
 /wxbot/example/main
