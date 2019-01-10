@@ -19,6 +19,9 @@ Simple web crawler uses cdp package.
 ## flow
 Handles job as flows.
 
+## pipeline
+Handles job as flows, efficient and simplified version of flow.
+
 ## times
 Utils for time(including a simple time wheel).
 
