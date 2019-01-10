@@ -15,29 +15,25 @@ import (
 var wg sync.WaitGroup
 
 type Handler struct {
-  // wxbot.DefaultHandler实现了wxbot.Handler接口的所有方法（空实现），
-  // 组合进来就不用再实现不需要的方法了
-  wxbot.DefaultHandler
-
   bot *wxbot.Bot
 }
 
 // 登录回调
 func (h *Handler) OnSignIn(e error) {
   if e == nil {
-    fmt.Println("登录成功")
+    fmt.Printf("登录成功\n\n")
   } else {
-    fmt.Println("登录失败:", e)
+    fmt.Printf("登录失败:%v\n\n", e)
   }
 }
 
 // 退出回调
-func (h *Handler) OnSignOut(error) {
+func (h *Handler) OnSignOut() {
   var buf bytes.Buffer
   buf.WriteString("[%s] 已退出:\n")
   buf.WriteString("登录: %s\n")
   buf.WriteString("退出: %s\n")
-  buf.WriteString("共在线 %.2f 小时\n")
+  buf.WriteString("共在线 %.2f 小时\n\n")
   fmt.Printf(buf.String(), h.bot.Self().NickName,
     h.bot.StartTime().Format(times.DateTimeFormat),
     h.bot.StopTime().Format(times.DateTimeFormat),
@@ -55,12 +51,16 @@ func (h *Handler) OnQRCode(qrcodeUrl string) {
   case "linux":
     exec.Command("eog", p).Start()
   default:
-    fmt.Printf("二维码已保存至[%s]，请打开后扫码登录\n", p)
+    fmt.Printf("二维码已保存至[%s]，请打开后扫码登录\n\n", p)
   }
 }
 
+func (h *Handler) OnContact(c *wxbot.Contact, _ int) {
+  fmt.Println("收到联系人更新：%s\n\n" + c.NickName)
+}
+
 // 消息回调
-func (h *Handler) OnMessage(msg *wxbot.Message, code int) {
+func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
   content := "<NULL>"
   if msg.Content != "" {
     content = msg.Content

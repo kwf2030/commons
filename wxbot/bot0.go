@@ -69,7 +69,33 @@ func (bot *Bot) GetContactFromServer(toUserName string) (*Contact, error) {
   if code != 0 {
     return nil, ErrResp
   }
-  var ret *Contact
+  v, _, _, e := jsonparser.Get(resp, "ContactList", "[0]")
+  if e != nil {
+    return nil, e
+  }
+  c := buildContact(v)
+  if c != nil && c.UserName != "" {
+    c.withBot(bot)
+  }
+  return c, nil
+}
+
+func (bot *Bot) GetContactsFromServer(toUserNames ...string) ([]*Contact, error) {
+  if len(toUserNames) == 0 {
+    return nil, ErrInvalidArgs
+  }
+  resp, e := bot.req.GetContacts(toUserNames...)
+  if e != nil {
+    return nil, e
+  }
+  code, e := jsonparser.GetInt(resp, "BaseResponse", "Ret")
+  if e != nil {
+    return nil, e
+  }
+  if code != 0 {
+    return nil, ErrResp
+  }
+  ret := make([]*Contact, 0, len(toUserNames))
   jsonparser.ArrayEach(resp, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
       return
@@ -77,7 +103,7 @@ func (bot *Bot) GetContactFromServer(toUserName string) (*Contact, error) {
     c := buildContact(v)
     if c != nil && c.UserName != "" {
       c.withBot(bot)
-      ret = c
+      ret = append(ret, c)
     }
   }, "ContactList")
   return ret, nil

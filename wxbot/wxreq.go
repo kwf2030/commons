@@ -29,10 +29,9 @@ const (
 var (
   verifyUrlPath        = "/webwxverifyuser"
   remarkUrlPath        = "/webwxoplog"
-  signOutUrlPath       = "/webwxlogout"
   batchContactsUrlPath = "/webwxbatchgetcontact"
+  signOutUrlPath       = "/webwxlogout"
   sendTextUrlPath      = "/webwxsendmsg"
-  sendEmotionUrlPath   = "/webwxsendemoticon"
   sendImageUrlPath     = "/webwxsendmsgimg"
   sendVideoUrlPath     = "/webwxsendvideomsg"
   uploadUrlPath        = "/webwxuploadmedia"

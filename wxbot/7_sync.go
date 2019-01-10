@@ -73,11 +73,7 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan chan struct{}, syncChan c
     if resp.code != 0 {
       ch <- -1
       r.Stop()
-      var e error
-      if resp.code != 1101 {
-        e = ErrSignOut
-      }
-      r.handler.OnSignOut(e)
+      r.handler.OnSignOut()
       break
     }
     if resp.selector == 0 {

@@ -11,12 +11,14 @@ type verifyMsgHandler struct {
 
 func (h *verifyMsgHandler) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   if msg, ok := val.(*Message); ok && msg.Type == MsgVerify {
-    v, _, _, _ := jsonparser.Get(msg.raw, "RecommendInfo")
-    t, _ := jsonparser.GetString(v, "Ticket")
-    c := buildContact(v)
-    if c.UserName != "" && t != "" {
-      h.handler.OnFriendApply(c, t)
-      return
+    u, _ := jsonparser.GetString(msg.raw, "RecommendInfo", "UserName")
+    t, _ := jsonparser.GetString(msg.raw, "RecommendInfo", "Ticket")
+    if u != "" && t != "" {
+      c, _ := h.Accept(u, t)
+      if c != nil {
+        h.handler.OnContact(c, 0)
+        return
+      }
     }
   }
   ctx.Fire(val)
@@ -52,10 +54,6 @@ func (h *dispatchHandler) Handle(ctx *pipeline.HandlerContext, val interface{}) 
   case *Message:
     h.handler.OnMessage(v, 0)
   case *Contact:
-    if v.Type == ContactFriend {
-      h.handler.OnFriendUpdate(v, 0)
-    } else if v.Type == ContactGroup {
-      h.handler.OnGroupUpdate(v, 0)
-    }
+    h.handler.OnContact(v, 0)
   }
 }

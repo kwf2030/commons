@@ -86,6 +86,29 @@ var (
   bots      = make(map[int64]*Bot, 4)
 )
 
+type Handler interface {
+  // 登录成功（error == nil），
+  // 登录失败（error != nil）
+  OnSignIn(error)
+
+  // 退出/下线
+  OnSignOut()
+
+  // 收到二维码（需扫码登录），
+  // 第二个参数为二维码的Url
+  OnQRCode(string)
+
+  // 收到联系人，如：
+  // 好友资料更新、删除好友或被好友删除等，
+  // 建群、加入群、被拉入群、群改名、群成员变更、退群或被群主移出群等，
+  // 第二个参数没用
+  OnContact(*Contact, int)
+
+  // 收到消息，
+  // 第二个参数没用
+  OnMessage(*Message, int)
+}
+
 func init() {
   e := os.MkdirAll(dumpDir, os.ModePerm)
   if e != nil {
@@ -234,7 +257,7 @@ func (bot *Bot) Contacts() *Contacts {
 
 func (bot *Bot) Start(handler Handler) {
   if handler == nil {
-    handler = &DefaultHandler{}
+    return
   }
   bot.handler = handler
   bot.syncPipeline.AddLast("verify", &verifyMsgHandler{bot}).
