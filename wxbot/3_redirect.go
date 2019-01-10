@@ -7,23 +7,22 @@ import (
   "net/url"
   "strings"
 
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
-
-const eventRedirect = 0x3001
 
 type redirectReq struct {
   *Bot
 }
 
-func (r *redirectReq) Handle(ctx *handlerCtx, evt event) {
+func (r *redirectReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   redirect, e := r.do()
   if e != nil {
-    r.syncPipeline.Fire(event{what: eventRedirect, err: e})
+    r.handler.OnSignIn(e)
     return
   }
   if redirect == nil || redirect.PassTicket == "" || redirect.SKey == "" || redirect.WXSid == "" || redirect.WXUin == 0 {
-    r.syncPipeline.Fire(event{what: eventRedirect, err: ErrResp})
+    r.handler.OnSignIn(ErrResp)
     return
   }
   r.session.PassTicket = redirect.PassTicket
@@ -37,8 +36,8 @@ func (r *redirectReq) Handle(ctx *handlerCtx, evt event) {
     Uin:      redirect.WXUin,
   }
   r.selectBaseUrl()
-  r.syncPipeline.Fire(event{what: eventRedirect})
-  ctx.Fire(evt)
+  r.updatePaths()
+  ctx.Fire(val)
 }
 
 func (r *redirectReq) do() (*redirectResp, error) {

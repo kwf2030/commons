@@ -11,6 +11,8 @@ import (
   "strconv"
   "time"
 
+  "github.com/buger/jsonparser"
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
 
@@ -19,18 +21,20 @@ const (
   syncUrlPath      = "/webwxsync"
 )
 
-const (
-  eventSync    = 0x7001
-  eventSignOut = 0x7002
-)
-
 var syncCheckRegex = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
+
+var (
+  jsonPathAddMsgList     = []string{"AddMsgList"}
+  jsonPathDelContactList = []string{"DelContactList"}
+  jsonPathModContactList = []string{"ModContactList"}
+  jsonPathSyncCheckKey   = []string{"SyncCheckKey"}
+)
 
 type syncReq struct {
   *Bot
 }
 
-func (r *syncReq) Handle(ctx *handlerCtx, evt event) {
+func (r *syncReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   // syncCheck一直执行，有消息时才会执行sync，
   // web微信syncCheck的时间间隔约为25秒左右，
   // 即在没有新消息的时候，服务器会保持（阻塞）连接25秒左右
@@ -41,7 +45,7 @@ func (r *syncReq) Handle(ctx *handlerCtx, evt event) {
   go r.syncCheck(ch, syncCheckChan, syncChan)
   go r.sync(ch, syncCheckChan, syncChan)
   syncCheckChan <- struct{}{}
-  ctx.Fire(evt)
+  ctx.Fire(val)
 }
 
 func (r *syncReq) bridge(ch chan int, syncCheckChan chan struct{}, syncChan chan syncCheckResp) {
@@ -68,7 +72,12 @@ func (r *syncReq) syncCheck(ch chan int, syncCheckChan chan struct{}, syncChan c
     }
     if resp.code != 0 {
       ch <- -1
-      go r.syncPipeline.Fire(event{what: eventSignOut, val: resp})
+      r.Stop()
+      var e error
+      if resp.code != 1101 {
+        e = ErrSignOut
+      }
+      r.handler.OnSignOut(e)
       break
     }
     if resp.selector == 0 {
@@ -111,7 +120,7 @@ func (r *syncReq) sync(ch chan int, syncCheckChan chan struct{}, syncChan chan s
       syncCheckChan <- struct{}{}
       continue
     }
-    go r.syncPipeline.Fire(event{what: eventSync, data: data, val: syncCheck})
+    r.dispatch(syncCheck, data)
     syncCheckChan <- struct{}{}
   }
 }
@@ -148,6 +157,38 @@ func (r *syncReq) doSync() ([]byte, error) {
   return body, nil
 }
 
+func (r *syncReq) dispatch(syncCheck syncCheckResp, data []byte) {
+  var addMsgList []*Message
+  var delContactList, modContactList []*Contact
+  jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
+    if e != nil {
+      return
+    }
+    switch i {
+    case 0:
+      addMsgList = parseSyncMsgList(v, r.Bot)
+    case 1:
+      delContactList = parseSyncContactList(v, r.Bot)
+    case 2:
+      modContactList = parseSyncContactList(v, r.Bot)
+    case 3:
+      sk := parseSyncKey(v)
+      if sk.Count > 0 {
+        r.session.SyncKey = sk
+      }
+    }
+  }, jsonPathAddMsgList, jsonPathDelContactList, jsonPathModContactList, jsonPathSyncCheckKey)
+  for _, c := range modContactList {
+    r.syncPipeline.Fire(c)
+  }
+  for _, c := range delContactList {
+    r.syncPipeline.Fire(c)
+  }
+  for _, m := range addMsgList {
+    r.syncPipeline.Fire(m)
+  }
+}
+
 func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
   // window.synccheck={retcode:"0",selector:"2"}
   // retcode=0：正常，
@@ -179,6 +220,40 @@ func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
     dump("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_check", body)
   }
   return ret, nil
+}
+
+func parseSyncContactList(data []byte, bot *Bot) []*Contact {
+  ret := make([]*Contact, 0, 2)
+  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    userName, _ := jsonparser.GetString(v, "UserName")
+    if userName == "" {
+      return
+    }
+    c := buildContact(v)
+    if c != nil && c.UserName != "" {
+      c.withBot(bot)
+      ret = append(ret, c)
+    }
+  })
+  return ret
+}
+
+func parseSyncMsgList(data []byte, bot *Bot) []*Message {
+  ret := make([]*Message, 0, 2)
+  jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    msg := buildMessage(v)
+    if msg != nil && msg.Id != "" {
+      msg.withBot(bot)
+      ret = append(ret, msg)
+    }
+  })
+  return ret
 }
 
 type syncCheckResp struct {

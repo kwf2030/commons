@@ -8,12 +8,11 @@ import (
   "strconv"
   "time"
 
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
 
 const scanUrl = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login"
-
-const eventScan = 0x2001
 
 var (
   scanStCodeRegex        = regexp.MustCompile(`code\s*=\s*(\d+)\s*;`)
@@ -24,7 +23,7 @@ type scanReq struct {
   *Bot
 }
 
-func (r *scanReq) Handle(ctx *handlerCtx, evt event) {
+func (r *scanReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   ch := make(chan string)
   go r.check(ch)
   redirectUrl := <-ch
@@ -32,12 +31,11 @@ func (r *scanReq) Handle(ctx *handlerCtx, evt event) {
   if redirectUrl == "" {
     // 如果是空，基本就是超时（一直没有扫描默认设置了2分钟超时），
     // 微信基本不可能返回200状态码的同时返回空redirect_url
-    r.syncPipeline.Fire(event{what: eventScan, err: ErrScanTimeout})
+    r.handler.OnSignIn(ErrScanTimeout)
     return
   }
   r.session.RedirectUrl = redirectUrl
-  r.syncPipeline.Fire(event{what: eventScan})
-  ctx.Fire(evt)
+  ctx.Fire(val)
 }
 
 func (r *scanReq) check(ch chan<- string) {

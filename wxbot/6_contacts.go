@@ -6,25 +6,30 @@ import (
   "net/url"
 
   "github.com/buger/jsonparser"
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
 
 const contactsUrlPath = "/webwxgetcontact"
 
-const eventContacts = 0x6001
-
 type contactsReq struct {
   *Bot
 }
 
-func (r *contactsReq) Handle(ctx *handlerCtx, evt event) {
+func (r *contactsReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   arr, e := r.do()
   if e != nil {
-    r.syncPipeline.Fire(event{what: eventContacts, err: e})
+    r.handler.OnSignIn(e)
     return
   }
-  r.syncPipeline.Fire(event{what: eventContacts, val: arr})
-  ctx.Fire(evt)
+  r.contacts = initContacts(arr, r.Bot)
+  r.startTime = times.Now()
+  r.session.State = StateRunning
+  botsMutex.Lock()
+  bots[r.session.Uin] = r.Bot
+  botsMutex.Unlock()
+  r.handler.OnSignIn(nil)
+  ctx.Fire(val)
 }
 
 func (r *contactsReq) do() ([]*Contact, error) {

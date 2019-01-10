@@ -9,7 +9,6 @@ import (
   "time"
 
   "github.com/kwf2030/commons/times"
-  "github.com/kwf2030/commons/wechatbot"
   "github.com/kwf2030/commons/wxbot"
 )
 
@@ -33,7 +32,7 @@ func (h *Handler) OnSignIn(e error) {
 }
 
 // 退出回调
-func (h *Handler) OnSignOut(_ error) {
+func (h *Handler) OnSignOut(error) {
   var buf bytes.Buffer
   buf.WriteString("[%s] 已退出:\n")
   buf.WriteString("登录: %s\n")
@@ -74,34 +73,34 @@ func (h *Handler) OnMessage(msg *wxbot.Message, code int) {
   }
 
   c := msg.GetFromContact()
-  if c == nil || c.Type != wechatbot.ContactFriend {
+  if c == nil || c.Type != wxbot.ContactFriend {
     return
   }
 
   var reply string
   switch msg.Type {
-  case wechatbot.MsgText:
+  case wxbot.MsgText:
     reply = "收到文本"
 
-  case wechatbot.MsgImage:
+  case wxbot.MsgImage:
     reply = "收到图片"
 
-  case wechatbot.MsgAnimEmotion:
+  case wxbot.MsgAnimEmotion:
     reply = "收到动画表情"
 
-  case wechatbot.MsgLink:
+  case wxbot.MsgLink:
     reply = "收到链接"
 
-  case wechatbot.MsgCard:
+  case wxbot.MsgCard:
     reply = "收到名片"
 
-  case wechatbot.MsgLocation:
+  case wxbot.MsgLocation:
     reply = "收到位置"
 
-  case wechatbot.MsgVoice:
+  case wxbot.MsgVoice:
     reply = "收到语音"
 
-  case wechatbot.MsgVideo:
+  case wxbot.MsgVideo:
     reply = "收到视频"
   }
   if reply == "" {

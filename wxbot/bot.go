@@ -13,6 +13,7 @@ import (
   "time"
 
   "github.com/buger/jsonparser"
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
   "golang.org/x/net/publicsuffix"
 )
@@ -38,24 +39,24 @@ const (
 
 const (
   // 图片消息存放目录
-  attrImageDir = "wechatbot.image_dir"
+  attrImageDir = "wxbot.image_dir"
 
   // 语音消息存放目录
-  attrVoiceDir = "wechatbot.voice_dir"
+  attrVoiceDir = "wxbot.voice_dir"
 
   // 视频消息存放目录
-  attrVideoDir = "wechatbot.video_dir"
+  attrVideoDir = "wxbot.video_dir"
 
   // 文件消息存放目录
-  attrFileDir = "wechatbot.file_dir"
+  attrFileDir = "wxbot.file_dir"
 
   // 头像存放路径
-  attrAvatarPath = "wechatbot.avatar_path"
+  attrAvatarPath = "wxbot.avatar_path"
 
   // 正在登录时用时间戳作为key，保证bots中有记录且可查询这个Bot
-  attrRandUin = "wechatbot.rand_uin"
+  attrRandUin = "wxbot.rand_uin"
 
-  rootDir = "wechatbot"
+  rootDir = "wxbot"
   dumpDir = rootDir + "/dump/"
 
   contentType = "application/json; charset=UTF-8"
@@ -144,14 +145,14 @@ func EnableDump(enabled bool) {
 }
 
 type Bot struct {
-  callback Handler
+  handler Handler
 
   client  *http.Client
   session *session
   req     *wxReq
 
-  signInPipeline *pipeline
-  syncPipeline   *pipeline
+  signInPipeline *pipeline.Pipeline
+  syncPipeline   *pipeline.Pipeline
 
   self     *Contact
   contacts *Contacts
@@ -172,8 +173,8 @@ func New() *Bot {
       Timeout: time.Minute * 2,
     },
     session:        s,
-    signInPipeline: newPipeline(),
-    syncPipeline:   newPipeline(),
+    signInPipeline: pipeline.New(),
+    syncPipeline:   pipeline.New(),
     attr:           &sync.Map{},
   }
   bot.req = &wxReq{bot}
@@ -235,10 +236,10 @@ func (bot *Bot) Start(handler Handler) {
   if handler == nil {
     handler = &DefaultHandler{}
   }
-  bot.callback = handler
-  bot.syncPipeline.AddLast("dispatch", &dispatchHandler{bot}).
-    AddLast("verify", &verifyMsgHandler{bot}).
-    AddLast("group", &groupMsgHandler{bot})
+  bot.handler = handler
+  bot.syncPipeline.AddLast("verify", &verifyMsgHandler{bot}).
+    AddLast("group", &groupMsgHandler{bot}).
+    AddLast("dispatch", &dispatchHandler{bot})
   bot.signInPipeline.AddLast("qr", &qrReq{bot}).
     AddLast("scan", &scanReq{bot}).
     AddLast("redirect", &redirectReq{bot}).
@@ -246,7 +247,7 @@ func (bot *Bot) Start(handler Handler) {
     AddLast("notify", &notifyReq{bot}).
     AddLast("contacts", &contactsReq{bot}).
     AddLast("sync", &syncReq{bot})
-  bot.signInPipeline.Fire(event{})
+  bot.signInPipeline.Fire(nil)
   if k, ok := bot.attr.Load(attrRandUin); ok {
     botsMutex.Lock()
     delete(bots, k.(int64))

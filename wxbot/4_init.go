@@ -10,30 +10,29 @@ import (
   "sync"
 
   "github.com/buger/jsonparser"
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
 
 const initUrlPath = "/webwxinit"
 
-const eventInit = 0x4001
-
 type initReq struct {
   *Bot
 }
 
-func (r *initReq) Handle(ctx *handlerCtx, evt event) {
+func (r *initReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   c, e := r.do()
   if e != nil {
-    r.syncPipeline.Fire(event{what: eventInit, err: e})
+    r.handler.OnSignIn(e)
     return
   }
   if c == nil || c.UserName == "" {
-    r.syncPipeline.Fire(event{what: eventInit, err: ErrResp})
+    r.handler.OnSignIn(ErrResp)
     return
   }
   sk, ok := c.attr.Load("SyncKey")
   if !ok {
-    r.syncPipeline.Fire(event{what: eventInit, err: ErrResp})
+    r.handler.OnSignIn(ErrResp)
     return
   }
   r.session.SyncKey = sk.(syncKey)
@@ -41,8 +40,8 @@ func (r *initReq) Handle(ctx *handlerCtx, evt event) {
   if addr, ok := c.attr.Load("HeadImgUrl"); ok {
     r.session.AvatarUrl = fmt.Sprintf("https://%s%s", r.session.Host, addr.(string))
   }
-  r.syncPipeline.Fire(event{what: eventInit, val: c})
-  ctx.Fire(evt)
+  r.self = c
+  ctx.Fire(val)
 }
 
 func (r *initReq) do() (*Contact, error) {

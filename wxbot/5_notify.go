@@ -7,25 +7,23 @@ import (
   "net/http"
   "net/url"
 
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
 
 const notifyUrlPath = "/webwxstatusnotify"
 
-const eventNotify = 0x5001
-
 type notifyReq struct {
   *Bot
 }
 
-func (r *notifyReq) Handle(ctx *handlerCtx, evt event) {
+func (r *notifyReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   e := r.do()
   if e != nil {
-    r.syncPipeline.Fire(event{what: eventNotify, err: e})
+    r.handler.OnSignIn(e)
     return
   }
-  r.syncPipeline.Fire(event{what: eventNotify})
-  ctx.Fire(evt)
+  ctx.Fire(val)
 }
 
 func (r *notifyReq) do() error {

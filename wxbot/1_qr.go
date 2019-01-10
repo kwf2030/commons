@@ -7,6 +7,7 @@ import (
   "net/url"
   "regexp"
 
+  "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
 
@@ -15,28 +16,26 @@ const (
   qrUrl   = "https://login.weixin.qq.com/qrcode"
 )
 
-const eventQR = 0x1001
-
 var uuidRegex = regexp.MustCompile(`uuid\s*=\s*"(.*)"`)
 
 type qrReq struct {
   *Bot
 }
 
-func (r *qrReq) Handle(ctx *handlerCtx, evt event) {
+func (r *qrReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   uuid, e := r.do()
   if e != nil {
-    r.syncPipeline.Fire(event{what: eventQR, err: e})
+    r.handler.OnSignIn(e)
     return
   }
   if uuid == "" {
-    r.syncPipeline.Fire(event{what: eventQR, err: ErrResp})
+    r.handler.OnSignIn(ErrResp)
     return
   }
   r.session.UUID = uuid
   r.session.QRCodeUrl = fmt.Sprintf("%s/%s", qrUrl, uuid)
-  r.syncPipeline.Fire(event{what: eventQR})
-  ctx.Fire(evt)
+  r.handler.OnQRCode(r.session.QRCodeUrl)
+  ctx.Fire(val)
 }
 
 func (r *qrReq) do() (string, error) {
