@@ -64,15 +64,18 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
   if msg.Content == "" {
     msg.Content = "<NULL>"
   }
-  from := ""
+  from, to := "", ""
   c := msg.GetFromContact()
   if c != nil {
     from = c.NickName
   }
+  if msg.ToUserName == msg.Bot().Self().UserName {
+    to = msg.Bot().Self().NickName
+  }
   if msg.SpeakerUserName != "" {
-    log.Printf("\nFrom[Group]: %s[%s]\nTo: %s\nSpeaker: %s\nType: %d\nContent: %s\n", from, msg.FromUserName, msg.ToUserName, msg.SpeakerUserName, msg.Type, msg.Content)
+    log.Printf("\nFrom: %s[%s](Group)\nTo: %s[%s]\nSpeaker: %s\nType: %d\nContent: %s\n", from, msg.FromUserName, to, msg.ToUserName, msg.SpeakerUserName, msg.Type, msg.Content)
   } else {
-    log.Printf("\nFrom: %s[%s]\nTo: %s\nType: %d\nContent: %s\n", from, msg.FromUserName, msg.ToUserName, msg.Type, msg.Content)
+    log.Printf("\nFrom: %s[%s]\nTo: %s[%s]\nType: %d\nContent: %s\n", from, msg.FromUserName, to, msg.ToUserName, msg.Type, msg.Content)
   }
   if c == nil || c.Type != wxbot.ContactFriend {
     return
@@ -98,6 +101,7 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
 }
 
 func main() {
+  wxbot.EnableDump(true)
   bot := wxbot.New()
   bot.Start(&Handler{bot: bot})
   wg.Add(1)
