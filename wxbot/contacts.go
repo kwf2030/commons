@@ -1,6 +1,7 @@
 package wxbot
 
 import (
+  "strings"
   "sync"
 )
 
@@ -47,6 +48,21 @@ func (cs *Contacts) Get(userName string) *Contact {
   }
   cs.mu.RLock()
   ret := cs.data[userName]
+  cs.mu.RUnlock()
+  return ret
+}
+
+func (cs *Contacts) FindByNickName(nickName string) *Contact {
+  if nickName == "" {
+    return nil
+  }
+  cs.mu.RLock()
+  var ret *Contact
+  for _, c := range cs.data {
+    if strings.Contains(c.NickName, nickName) {
+      ret = c
+    }
+  }
   cs.mu.RUnlock()
   return ret
 }

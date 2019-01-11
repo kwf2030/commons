@@ -148,21 +148,6 @@ func CountBots() int {
   return l
 }
 
-func RunningBots() []*Bot {
-  ret := make([]*Bot, 0, 4)
-  botsMutex.RLock()
-  for _, v := range bots {
-    if v.session.State == StateRunning {
-      ret = append(ret, v)
-    }
-  }
-  botsMutex.RUnlock()
-  if len(ret) == 0 {
-    return nil
-  }
-  return ret
-}
-
 func EnableDump(enabled bool) {
   dumpEnabled = enabled
 }
@@ -182,8 +167,8 @@ type Bot struct {
 
   attr *sync.Map
 
-  startTime time.Time
-  stopTime  time.Time
+  StartTime time.Time
+  StopTime  time.Time
 }
 
 func New() *Bot {
@@ -239,12 +224,19 @@ func GetBotByUin(uin int64) *Bot {
   return ret
 }
 
-func (bot *Bot) StartTime() time.Time {
-  return bot.startTime
-}
-
-func (bot *Bot) StopTime() time.Time {
-  return bot.stopTime
+func RunningBots() []*Bot {
+  ret := make([]*Bot, 0, 4)
+  botsMutex.RLock()
+  for _, v := range bots {
+    if v.session.State == StateRunning {
+      ret = append(ret, v)
+    }
+  }
+  botsMutex.RUnlock()
+  if len(ret) == 0 {
+    return nil
+  }
+  return ret
 }
 
 func (bot *Bot) Self() *Contact {
@@ -279,7 +271,7 @@ func (bot *Bot) Start(handler Handler) {
 }
 
 func (bot *Bot) Stop() {
-  bot.stopTime = times.Now()
+  bot.StopTime = times.Now()
   bot.session.State = StateStop
   bot.req.SignOut()
 }

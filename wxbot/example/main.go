@@ -35,9 +35,9 @@ func (h *Handler) OnSignOut() {
   buf.WriteString("sign out: %s\n")
   buf.WriteString("online for %.2f hours\n")
   log.Printf(buf.String(), h.bot.Self().NickName,
-    h.bot.StartTime().Format(times.DateTimeFormat),
-    h.bot.StopTime().Format(times.DateTimeFormat),
-    h.bot.StopTime().Sub(h.bot.StartTime()).Hours())
+    h.bot.StartTime.Format(times.DateTimeFormat),
+    h.bot.StopTime.Format(times.DateTimeFormat),
+    h.bot.StopTime.Sub(h.bot.StartTime).Hours())
   wg.Done()
 }
 

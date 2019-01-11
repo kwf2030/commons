@@ -23,7 +23,7 @@ func (r *contactsReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
     return
   }
   r.contacts = initContacts(arr, r.Bot)
-  r.startTime = times.Now()
+  r.StartTime = times.Now()
   r.session.State = StateRunning
   botsMutex.Lock()
   bots[r.session.Uin] = r.Bot
