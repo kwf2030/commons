@@ -74,9 +74,10 @@ func (bot *Bot) GetContactFromServer(toUserName string) (*Contact, error) {
     return nil, e
   }
   c := buildContact(v)
-  if c != nil && c.UserName != "" {
-    c.withBot(bot)
+  if c == nil || c.UserName == "" {
+    return nil, ErrResp
   }
+  c.withBot(bot)
   return c, nil
 }
 
@@ -106,6 +107,9 @@ func (bot *Bot) GetContactsFromServer(toUserNames ...string) ([]*Contact, error)
       ret = append(ret, c)
     }
   }, "ContactList")
+  if len(ret) == 0 {
+    return nil, ErrResp
+  }
   return ret, nil
 }
 
@@ -227,9 +231,6 @@ func (bot *Bot) Accept(toUserName, ticket string) (*Contact, error) {
   c, e := bot.GetContactFromServer(toUserName)
   if e != nil {
     return nil, e
-  }
-  if c == nil {
-    return nil, ErrResp
   }
   bot.contacts.Add(c)
   return c, nil

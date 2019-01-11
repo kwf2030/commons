@@ -66,13 +66,13 @@ func (h *dispatchHandler) Handle(ctx *pipeline.HandlerContext, val interface{}) 
 
 func (h *dispatchHandler) updateContact(userName string) (*Contact, bool) {
   c := h.contacts.Get(userName)
-  b := false
-  if c == nil {
-    c, _ = h.GetContactFromServer(userName)
-    if c != nil && c.UserName != "" {
-      h.contacts.Add(c)
-      b = true
-    }
+  if c != nil {
+    return c, false
   }
-  return c, b
+  c, _ = h.GetContactFromServer(userName)
+  if c == nil {
+    return nil, false
+  }
+  h.contacts.Add(c)
+  return c, true
 }

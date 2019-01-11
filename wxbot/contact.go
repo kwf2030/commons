@@ -136,6 +136,15 @@ func (c *Contact) Raw() []byte {
   return c.raw
 }
 
+func (c *Contact) Update() *Contact {
+  ret, e := c.bot.GetContactFromServer(c.UserName)
+  if e != nil {
+    return nil
+  }
+  c.bot.contacts.Add(ret)
+  return ret
+}
+
 func (c *Contact) SendText(text string) error {
   if text == "" {
     return ErrInvalidArgs
