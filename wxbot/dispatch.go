@@ -33,13 +33,9 @@ func (h *groupMsgHandler) Handle(ctx *pipeline.HandlerContext, val interface{}) 
     if len(msg.Content) >= 39 && msg.Content[33] == ':' {
       msg.SpeakerUserName = msg.Content[:33]
       msg.Content = msg.Content[39:]
-      h.handler.OnMessage(msg, 0)
-      return
     } else if len(msg.Content) >= 71 && msg.Content[65] == ':' {
       msg.SpeakerUserName = msg.Content[:33]
       msg.Content = msg.Content[71:]
-      h.handler.OnMessage(msg, 0)
-      return
     }
   }
   ctx.Fire(val)
@@ -52,8 +48,31 @@ type dispatchHandler struct {
 func (h *dispatchHandler) Handle(ctx *pipeline.HandlerContext, val interface{}) {
   switch v := val.(type) {
   case *Message:
+    if v.FromUserName != h.session.UserName {
+      h.updateContact(v.FromUserName)
+    }
+    if v.ToUserName != h.session.UserName {
+      h.updateContact(v.ToUserName)
+    }
     h.handler.OnMessage(v, 0)
   case *Contact:
-    h.handler.OnContact(v, 0)
+    if c, b := h.updateContact(v.UserName); b {
+      h.handler.OnContact(c, 0)
+    } else {
+      h.handler.OnContact(v, 0)
+    }
   }
+}
+
+func (h *dispatchHandler) updateContact(userName string) (*Contact, bool) {
+  c := h.contacts.Get(userName)
+  b := false
+  if c == nil {
+    c, _ = h.GetContactFromServer(userName)
+    if c != nil && c.UserName != "" {
+      h.contacts.Add(c)
+      b = true
+    }
+  }
+  return c, b
 }
