@@ -52,15 +52,17 @@ func (cs *Contacts) Get(userName string) *Contact {
   return ret
 }
 
-func (cs *Contacts) FindByNickName(nickName string) *Contact {
-  if nickName == "" {
+func (cs *Contacts) Find(keyword string) *Contact {
+  if keyword == "" {
     return nil
   }
   cs.mu.RLock()
   var ret *Contact
   for _, c := range cs.data {
-    if strings.Contains(c.NickName, nickName) {
+    if (c.NickName != "" && strings.Contains(c.NickName, keyword)) ||
+      (c.RemarkName != "" && strings.Contains(c.RemarkName, keyword)) {
       ret = c
+      break
     }
   }
   cs.mu.RUnlock()
