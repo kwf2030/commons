@@ -98,7 +98,6 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
 }
 
 func main() {
-  wxbot.EnableDump(true)
   bot := wxbot.New()
   bot.Start(&Handler{bot: bot})
   wg.Add(1)
