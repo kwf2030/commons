@@ -13,7 +13,7 @@ const (
   // 好友
   ContactFriend
 
-  // 群聊
+  // 群
   ContactGroup
 
   // 公众号
@@ -28,26 +28,15 @@ var (
   jsonPathNickName   = []string{"NickName"}
   jsonPathRemarkName = []string{"RemarkName"}
   jsonPathVerifyFlag = []string{"VerifyFlag"}
+  jsonPathMemberList = []string{"MemberList"}
 )
 
-type Friend struct {
-  RemarkName string
-}
-
-type Group struct {
-  OwnerUserName   string
-  NickNameInGroup string
-}
-
 type Contact struct {
-  *Friend
-  *Group
-
   bot  *Bot
   attr *sync.Map
 
   // 联系人类型，
-  // 个人和群聊帐号为0，
+  // 个人和群为0，
   // 订阅号为8，
   // 企业号为24（包括扩微信支付），
   // 系统号为56(微信团队官方帐号），
@@ -58,12 +47,19 @@ type Contact struct {
   Type int
 
   // UserName每次登录都不一样，
-  // 群聊以@@开头，其他以@开头，系统帐号则直接是名字，如：
+  // 群以@@开头，其他以@开头，系统帐号则直接是名字，如：
   // weixin（微信团队）/filehelper（文件传输助手）/fmessage（朋友消息推荐）
   UserName string
 
-  // 昵称，如果是群聊，表示群名称
+  // 昵称，如果是群，表示群名称
   NickName string
+
+  // 备注（仅好友有该字段）
+  RemarkName string
+
+  // 成员列表（仅群有该字段），
+  // 只在调用Update后才有值，UserName->NickName
+  Members map[string]string
 
   // 原始数据
   raw []byte
@@ -73,7 +69,7 @@ func buildContact(data []byte) *Contact {
   if len(data) == 0 {
     return nil
   }
-  ret := &Contact{raw: data, attr: &sync.Map{}, Friend: &Friend{}, Group: &Group{}}
+  ret := &Contact{raw: data, attr: &sync.Map{}}
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
@@ -90,8 +86,10 @@ func buildContact(data []byte) *Contact {
       if vf != 0 {
         ret.VerifyFlag = int(vf)
       }
+    case 4:
+      // todo 解析MemberList
     }
-  }, jsonPathUserName, jsonPathNickName, jsonPathRemarkName, jsonPathVerifyFlag)
+  }, jsonPathUserName, jsonPathNickName, jsonPathRemarkName, jsonPathVerifyFlag, jsonPathMemberList)
   switch ret.VerifyFlag {
   case 0:
     ret.Type = contactType(ret.UserName)

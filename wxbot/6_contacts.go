@@ -60,7 +60,11 @@ func parseContactsResp(resp *http.Response) ([]*Contact, error) {
     return nil, e
   }
   dump("6_"+times.NowStrf(times.DateTimeMsFormat5), body)
-  arr := make([]*Contact, 0, 5000)
+  count, _ := jsonparser.GetInt(body, "MemberCount")
+  if count == 0 {
+    count = 5000
+  }
+  arr := make([]*Contact, 0, count)
   _, e = jsonparser.ArrayEach(body, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
     if e != nil {
       return

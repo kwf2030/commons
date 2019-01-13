@@ -74,7 +74,7 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
     return nil, e
   }
   dump("4_"+times.NowStrf(times.DateTimeMsFormat5), body)
-  c := &Contact{raw: body, attr: &sync.Map{}, Friend: &Friend{}, Group: &Group{}}
+  c := &Contact{raw: body, attr: &sync.Map{}}
   jsonparser.EachKey(body, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return

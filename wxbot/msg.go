@@ -72,31 +72,31 @@ var (
   jsonPathCreateTime   = []string{"CreateTime"}
 )
 
-type GroupMessage struct {
-  SpeakerUserName string
-}
-
 type Message struct {
-  *GroupMessage
-
   bot  *Bot
   attr *sync.Map
 
-  Type         int
-  CreateTime   int64
   Id           string
-  Content      string
-  Url          string
   FromUserName string
   ToUserName   string
-  raw          []byte
+  Content      string
+  Url          string
+  CreateTime   int64
+  Type         int
+
+  // 当前说话人（仅群消息有该字段），
+  // 数据为UserName和NickName（长度为2，如果不是群消息的话长度为0）
+  Speaker []string
+
+  // 原始消息
+  raw []byte
 }
 
 func buildMessage(data []byte) *Message {
   if len(data) == 0 {
     return nil
   }
-  ret := &Message{raw: data, attr: &sync.Map{}, GroupMessage: &GroupMessage{}}
+  ret := &Message{raw: data, attr: &sync.Map{}}
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
@@ -161,13 +161,6 @@ func (msg *Message) GetToContact() *Contact {
     return msg.bot.self
   }
   return msg.bot.contacts.Get(msg.ToUserName)
-}
-
-func (msg *Message) GetSpeakerContact() *Contact {
-  if msg.bot.contacts == nil {
-    return nil
-  }
-  return msg.bot.contacts.Get(msg.SpeakerUserName)
 }
 
 func (msg *Message) ReplyText(text string) error {

@@ -11,7 +11,6 @@ import (
   "strconv"
   "time"
 
-  "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/pipeline"
   "github.com/kwf2030/commons/times"
 )
@@ -153,38 +152,6 @@ func (r *syncReq) doSync() ([]byte, error) {
   return body, nil
 }
 
-func (r *syncReq) dispatch(syncCheck syncCheckResp, data []byte) {
-  var addMsgList []*Message
-  var delContactList, modContactList []*Contact
-  jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
-    if e != nil {
-      return
-    }
-    switch i {
-    case 0:
-      addMsgList = parseSyncMsgList(v, r.Bot)
-    case 1:
-      delContactList = parseSyncContactList(v, r.Bot)
-    case 2:
-      modContactList = parseSyncContactList(v, r.Bot)
-    case 3:
-      sk := parseSyncKey(v)
-      if sk.Count > 0 {
-        r.session.SyncKey = sk
-      }
-    }
-  }, jsonPathAddMsgList, jsonPathDelContactList, jsonPathModContactList, jsonPathSyncCheckKey)
-  for _, c := range modContactList {
-    r.syncPipeline.Fire(c)
-  }
-  for _, c := range delContactList {
-    r.syncPipeline.Fire(c)
-  }
-  for _, m := range addMsgList {
-    r.syncPipeline.Fire(m)
-  }
-}
-
 func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
   // window.synccheck={retcode:"0",selector:"2"}
   // retcode=0：正常，
@@ -193,7 +160,7 @@ func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
   // retcode=1102：退出（原因未知），
   // selector=0：正常，
   // selector=2：有新消息，
-  // selector=4：新增或删除联系人/保存群聊到通讯录/修改群名称/群聊成员数目变化，
+  // selector=4：新增或删除联系人/保存群到通讯录/修改群名称/群成员数目变化，
   // selector=5：未知，
   // selector=6：未知，
   // selector=7：操作了手机（如进入/关闭聊天页面）
@@ -216,40 +183,6 @@ func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
     dump("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_check", body)
   }
   return ret, nil
-}
-
-func parseSyncContactList(data []byte, bot *Bot) []*Contact {
-  ret := make([]*Contact, 0, 2)
-  _, _ = jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
-    if e != nil {
-      return
-    }
-    userName, _ := jsonparser.GetString(v, "UserName")
-    if userName == "" {
-      return
-    }
-    c := buildContact(v)
-    if c != nil && c.UserName != "" {
-      c.withBot(bot)
-      ret = append(ret, c)
-    }
-  })
-  return ret
-}
-
-func parseSyncMsgList(data []byte, bot *Bot) []*Message {
-  ret := make([]*Message, 0, 2)
-  jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
-    if e != nil {
-      return
-    }
-    msg := buildMessage(v)
-    if msg != nil && msg.Id != "" {
-      msg.withBot(bot)
-      ret = append(ret, msg)
-    }
-  })
-  return ret
 }
 
 type syncCheckResp struct {

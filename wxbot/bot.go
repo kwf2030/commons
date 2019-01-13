@@ -74,8 +74,6 @@ var (
 
   ErrScanTimeout = errors.New("scan timeout")
 
-  ErrSignOut = errors.New("sign out")
-
   ErrContactNotFound = errors.New("contact not found")
 )
 
@@ -160,7 +158,6 @@ type Bot struct {
   req     *wxReq
 
   signInPipeline *pipeline.Pipeline
-  syncPipeline   *pipeline.Pipeline
 
   self     *Contact
   contacts *Contacts
@@ -182,7 +179,6 @@ func New() *Bot {
     },
     session:        s,
     signInPipeline: pipeline.New(),
-    syncPipeline:   pipeline.New(),
     attr:           &sync.Map{},
   }
   bot.req = &wxReq{bot}
@@ -252,9 +248,6 @@ func (bot *Bot) Start(handler Handler) {
     return
   }
   bot.handler = handler
-  bot.syncPipeline.AddLast("verify", &verifyMsgHandler{bot}).
-    AddLast("group", &groupMsgHandler{bot}).
-    AddLast("dispatch", &dispatchHandler{bot})
   bot.signInPipeline.AddLast("qr", &qrReq{bot}).
     AddLast("scan", &scanReq{bot}).
     AddLast("redirect", &redirectReq{bot}).
