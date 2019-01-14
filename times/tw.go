@@ -52,7 +52,7 @@ func NewTimingWheel(slots int, duration time.Duration) *TimingWheel {
     buckets:  arr,
     slots:    uint64(slots),
     stopCh:   make(chan struct{}),
-    r:        rand.New(rand.NewSource(time.Now().Unix())),
+    r:        rand.New(rand.NewSource(Timestamp())),
     l:        &sync.Mutex{},
     state:    stateReady,
   }

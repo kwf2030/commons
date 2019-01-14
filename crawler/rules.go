@@ -14,12 +14,12 @@ import (
 var (
   ErrGroupNotFound = errors.New("group not found")
 
-  Rules = &RuleGroups{groups: make(map[string][]*rule, 16)}
+  Rules = &RuleGroups{groups: make(map[string][]*rule, 16), RWMutex: &sync.RWMutex{}}
 )
 
 type RuleGroups struct {
   groups map[string][]*rule
-  sync.RWMutex
+  *sync.RWMutex
 }
 
 func (rg *RuleGroups) match(group, url string) *rule {
