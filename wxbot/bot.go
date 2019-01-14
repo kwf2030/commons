@@ -108,7 +108,7 @@ type Handler interface {
 }
 
 func init() {
-  e := os.MkdirAll(dumpDir, os.ModePerm)
+  e := os.MkdirAll(rootDir, os.ModePerm)
   if e != nil {
     return
   }
@@ -147,7 +147,9 @@ func CountBots() int {
 }
 
 func EnableDump(enabled bool) {
-  dumpEnabled = enabled
+  if dumpEnabled = enabled; enabled {
+    os.MkdirAll(dumpDir, os.ModePerm)
+  }
 }
 
 type Bot struct {
