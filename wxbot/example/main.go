@@ -72,15 +72,22 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
   c = msg.GetFromContact()
   if c != nil {
     from = c.NickName
+    if c.Type == wxbot.ContactFriend {
+      h.reply(msg)
+    }
   }
-  if msg.SpeakerUserName != "" {
-    log.Printf("\nFrom: %s[%s](Group)\nTo: %s[%s]\nSpeaker: %s\nType: %d\nContent: %s\n", from, msg.FromUserName, to, msg.ToUserName, msg.SpeakerUserName, msg.Type, msg.Content)
-  } else {
+  if msg.SpeakerUserName == "" {
     log.Printf("\nFrom: %s[%s]\nTo: %s[%s]\nType: %d\nContent: %s\n", from, msg.FromUserName, to, msg.ToUserName, msg.Type, msg.Content)
+  } else {
+    log.Printf("\nFrom: %s[%s](Group)\nTo: %s[%s]\nSpeaker: %s\nType: %d\nContent: %s\n", from, msg.FromUserName, to, msg.ToUserName, msg.SpeakerUserName, msg.Type, msg.Content)
+    if c != nil && len(c.Members) == 0 {
+      c = c.Update()
+      log.Printf("%d members: %v\n", len(c.Members), c.Members)
+    }
   }
-  if c == nil || c.Type != wxbot.ContactFriend {
-    return
-  }
+}
+
+func (h *Handler) reply(msg *wxbot.Message) {
   switch msg.Type {
   case wxbot.MsgText:
     msg.ReplyText("收到文本")
