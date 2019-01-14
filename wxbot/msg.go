@@ -84,19 +84,18 @@ type Message struct {
   CreateTime   int64
   Type         int
 
-  // 当前说话人（仅群消息有该字段），
-  // 数据为UserName和NickName（长度为2，如果不是群消息的话长度为0）
-  Speaker []string
+  // 当前说话人（仅群消息有该字段）
+  SpeakerUserName string
 
   // 原始消息
   raw []byte
 }
 
-func buildMessage(data []byte) *Message {
+func buildMessage(data []byte, bot *Bot) *Message {
   if len(data) == 0 {
     return nil
   }
-  ret := &Message{raw: data, attr: &sync.Map{}}
+  ret := &Message{bot: bot, attr: &sync.Map{}, raw: data}
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
@@ -132,12 +131,6 @@ func buildMessage(data []byte) *Message {
   return ret
 }
 
-func (msg *Message) withBot(bot *Bot) {
-  if bot != nil {
-    msg.bot = bot
-  }
-}
-
 func (msg *Message) Bot() *Bot {
   return msg.bot
 }
@@ -149,6 +142,9 @@ func (msg *Message) Raw() []byte {
 func (msg *Message) GetFromContact() *Contact {
   if msg.bot.contacts == nil {
     return nil
+  }
+  if msg.FromUserName == msg.bot.session.UserName {
+    return msg.bot.self
   }
   return msg.bot.contacts.Get(msg.FromUserName)
 }

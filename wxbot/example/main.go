@@ -56,7 +56,7 @@ func (h *Handler) OnQRCode(qrcodeUrl string) {
 }
 
 func (h *Handler) OnContact(c *wxbot.Contact, _ int) {
-  log.Printf("contact: %s\n", c.NickName)
+  log.Printf("OnContact: %s\n", c.NickName)
 }
 
 // 消息回调
@@ -64,13 +64,14 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
   if msg.Content == "" {
     msg.Content = "<NULL>"
   }
-  from, to := "", ""
-  c := msg.GetFromContact()
+  to, from := "", ""
+  c := msg.GetToContact()
+  if c != nil {
+    to = c.NickName
+  }
+  c = msg.GetFromContact()
   if c != nil {
     from = c.NickName
-  }
-  if msg.ToUserName == msg.Bot().Self().UserName {
-    to = msg.Bot().Self().NickName
   }
   if msg.SpeakerUserName != "" {
     log.Printf("\nFrom: %s[%s](Group)\nTo: %s[%s]\nSpeaker: %s\nType: %d\nContent: %s\n", from, msg.FromUserName, to, msg.ToUserName, msg.SpeakerUserName, msg.Type, msg.Content)

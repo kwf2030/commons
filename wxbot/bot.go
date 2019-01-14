@@ -182,9 +182,6 @@ func New() *Bot {
     attr:           &sync.Map{},
   }
   bot.req = &wxReq{bot}
-  // 未获取到uin之前key是当前时间戳，
-  // 无论登录成功还是失败，都会删除这个key，
-  // 如果登录成功，会用uin存储这个Bot
   k := times.Timestamp()
   bot.attr.Store(attrRandUin, k)
   botsMutex.Lock()
@@ -358,11 +355,11 @@ type syncKey struct {
 }
 
 func parseSyncKey(data []byte) syncKey {
-  count, _ := jsonparser.GetInt(data, "Count")
-  if count <= 0 {
+  cnt, _ := jsonparser.GetInt(data, "Count")
+  if cnt <= 0 {
     return syncKey{}
   }
-  arr := make([]syncKeyItem, 0, count)
+  arr := make([]syncKeyItem, 0, cnt)
   jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, i int, e error) {
     if e != nil {
       return
@@ -374,7 +371,7 @@ func parseSyncKey(data []byte) syncKey {
   if len(arr) == 0 {
     return syncKey{}
   }
-  return syncKey{Count: int(count), List: arr}
+  return syncKey{Count: int(cnt), List: arr}
 }
 
 func (sk *syncKey) expand() string {

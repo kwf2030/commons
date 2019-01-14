@@ -24,11 +24,15 @@ const (
 )
 
 var (
-  jsonPathUserName   = []string{"UserName"}
-  jsonPathNickName   = []string{"NickName"}
-  jsonPathRemarkName = []string{"RemarkName"}
-  jsonPathVerifyFlag = []string{"VerifyFlag"}
-  jsonPathMemberList = []string{"MemberList"}
+  jsonPathUserName    = []string{"UserName"}
+  jsonPathNickName    = []string{"NickName"}
+  jsonPathRemarkName  = []string{"RemarkName"}
+  jsonPathVerifyFlag  = []string{"VerifyFlag"}
+  jsonPathMemberCount = []string{"MemberCount"}
+
+  jsonKeyMemberList = "MemberList"
+  jsonKeyUserName   = "UserName"
+  jsonKeyNickName   = "NickName"
 )
 
 type Contact struct {
@@ -65,11 +69,11 @@ type Contact struct {
   raw []byte
 }
 
-func buildContact(data []byte) *Contact {
+func buildContact(data []byte, bot *Bot) *Contact {
   if len(data) == 0 {
     return nil
   }
-  ret := &Contact{raw: data, attr: &sync.Map{}}
+  ret := &Contact{bot: bot, attr: &sync.Map{}, raw: data}
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
@@ -82,14 +86,23 @@ func buildContact(data []byte) *Contact {
     case 2:
       ret.RemarkName, _ = jsonparser.ParseString(v)
     case 3:
-      vf, _ := jsonparser.ParseInt(v)
-      if vf != 0 {
-        ret.VerifyFlag = int(vf)
+      n, _ := jsonparser.ParseInt(v)
+      if n != 0 {
+        ret.VerifyFlag = int(n)
       }
     case 4:
-      // todo 解析MemberList
+      cnt, _ := jsonparser.ParseInt(v)
+      if cnt > 0 {
+        ret.Members = make(map[string]string, cnt)
+      }
     }
-  }, jsonPathUserName, jsonPathNickName, jsonPathRemarkName, jsonPathVerifyFlag, jsonPathMemberList)
+  }, jsonPathUserName, jsonPathNickName, jsonPathRemarkName, jsonPathVerifyFlag, jsonPathMemberCount)
+  if ret.Members != nil {
+    v, _, _, _ := jsonparser.Get(data, jsonKeyMemberList)
+    if len(v) > 0 {
+      buildMembers(v, ret.Members)
+    }
+  }
   switch ret.VerifyFlag {
   case 0:
     ret.Type = contactType(ret.UserName)
@@ -101,6 +114,19 @@ func buildContact(data []byte) *Contact {
     ret.Type = contactUnknown
   }
   return ret
+}
+
+func buildMembers(data []byte, m map[string]string) {
+  jsonparser.ArrayEach(data, func(v []byte, _ jsonparser.ValueType, _ int, e error) {
+    if e != nil {
+      return
+    }
+    userName, _ := jsonparser.GetString(v, jsonKeyUserName)
+    nickName, _ := jsonparser.GetString(v, jsonKeyNickName)
+    if userName != "" {
+      m[userName] = nickName
+    }
+  })
 }
 
 func GetContact(userName string) *Contact {
@@ -120,12 +146,6 @@ func GetContact(userName string) *Contact {
   return ret
 }
 
-func (c *Contact) withBot(bot *Bot) {
-  if bot != nil {
-    c.bot = bot
-  }
-}
-
 func (c *Contact) Bot() *Bot {
   return c.bot
 }
@@ -135,11 +155,11 @@ func (c *Contact) Raw() []byte {
 }
 
 func (c *Contact) Update() *Contact {
-  ret, e := c.bot.GetContactFromServer(c.UserName)
-  if e != nil {
+  ret, _ := c.bot.GetContactFromServer(c.UserName)
+  if ret == nil {
     return nil
   }
-  c.bot.contacts.Add(ret)
+  ret.bot.contacts.Add(ret)
   return ret
 }
 

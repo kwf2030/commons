@@ -73,11 +73,11 @@ func (bot *Bot) GetContactFromServer(toUserName string) (*Contact, error) {
   if e != nil {
     return nil, e
   }
-  c := buildContact(v)
+  c := buildContact(v, bot)
   if c == nil || c.UserName == "" {
     return nil, ErrResp
   }
-  c.withBot(bot)
+  c.bot = bot
   return c, nil
 }
 
@@ -101,9 +101,9 @@ func (bot *Bot) GetContactsFromServer(toUserNames ...string) ([]*Contact, error)
     if e != nil {
       return
     }
-    c := buildContact(v)
+    c := buildContact(v, bot)
     if c != nil && c.UserName != "" {
-      c.withBot(bot)
+      c.bot = bot
       ret = append(ret, c)
     }
   }, "ContactList")

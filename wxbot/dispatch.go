@@ -4,32 +4,39 @@ import (
   "github.com/buger/jsonparser"
 )
 
+var (
+  jsonPathModContactList = []string{"ModContactList"}
+  jsonPathDelContactList = []string{"DelContactList"}
+  jsonPathAddMsgList     = []string{"AddMsgList"}
+  jsonPathSyncCheckKey   = []string{"SyncCheckKey"}
+)
+
 func (bot *Bot) dispatch(syncCheck syncCheckResp, data []byte) {
+  var modContactList, delContactList []*Contact
   var addMsgList []*Message
-  var delContactList, modContactList []*Contact
   jsonparser.EachKey(data, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {
       return
     }
     switch i {
     case 0:
-      addMsgList = bot.parseSyncMsgList(v)
+      modContactList = bot.parseSyncContactList(v)
     case 1:
       delContactList = bot.parseSyncContactList(v)
     case 2:
-      modContactList = bot.parseSyncContactList(v)
+      addMsgList = bot.parseSyncMsgList(v)
     case 3:
       sk := parseSyncKey(v)
       if sk.Count > 0 {
         bot.session.SyncKey = sk
       }
     }
-  }, jsonPathAddMsgList, jsonPathDelContactList, jsonPathModContactList, jsonPathSyncCheckKey)
+  }, jsonPathModContactList, jsonPathDelContactList, jsonPathAddMsgList, jsonPathSyncCheckKey)
   for _, c := range modContactList {
-    r.syncPipeline.Fire(c)
+    bot.handler.OnContact(c, 0)
   }
   for _, c := range delContactList {
-    r.syncPipeline.Fire(c)
+    bot.handler.OnContact(c, 0)
   }
   for _, m := range addMsgList {
     if ok := bot.processVerifyMsg(m); ok {
@@ -52,9 +59,8 @@ func (bot *Bot) parseSyncContactList(data []byte) []*Contact {
     if userName == "" {
       return
     }
-    c := buildContact(v)
+    c := buildContact(v, bot)
     if c != nil && c.UserName != "" {
-      c.withBot(bot)
       ret = append(ret, c)
     }
   })
@@ -67,9 +73,8 @@ func (bot *Bot) parseSyncMsgList(data []byte) []*Message {
     if e != nil {
       return
     }
-    msg := buildMessage(v)
+    msg := buildMessage(v, bot)
     if msg != nil && msg.Id != "" {
-      msg.withBot(bot)
       ret = append(ret, msg)
     }
   })
@@ -81,14 +86,14 @@ func (bot *Bot) processVerifyMsg(msg *Message) bool {
     u, _ := jsonparser.GetString(msg.raw, "RecommendInfo", "UserName")
     t, _ := jsonparser.GetString(msg.raw, "RecommendInfo", "Ticket")
     if u != "" && t != "" {
-      c, _ := h.Accept(u, t)
+      c, _ := bot.Accept(u, t)
       if c != nil {
-        h.handler.OnContact(c, 0)
-        return
+        bot.handler.OnContact(c, 0)
+        return true
       }
     }
   }
-  ctx.Fire(val)
+  return false
 }
 
 func (bot *Bot) processGroupMsg(msg *Message) bool {
@@ -99,4 +104,5 @@ func (bot *Bot) processGroupMsg(msg *Message) bool {
     msg.SpeakerUserName = msg.Content[:33]
     msg.Content = msg.Content[71:]
   }
+  return false
 }

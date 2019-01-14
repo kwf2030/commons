@@ -18,7 +18,7 @@ func initContacts(contacts []*Contact, bot *Bot) *Contacts {
     bot:  bot,
   }
   for _, c := range contacts {
-    c.withBot(bot)
+    c.bot = bot
     ret.data[c.UserName] = c
   }
   return ret
@@ -90,7 +90,9 @@ func (cs *Contacts) Each(f func(*Contact) bool) {
   }
 }
 
-func (cs *Contacts) EachUnsafe(f func(*Contact) bool) {
+func (cs *Contacts) EachLocked(f func(*Contact) bool) {
+  cs.mu.RLock()
+  defer cs.mu.RUnlock()
   for _, c := range cs.data {
     if !f(c) {
       break

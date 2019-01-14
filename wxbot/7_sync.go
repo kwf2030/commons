@@ -22,13 +22,6 @@ const (
 
 var syncCheckRegex = regexp.MustCompile(`retcode\s*:\s*"(\d+)"\s*,\s*selector\s*:\s*"(\d+)"`)
 
-var (
-  jsonPathAddMsgList     = []string{"AddMsgList"}
-  jsonPathDelContactList = []string{"DelContactList"}
-  jsonPathModContactList = []string{"ModContactList"}
-  jsonPathSyncCheckKey   = []string{"SyncCheckKey"}
-)
-
 type syncReq struct {
   *Bot
 }
