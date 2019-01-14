@@ -266,6 +266,17 @@ func (bot *Bot) Stop() {
   bot.req.SignOut()
 }
 
+func (bot *Bot) Release() {
+  bot.handler = nil
+  bot.client = nil
+  bot.session = nil
+  bot.req = nil
+  bot.signInPipeline = nil
+  bot.self = nil
+  bot.contacts = nil
+  bot.attr = nil
+}
+
 func (bot *Bot) updatePaths() {
   if bot.session.Uin == 0 {
     return

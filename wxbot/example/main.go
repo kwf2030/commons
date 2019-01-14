@@ -38,6 +38,7 @@ func (h *Handler) OnSignOut() {
     h.bot.StartTime.Format(times.DateTimeFormat),
     h.bot.StopTime.Format(times.DateTimeFormat),
     h.bot.StopTime.Sub(h.bot.StartTime).Hours())
+  h.bot.Release()
   wg.Done()
 }
 
