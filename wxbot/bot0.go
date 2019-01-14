@@ -113,11 +113,6 @@ func (bot *Bot) GetContactsFromServer(toUserNames ...string) ([]*Contact, error)
   return ret, nil
 }
 
-func (bot *Bot) SignOut() error {
-  _, e := bot.req.SignOut()
-  return e
-}
-
 func (bot *Bot) SendText(toUserName string, text string) error {
   if toUserName == "" || text == "" {
     return ErrInvalidArgs
