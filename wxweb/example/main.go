@@ -15,7 +15,7 @@ import (
 var wg sync.WaitGroup
 
 type Handler struct {
-  bot *wxbot.Bot
+  bot *wxweb.Bot
 }
 
 // 登录回调
@@ -56,12 +56,12 @@ func (h *Handler) OnQRCode(qrcodeUrl string) {
   }
 }
 
-func (h *Handler) OnContact(c *wxbot.Contact, _ int) {
+func (h *Handler) OnContact(c *wxweb.Contact, _ int) {
   log.Printf("OnContact: %s\n", c.NickName)
 }
 
 // 消息回调
-func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
+func (h *Handler) OnMessage(msg *wxweb.Message, _ int) {
   if msg.Content == "" {
     msg.Content = "<NULL>"
   }
@@ -73,7 +73,7 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
   c = msg.GetFromContact()
   if c != nil {
     from = c.NickName
-    if c.Type == wxbot.ContactFriend {
+    if c.Type == wxweb.ContactFriend {
       h.reply(msg)
     }
   }
@@ -88,30 +88,30 @@ func (h *Handler) OnMessage(msg *wxbot.Message, _ int) {
   }
 }
 
-func (h *Handler) reply(msg *wxbot.Message) {
+func (h *Handler) reply(msg *wxweb.Message) {
   switch msg.Type {
-  case wxbot.MsgText:
+  case wxweb.MsgText:
     msg.ReplyText("收到文本")
-  case wxbot.MsgImage:
+  case wxweb.MsgImage:
     msg.ReplyText("收到图片")
-  case wxbot.MsgAnimEmotion:
+  case wxweb.MsgAnimEmotion:
     msg.ReplyText("收到动画表情")
-  case wxbot.MsgLink:
+  case wxweb.MsgLink:
     msg.ReplyText("收到链接")
-  case wxbot.MsgCard:
+  case wxweb.MsgCard:
     msg.ReplyText("收到名片")
-  case wxbot.MsgLocation:
+  case wxweb.MsgLocation:
     msg.ReplyText("收到位置")
-  case wxbot.MsgVoice:
+  case wxweb.MsgVoice:
     msg.ReplyText("收到语音")
-  case wxbot.MsgVideo:
+  case wxweb.MsgVideo:
     msg.ReplyText("收到视频")
   }
 }
 
 func main() {
-  wxbot.EnableDump(true)
-  bot := wxbot.New()
+  wxweb.EnableDump(true)
+  bot := wxweb.New()
   bot.Start(&Handler{bot: bot})
   wg.Add(1)
   wg.Wait()

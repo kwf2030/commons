@@ -1,4 +1,4 @@
-package wxbot
+package wxweb
 
 import (
   "bytes"
@@ -70,7 +70,7 @@ func (r *wxReq) DownloadQRCode(dst string) (string, error) {
   }
   dump("DownloadQRCode_"+times.NowStrf(times.DateTimeMsFormat5), body)
   if dst == "" {
-    dst = path.Join(os.TempDir(), "wxbot_qrcode.jpg")
+    dst = path.Join(os.TempDir(), "wxweb_qrcode.jpg")
   }
   e = ioutil.WriteFile(dst, body, os.ModePerm)
   if e != nil {
@@ -94,7 +94,7 @@ func (r *wxReq) DownloadAvatar(dst string) (string, error) {
   }
   dump("DownloadAvatar_"+times.NowStrf(times.DateTimeMsFormat5), body)
   if dst == "" {
-    dst = path.Join(os.TempDir(), fmt.Sprintf("wxbot_%d.jpg", r.session.Uin))
+    dst = path.Join(os.TempDir(), fmt.Sprintf("wxweb_%d.jpg", r.session.Uin))
   }
   e = ioutil.WriteFile(dst, body, os.ModePerm)
   if e != nil {

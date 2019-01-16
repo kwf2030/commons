@@ -1,4 +1,4 @@
-package wxbot
+package wxweb
 
 import (
   "errors"
@@ -39,24 +39,24 @@ const (
 
 const (
   // 图片消息存放目录
-  attrImageDir = "wxbot.image_dir"
+  attrImageDir = "wxweb.image_dir"
 
   // 语音消息存放目录
-  attrVoiceDir = "wxbot.voice_dir"
+  attrVoiceDir = "wxweb.voice_dir"
 
   // 视频消息存放目录
-  attrVideoDir = "wxbot.video_dir"
+  attrVideoDir = "wxweb.video_dir"
 
   // 文件消息存放目录
-  attrFileDir = "wxbot.file_dir"
+  attrFileDir = "wxweb.file_dir"
 
   // 头像存放路径
-  attrAvatarPath = "wxbot.avatar_path"
+  attrAvatarPath = "wxweb.avatar_path"
 
   // 正在登录时用时间戳作为key，保证bots中有记录且可查询这个Bot
-  attrRandUin = "wxbot.rand_uin"
+  attrRandUin = "wxweb.rand_uin"
 
-  rootDir = "wxbot"
+  rootDir = "wxweb"
   dumpDir = rootDir + "/dump/"
 
   contentType = "application/json; charset=UTF-8"

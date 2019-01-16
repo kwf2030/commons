@@ -17,9 +17,9 @@
 .glide/
 
 # Others
-/.idea/
-/.vscode/
+.idea/
+.vscode/
 *.sublime-project
 *.sublime-workspace
-/wxbot/example/wxbot/
-/wxbot/example/main
+/wxweb/example/wxweb/
+/wxweb/example/main

@@ -1,4 +1,4 @@
-package wxbot
+package wxweb
 
 import (
   "bytes"
