@@ -1,4 +1,4 @@
-package beanstalkc
+package beanstalk
 
 import (
   "bufio"

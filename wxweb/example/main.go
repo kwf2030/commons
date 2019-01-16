@@ -9,7 +9,7 @@ import (
   "time"
 
   "github.com/kwf2030/commons/times"
-  "github.com/kwf2030/commons/wxbot"
+  "github.com/kwf2030/commons/wxweb"
 )
 
 var wg sync.WaitGroup

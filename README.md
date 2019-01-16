@@ -1,29 +1,25 @@
 # commons
-Common [Go](https://golang.org/) code in daily programming.
 
-## bbolts
-Convenience wrapper for [bbolt](https://github.com/etcd-io/bbolt).
+## bolt
+[bbolt](https://github.com/etcd-io/bbolt)的简单封装。
 
-## beanstalkc
-Client library for [beanstalkd](https://github.com/kr/beanstalkd).
+## beanstalk
+[beanstalkd](https://github.com/kr/beanstalkd)客户端实现。
 
 ## cdp
-Client library for [ChromeDevToolsProtocol](https://github.com/ChromeDevTools/devtools-protocol).
+[ChromeDevToolsProtocol](https://github.com/ChromeDevTools/devtools-protocol)协议封装。
 
 ## conv
-Utils for map extracting and conversion between map and gob/json.
+map和gob/json互转。
 
 ## crawler
-Simple web crawler uses cdp package.
-
-## flow
-Handles job as flows.
+使用cdp包实现的基于配置的极简页面爬取库（可以爬取任何网页，只需几行简单的JS代码）。
 
 ## pipeline
-Handles job as flows, efficient and simplified version of flow.
+链式处理流程。
 
 ## times
-Utils for time(including a simple time wheel).
+时间常量和工具函数，包含一个简单时间轮实现。
 
-## wxbot
-Wechat bot for personal account.
+## wxweb
+微信个人号机器人框架，基于微信网页版协议（代码简单明了，可能是目前最优雅的实现）。

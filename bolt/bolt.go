@@ -1,4 +1,4 @@
-package bbolts
+package bolt
 
 import (
   "bytes"
