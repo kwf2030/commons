@@ -11,4 +11,6 @@ require (
 
 replace golang.org/x/net v0.0.0-20190110200230-915654e7eabc => github.com/golang/net v0.0.0-20190110200230-915654e7eabc
 
+replace golang.org/x/sys v0.0.0-20190115152922-a457fd036447 => github.com/golang/sys v0.0.0-20190115152922-a457fd036447
+
 replace go.etcd.io/bbolt v1.3.1-etcd.8 => github.com/etcd-io/bbolt v1.3.1-etcd.8
