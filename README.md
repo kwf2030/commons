@@ -18,7 +18,7 @@ map和gob/json互转。
 ## pipeline
 链式处理流程。
 
-## times
+## time2
 时间常量和工具函数，包含一个简单时间轮实现。
 
 ## wxweb
