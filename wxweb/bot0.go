@@ -7,7 +7,7 @@ import (
 
   "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/conv"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 func (bot *Bot) DownloadQRCode(dst string) (string, error) {
@@ -297,7 +297,7 @@ func timestampString10() string {
 }
 
 func timestampStringL(l int) string {
-  s := strconv.FormatInt(times.Timestamp(), 10)
+  s := strconv.FormatInt(time2.Timestamp(), 10)
   if len(s) > l {
     return s[:l]
   }
@@ -305,7 +305,7 @@ func timestampStringL(l int) string {
 }
 
 func timestampStringR(l int) string {
-  s := strconv.FormatInt(times.Timestamp(), 10)
+  s := strconv.FormatInt(time2.Timestamp(), 10)
   i := len(s) - l
   if i > 0 {
     return s[i:]

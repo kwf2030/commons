@@ -8,7 +8,7 @@ import (
   "regexp"
 
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 const (
@@ -67,7 +67,7 @@ func parseQRResp(resp *http.Response) (string, error) {
   if e != nil {
     return "", e
   }
-  dump("1_"+times.NowStrf(times.DateTimeMsFormat5), body)
+  dump("1_"+time2.NowStrf(time2.DateTimeMsFormat5), body)
   data := string(body)
   match := uuidRegex.FindStringSubmatch(data)
   if len(match) != 2 {

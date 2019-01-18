@@ -14,7 +14,7 @@ import (
 
   "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
   "golang.org/x/net/publicsuffix"
 )
 
@@ -116,7 +116,7 @@ func init() {
 }
 
 func updatePaths() {
-  time.AfterFunc(times.UntilTomorrow(), func() {
+  time.AfterFunc(time2.UntilTomorrow(), func() {
     for _, b := range RunningBots() {
       b.updatePaths()
     }
@@ -184,7 +184,7 @@ func New() *Bot {
     attr:           &sync.Map{},
   }
   bot.req = &wxReq{bot}
-  k := times.Timestamp()
+  k := time2.Timestamp()
   bot.attr.Store(attrRandUin, k)
   botsMutex.Lock()
   bots[k] = bot
@@ -263,7 +263,7 @@ func (bot *Bot) Start(handler Handler) {
 }
 
 func (bot *Bot) Stop() {
-  bot.StopTime = times.Now()
+  bot.StopTime = time2.Now()
   bot.session.State = StateStop
   bot.req.SignOut()
 }
@@ -284,7 +284,7 @@ func (bot *Bot) updatePaths() {
     return
   }
   uin := strconv.FormatInt(bot.session.Uin, 10)
-  dir := path.Join(rootDir, uin, times.NowStrf(times.DateFormat))
+  dir := path.Join(rootDir, uin, time2.NowStrf(time2.DateFormat))
   e := os.MkdirAll(dir, os.ModePerm)
   if e != nil {
     return

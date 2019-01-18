@@ -11,7 +11,7 @@ import (
 
   "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 const initUrlPath = "/webwxinit"
@@ -73,7 +73,7 @@ func parseInitResp(resp *http.Response) (*Contact, error) {
   if e != nil {
     return nil, e
   }
-  dump("4_"+times.NowStrf(times.DateTimeMsFormat5), body)
+  dump("4_"+time2.NowStrf(time2.DateTimeMsFormat5), body)
   c := &Contact{raw: body, attr: &sync.Map{}}
   jsonparser.EachKey(body, func(i int, v []byte, _ jsonparser.ValueType, e error) {
     if e != nil {

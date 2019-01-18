@@ -8,7 +8,7 @@ import (
   "net/url"
 
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 const notifyUrlPath = "/webwxstatusnotify"
@@ -54,6 +54,6 @@ func (r *notifyReq) do() error {
   if e != nil {
     return e
   }
-  dump("5_"+times.NowStrf(times.DateTimeMsFormat5), body)
+  dump("5_"+time2.NowStrf(time2.DateTimeMsFormat5), body)
   return nil
 }

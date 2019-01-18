@@ -12,7 +12,7 @@ import (
   "time"
 
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 const (
@@ -122,7 +122,7 @@ func (r *syncReq) doSync() ([]byte, error) {
   addr.RawQuery = q.Encode()
   m := make(map[string]interface{}, 3)
   m["BaseRequest"] = r.session.BaseReq
-  m["rr"] = strconv.FormatInt(^(times.Timestamp() / int64(time.Second)), 10)
+  m["rr"] = strconv.FormatInt(^(time2.Timestamp() / int64(time.Second)), 10)
   m["SyncKey"] = r.session.SyncKey
   buf, _ := json.Marshal(m)
   req, _ := http.NewRequest("POST", addr.String(), bytes.NewReader(buf))
@@ -141,7 +141,7 @@ func (r *syncReq) doSync() ([]byte, error) {
   if e != nil {
     return nil, e
   }
-  dump("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_sync", body)
+  dump("7_"+time2.NowStrf(time2.DateTimeMsFormat5)+"_sync", body)
   return body, nil
 }
 
@@ -164,7 +164,7 @@ func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
   data := string(body)
   arr := syncCheckRegex.FindStringSubmatch(data)
   if len(arr) < 2 {
-    dump("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_check", body)
+    dump("7_"+time2.NowStrf(time2.DateTimeMsFormat5)+"_check", body)
     return syncCheckResp{}, ErrResp
   }
   ret := syncCheckResp{}
@@ -173,7 +173,7 @@ func parseSyncCheckResp(resp *http.Response) (syncCheckResp, error) {
     ret.selector, _ = strconv.Atoi(arr[2])
   }
   if ret.code != 0 || ret.selector != 0 {
-    dump("7_"+times.NowStrf(times.DateTimeMsFormat5)+"_check", body)
+    dump("7_"+time2.NowStrf(time2.DateTimeMsFormat5)+"_check", body)
   }
   return ret, nil
 }

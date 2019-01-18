@@ -1,4 +1,4 @@
-package times
+package time2
 
 import (
   "math/rand"

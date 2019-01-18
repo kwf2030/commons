@@ -7,7 +7,7 @@ import (
 
   "github.com/buger/jsonparser"
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 const contactsUrlPath = "/webwxgetcontact"
@@ -23,7 +23,7 @@ func (r *contactsReq) Handle(ctx *pipeline.HandlerContext, val interface{}) {
     return
   }
   r.contacts = initContacts(arr, r.Bot)
-  r.StartTime = times.Now()
+  r.StartTime = time2.Now()
   r.session.State = StateRunning
   botsMutex.Lock()
   bots[r.session.Uin] = r.Bot
@@ -59,7 +59,7 @@ func parseContactsResp(resp *http.Response) ([]*Contact, error) {
   if e != nil {
     return nil, e
   }
-  dump("6_"+times.NowStrf(times.DateTimeMsFormat5), body)
+  dump("6_"+time2.NowStrf(time2.DateTimeMsFormat5), body)
   cnt, _ := jsonparser.GetInt(body, "MemberCount")
   if cnt == 0 {
     cnt = 5000

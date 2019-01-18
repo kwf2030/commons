@@ -8,7 +8,7 @@ import (
   "strings"
 
   "github.com/kwf2030/commons/pipeline"
-  "github.com/kwf2030/commons/times"
+  "github.com/kwf2030/commons/time2"
 )
 
 type redirectReq struct {
@@ -79,7 +79,7 @@ func parseRedirectResp(resp *http.Response) (*redirectResp, error) {
   if e != nil {
     return nil, e
   }
-  dump("3_"+times.NowStrf(times.DateTimeMsFormat5), body)
+  dump("3_"+time2.NowStrf(time2.DateTimeMsFormat5), body)
   ret := &redirectResp{}
   e = xml.Unmarshal(body, ret)
   if e != nil {
