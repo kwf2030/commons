@@ -47,54 +47,89 @@ type ResHeader struct {
   Size uint32
 }
 
-// ResStrPool header，28个字节（12-40）
-type ResStrPoolHeader struct {
-  ResHeader
-
-  // 字符串个数
-  StrCount uint32
-
-  // 样式个数
-  StyleCount uint32
-
-  // UTF-8或UTF-16
-  // SortedFlag = 1<<0
-  // UTF8Flag = 1<<8
-  Flags uint32
-
-  // 字符串起始位置（相对header）
-  StrStart uint32
-
-  // 样式起始位置（相对header）
-  StyleStart uint32
-}
-
-type ResStrPoolChunk struct {
-  Header ResStrPoolHeader
-
-  // 字符串索引，是Strs中每一个字符串的起始位置
-  StrIndex []uint32
-
-  // 样式索引，是Styles中每一个样式的起始位置
-  StyleIndex []uint32
-
-  // 字符串
-  Strs []string
-
-  // 样式
-  Styles []string
-}
-
-// ResTable header，12个字节（0-12）
+// 12个字节
 type ResTableHeader struct {
+  // 第0-7个字节
   ResHeader
 
-  // package资源包个数，通常一个app只有一个资源包
+  // package资源包个数，通常一个app只有一个资源包，
+  // 第8-11个字节
   PackageCount uint32
 }
 
+// 28个字节
+type ResStrPoolHeader struct {
+  // 第12-19个字节
+  ResHeader
+
+  // 字符串个数，
+  // 第20-23个字节
+  StrCount uint32
+
+  // 字符串样式个数，
+  // 第24-27个字节
+  StyleCount uint32
+
+  // 字符串标识，
+  // SortedFlag = 1
+  // UTF16Flag = 0
+  // UTF8Flag = 1<<8(0x0100)
+  // 第28-31个字节
+  Flags uint32
+
+  // 字符串起始位置偏移（相对header），
+  // 第32-35个字节
+  StrStart uint32
+
+  // 字符串样式起始位置偏移（相对header），
+  // 第36-39个字节
+  StyleStart uint32
+}
+
+// 28+StrCount*4+StyleCount*4+字符串大小+字符串样式大小
+type ResStrPoolChunk struct {
+  // 第12-39个字节
+  Header ResStrPoolHeader
+
+  // 字符串偏移数组，其元素对应Strs中每一个元素的起始位置，
+  // 长度为Header.StrCount，
+  // 第40-[(40+Header.StrCount*4)-1]个字节
+  StrOffsets []uint32
+
+  // 字符串样式偏移数组，其元素对应Styles中每一个元素的起始位置，
+  // 长度为Header.StyleCount,
+  // 第(40+Header.StrCount*4)-[(40+Header.StrCount*4)+(Header.StyleCount*4)-1]
+  StyleOffsets []uint32
+
+  // 字符串，前两个字节为长度，计算方法为：(((hbyte & 0x7F) << 8)) | lbyte
+  // 若是UTF-8编码，以0x00作为结束符，
+  // 若是UTF-16编码，以0x0000作为结束符，
+  // 与Styles一一对应，即如果第N个字符串有样式，那么其样式应该是Styles的第N个元素，
+  // 第(28+Header.StrStart)-[(28+Header.StyleStart)-1]个字节
+  Strs []string
+
+  // 字符串样式，
+  // 第(28+Header.StyleStart)-[(28+Header.Size)-1]
+  Styles []string
+}
+
+type ResStrRef struct {
+  Index uint32
+}
+
+type ResStrSpan struct {
+  // 样式字符串在字符串池中的偏移
+  Name ResStrRef
+
+  // 应用样式的第一个字符
+  FirstChar uint32
+
+  // 应用样式的最后一个字符
+  LastChar uint32
+}
+
 func main() {
-  f, _ := ioutil.ReadFile("C:\\Users\\WangFeng\\Desktop\\resources.arsc")
+  f, _ := ioutil.ReadFile("/home/wangfeng/workspace/wechat/tmp/resources.arsc")
   // t := conv.BytesToUint16L(f[12:14])
   // h := conv.BytesToUint16L(f[14:16])
   // s := conv.BytesToUint32L(f[16:20])
