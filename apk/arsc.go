@@ -66,7 +66,7 @@ type ResStrPoolHeader struct {
 }
 
 // 28+StrCount*4+StyleCount*4+字符串大小+字符串样式大小
-type ResStrPoolChunk struct {
+type ResStrPool struct {
   // 起始：12，
   // 结束：40
   Header ResStrPoolHeader
@@ -99,8 +99,8 @@ type ResStrPoolChunk struct {
 type ResArsc struct {
   data []byte
 
-  TableHeader        ResTableHeader
-  GlobalStrPoolChunk ResStrPoolChunk
+  TableHeader   ResTableHeader
+  GlobalStrPool ResStrPool
 }
 
 func ParseResArsc(file string) *ResArsc {
@@ -110,7 +110,7 @@ func ParseResArsc(file string) *ResArsc {
   }
   ret := &ResArsc{data: data}
   ret.parseTableHeader()
-  ret.parseGlobalStrPoolChunk()
+  ret.parseGlobalStrPool()
   return ret
 }
 
@@ -121,7 +121,7 @@ func (r *ResArsc) parseTableHeader() {
   }
 }
 
-func (r *ResArsc) parseGlobalStrPoolChunk() {
+func (r *ResArsc) parseGlobalStrPool() {
   header := ResStrPoolHeader{
     ResHeader:  ResHeader{conv.BytesToUint16L(r.data[12:14]), conv.BytesToUint16L(r.data[14:16]), conv.BytesToUint32L(r.data[16:20])},
     StrCount:   conv.BytesToUint32L(r.data[20:24]),
@@ -178,7 +178,7 @@ func (r *ResArsc) parseGlobalStrPoolChunk() {
   }
 
   // todo parse style strings
-  r.GlobalStrPoolChunk = ResStrPoolChunk{
+  r.GlobalStrPool = ResStrPool{
     Header:       header,
     StrOffsets:   strOffsets,
     StyleOffsets: styleOffsets,
