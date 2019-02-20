@@ -96,6 +96,21 @@ type ResStrPool struct {
   Styles []string
 }
 
+type ResTablePackage struct {
+  Header ResHeader
+
+  // 包Id，用户包Id是0x7F，系统包Id是0x01
+  Id uint32
+
+  // 包名
+  Name string
+
+  TypeStrs       uint32
+  LasrPublicType uint32
+  KeyStrs        uint32
+  LastPublicKey  uint32
+}
+
 type ResArsc struct {
   data []byte
 

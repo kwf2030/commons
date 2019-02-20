@@ -38,6 +38,6 @@ func main() {
   }
   arsc := ParseResArsc(file)
   for i := 0; i < 10; i++ {
-    fmt.Println(arsc.GlobalStrPoolChunk.Strs[i])
+    fmt.Println(arsc.GlobalStrPool.Strs[i])
   }
 }
