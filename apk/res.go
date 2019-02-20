@@ -49,67 +49,80 @@ type ResHeader struct {
 
 // 12个字节
 type ResTableHeader struct {
-  // 第0-7个字节
+  // 起始：0，
+  // 结束：8
   ResHeader
 
   // package资源包个数，通常一个app只有一个资源包，
-  // 第8-11个字节
+  // 起始：8，
+  // 结束：12
   PackageCount uint32
 }
 
 // 28个字节
 type ResStrPoolHeader struct {
-  // 第12-19个字节
+  // 起始：12，
+  // 结束：20
   ResHeader
 
   // 字符串个数，
-  // 第20-23个字节
+  // 起始：20，
+  // 结束：24
   StrCount uint32
 
   // 字符串样式个数，
-  // 第24-27个字节
+  // 起始：24，
+  // 结束：28
   StyleCount uint32
 
   // 字符串标识，
   // SortedFlag = 1
   // UTF16Flag = 0
   // UTF8Flag = 1<<8(0x0100)
-  // 第28-31个字节
+  // 起始：28，
+  // 结束：32
   Flags uint32
 
   // 字符串起始位置偏移（相对header），
-  // 第32-35个字节
+  // 起始：32，
+  // 结束：36
   StrStart uint32
 
   // 字符串样式起始位置偏移（相对header），
-  // 第36-39个字节
+  // 起始：36，
+  // 结束：40
   StyleStart uint32
 }
 
 // 28+StrCount*4+StyleCount*4+字符串大小+字符串样式大小
 type ResStrPoolChunk struct {
-  // 第12-39个字节
+  // 起始：12，
+  // 结束：40
   Header ResStrPoolHeader
 
   // 字符串偏移数组，其元素对应Strs中每一个元素的起始位置，
   // 长度为Header.StrCount，
-  // 第40-[(40+Header.StrCount*4)-1]个字节
+  // 起始：40，
+  // 结束：40+Header.StrCount*4
   StrOffsets []uint32
 
   // 字符串样式偏移数组，其元素对应Styles中每一个元素的起始位置，
   // 长度为Header.StyleCount,
-  // 第(40+Header.StrCount*4)-[(40+Header.StrCount*4)+(Header.StyleCount*4)-1]
+  // 起始：40+Header.StrCount*4，
+  // 结束：40+Header.StrCount*4+Header.StyleCount*4
   StyleOffsets []uint32
 
-  // 字符串，前两个字节为长度，计算方法为：(((hbyte & 0x7F) << 8)) | lbyte
-  // 若是UTF-8编码，以0x00作为结束符，
-  // 若是UTF-16编码，以0x0000作为结束符，
-  // 与Styles一一对应，即如果第N个字符串有样式，那么其样式应该是Styles的第N个元素，
-  // 第(28+Header.StrStart)-[(28+Header.StyleStart)-1]个字节
+  // 字符串，前两个字节为长度：(((hbyte & 0x7F) << 8)) | lbyte
+  // 若是UTF-8编码，以0x00（1个字节）作为结束符，
+  // 若是UTF-16编码，以0x0000（2个字节）作为结束符，
+  // 与Styles一一对应，即如果Strs[n]有样式，那么其样式是Styles[n]，
+  // 起始：12+Header.StrStart，即StyleOffsets的结束位置，
+  // 结束：12+Header.StrStart+Header.StrCount*4，即12+Header.StyleStart
   Strs []string
 
   // 字符串样式，
-  // 第(28+Header.StyleStart)-[(28+Header.Size)-1]
+  // 起始：12+Header.StyleStart，即Strs的结束位置，
+  // 结束：12+Header.StyleStart+StyleCount*4，即12+Header.Size
   Styles []string
 }
 
@@ -129,14 +142,78 @@ type ResStrSpan struct {
 }
 
 func main() {
-  f, _ := ioutil.ReadFile("/home/wangfeng/workspace/wechat/tmp/resources.arsc")
-  // t := conv.BytesToUint16L(f[12:14])
-  // h := conv.BytesToUint16L(f[14:16])
-  // s := conv.BytesToUint32L(f[16:20])
-  c1 := conv.BytesToUint32L(f[20:24])
-  c2 := conv.BytesToUint32L(f[24:28])
-  flags := conv.BytesToUint32L(f[28:32])
-  ss1 := conv.BytesToUint32L(f[32:36])
-  ss2 := conv.BytesToUint32L(f[36:40])
-  fmt.Println(c1, c2, flags, ss1, ss2)
+  // f, _ := ioutil.ReadFile("/home/wangfeng/workspace/wechat/tmp/resources.arsc")
+  f, _ := ioutil.ReadFile("C:\\Users\\WangFeng\\Desktop\\resources.arsc")
+
+  tableHeader := ResTableHeader{
+    ResHeader:    ResHeader{conv.BytesToUint16L(f[:2]), conv.BytesToUint16L(f[2:4]), conv.BytesToUint32L(f[4:8])},
+    PackageCount: conv.BytesToUint32L(f[8:12]),
+  }
+
+  strPoolHeader := ResStrPoolHeader{
+    ResHeader:  ResHeader{conv.BytesToUint16L(f[12:14]), conv.BytesToUint16L(f[14:16]), conv.BytesToUint32L(f[16:20])},
+    StrCount:   conv.BytesToUint32L(f[20:24]),
+    StyleCount: conv.BytesToUint32L(f[24:28]),
+    Flags:      conv.BytesToUint32L(f[28:32]),
+    StrStart:   conv.BytesToUint32L(f[32:36]),
+    StyleStart: conv.BytesToUint32L(f[36:40]),
+  }
+
+  fmt.Printf("tableHeader:%+v\n", tableHeader)
+  fmt.Printf("strPoolHeader:%+v\n", strPoolHeader)
+
+  var strOffsets []uint32
+  if strPoolHeader.StrCount > 0 {
+    strOffsets = make([]uint32, strPoolHeader.StrCount)
+    var s, e uint32
+    i := uint32(0)
+    for ; i < strPoolHeader.StrCount; i++ {
+      s = 40 + i*4
+      e = s + 4
+      strOffsets[i] = conv.BytesToUint32L(f[s:e])
+    }
+  }
+
+  var styleOffsets []uint32
+  if strPoolHeader.StyleCount > 0 {
+    styleOffsets = make([]uint32, strPoolHeader.StyleCount)
+    var s, e uint32
+    i := uint32(0)
+    for ; i < strPoolHeader.StyleCount; i++ {
+      s = 40 + i*4
+      e = s + 4
+      styleOffsets[i] = conv.BytesToUint32L(f[s:e])
+    }
+  }
+
+  var strs []string
+  if strPoolHeader.StrCount > 0 {
+    strs = make([]string, strPoolHeader.StrCount)
+    i := uint32(0)
+    p := 12 + strPoolHeader.StrStart
+    for ; i < strPoolHeader.StrCount; i++ {
+      s := p + strOffsets[i] + 2
+      if i < strPoolHeader.StrCount-1 {
+        strs[i] = string(f[s : p+strOffsets[i+1]])
+      } else {
+        if strPoolHeader.StyleCount > 0 {
+          strs[i] = string(f[s : 12+strPoolHeader.StyleStart])
+        } else {
+          strs[i] = string(f[s : 12+strPoolHeader.Size])
+        }
+      }
+    }
+  }
+
+  strPoolChunk := ResStrPoolChunk{
+    Header:       strPoolHeader,
+    StrOffsets:   strOffsets,
+    StyleOffsets: styleOffsets,
+    Strs:         strs,
+    Styles:       nil,
+  }
+
+  for i := 100; i < 250; i++ {
+    fmt.Println(strPoolChunk.Strs[i])
+  }
 }
