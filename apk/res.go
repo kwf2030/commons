@@ -36,8 +36,25 @@ func main() {
   default:
     panic(errors.New("os not supported"))
   }
-  arsc := ParseResArsc(file)
-  for i := 0; i < 10; i++ {
-    fmt.Println(arsc.GlobalStrPool.Strs[i])
-  }
+  table := ParseResTable(file)
+  printTableInfo(table)
+}
+
+func printTableInfo(table *ResTable) {
+  fmt.Println("==========Table==========")
+  fmt.Println("Type:", table.Header.Type)
+  fmt.Println("Size:", table.Header.Size)
+  fmt.Println("HeaderSize:", table.Header.HeaderSize)
+  fmt.Println("==========Global String Pool==========")
+  fmt.Println("Type:", table.GlobalStrPool.Type)
+  fmt.Println("Size:", table.GlobalStrPool.Size)
+  fmt.Println("HeaderSize:", table.GlobalStrPool.HeaderSize)
+  fmt.Println("StrCount:", table.GlobalStrPool.StrCount)
+  fmt.Println("StyleCount:", table.GlobalStrPool.StyleCount)
+  fmt.Println("==========Package==========")
+  fmt.Println("Type:", table.Package.Type)
+  fmt.Println("Size:", table.Package.Size)
+  fmt.Println("HeaderSize:", table.Package.HeaderSize)
+  fmt.Printf("TypeCount/TypeStrCount: %d/%d\n", table.Package.TypeCount, table.Package.TypeStrPool.StrCount)
+  fmt.Printf("EntryCount/EntryStrCount: %d/%d\n", table.Package.EntryCount, table.Package.EntryStrPool.StrCount)
 }
