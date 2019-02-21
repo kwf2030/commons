@@ -24,7 +24,7 @@ type ResHeader struct {
   PackageCount uint32
 }
 
-// 28+StrCount*4+StyleCount*4+len(Strs)+len(Styles)
+// 28+StrCount*4+StyleCount*4+Strs+Styles
 type ResStrPool struct {
   Header
 
@@ -92,12 +92,13 @@ type ResPackage struct {
   EntryStrPool ResStrPool
 }
 
-type ResTable struct {
-  data []byte
+type ResPackageTypeSpec struct {
+}
 
-  Header  ResHeader
-  StrPool ResStrPool
-  Package ResPackage
+type ResTable struct {
+  Header   ResHeader
+  StrPool  ResStrPool
+  Packages []ResPackage
 }
 
 func ParseResTable(file string) *ResTable {
@@ -105,57 +106,22 @@ func ParseResTable(file string) *ResTable {
   if e != nil {
     return nil
   }
-  ret := &ResTable{data: data}
-  ret.parseHeader()
-  ret.parseStrPool()
-  ret.parsePackage()
-  return ret
-}
-
-func (r *ResTable) parseHeader() {
-  r.Header = ResHeader{
-    Header:       parseHeader(r.data, 0),
-    PackageCount: conv.BytesToUint32L(r.data[8:12]),
+  header := ResHeader{
+    Header:       parseHeader(data, 0),
+    PackageCount: conv.BytesToUint32L(data[8:12]),
   }
-}
-
-func (r *ResTable) parseStrPool() {
-  r.StrPool = parseStrPool(r.data, 12)
-}
-
-func (r *ResTable) parsePackage() {
-  p := 12 + r.StrPool.Size
-
-  header := parseHeader(r.data, p)
-  id := conv.BytesToUint32L(r.data[p+8 : p+12])
-  // 包名是固定的256个字节，不足的会填充0，
-  // UTF-16编码，字符之间也有0，需要去掉
-  arr := make([]byte, 0, 128)
-  for _, v := range r.data[p+12 : p+268] {
-    if v != 0 {
-      arr = append(arr, v)
-    }
+  strPool := parseStrPool(data, 12)
+  packages := make([]ResPackage, 0, header.PackageCount)
+  offset := 12 + strPool.Size
+  for i := uint32(0); i < header.PackageCount; i++ {
+    pkg := parsePackage(data, offset)
+    offset += pkg.Size
+    packages = append(packages, pkg)
   }
-  name := string(arr)
-  typeStrPoolStart := conv.BytesToUint32L(r.data[p+268 : p+272])
-  typeCount := conv.BytesToUint32L(r.data[p+272 : p+276])
-  entryStrPoolStart := conv.BytesToUint32L(r.data[p+276 : p+280])
-  entryCount := conv.BytesToUint32L(r.data[p+280 : p+284])
-  typeIdOffset := conv.BytesToUint32L(r.data[p+284 : p+288])
-  typeStrPool := parseStrPool(r.data, p+typeStrPoolStart)
-  entryStrPool := parseStrPool(r.data, p+entryStrPoolStart)
-
-  r.Package = ResPackage{
-    Header:            header,
-    Id:                id,
-    Name:              name,
-    TypeStrPoolStart:  typeStrPoolStart,
-    TypeCount:         typeCount,
-    EntryStrPoolStart: entryStrPoolStart,
-    EntryCount:        entryCount,
-    TypeIdOffset:      typeIdOffset,
-    TypeStrPool:       typeStrPool,
-    EntryStrPool:      entryStrPool,
+  return &ResTable{
+    Header:   header,
+    StrPool:  strPool,
+    Packages: packages,
   }
 }
 
@@ -236,40 +202,73 @@ func parseStrPool(data []byte, offset uint32) ResStrPool {
   }
 }
 
-func str8(arr []byte, offset uint32) string {
+func str8(data []byte, offset uint32) string {
   n := 1
-  if x := arr[offset] & 0x80; x != 0 {
+  if x := data[offset] & 0x80; x != 0 {
     n = 2
   }
   s := offset + uint32(n)
-  l := arr[s]
+  l := data[s]
   if l == 0 {
     return ""
   }
   s++
   if l&0x80 != 0 {
-    l = (l&0x7F)<<8 | arr[s]&0xFF
+    l = (l&0x7F)<<8 | data[s]&0xFF
     s++
   }
-  return string(arr[s : s+uint32(l)])
+  return string(data[s : s+uint32(l)])
 }
 
-func str16(arr []byte, offset uint32) string {
+func str16(data []byte, offset uint32) string {
   n := 2
-  if x := arr[offset+1] & 0x80; x != 0 {
+  if x := data[offset+1] & 0x80; x != 0 {
     n = 4
   }
   s := offset + uint32(n)
   e := s
-  l := uint32(len(arr))
+  l := uint32(len(data))
   for {
     if e+1 >= l {
       break
     }
-    if arr[e] == 0 && arr[e+1] == 0 {
+    if data[e] == 0 && data[e+1] == 0 {
       break
     }
     e += 2
   }
-  return string(arr[s:e])
+  return string(data[s:e])
+}
+
+func parsePackage(data []byte, offset uint32) ResPackage {
+  header := parseHeader(data, offset)
+  id := conv.BytesToUint32L(data[offset+8 : offset+12])
+  // 包名是固定的256个字节，不足的会填充0，
+  // UTF-16编码，字符之间也有0，需要去掉
+  arr := make([]byte, 0, 128)
+  for _, v := range data[offset+12 : offset+268] {
+    if v != 0 {
+      arr = append(arr, v)
+    }
+  }
+  name := string(arr)
+  typeStrPoolStart := conv.BytesToUint32L(data[offset+268 : offset+272])
+  typeCount := conv.BytesToUint32L(data[offset+272 : offset+276])
+  entryStrPoolStart := conv.BytesToUint32L(data[offset+276 : offset+280])
+  entryCount := conv.BytesToUint32L(data[offset+280 : offset+284])
+  typeIdOffset := conv.BytesToUint32L(data[offset+284 : offset+288])
+  typeStrPool := parseStrPool(data, offset+typeStrPoolStart)
+  entryStrPool := parseStrPool(data, offset+entryStrPoolStart)
+  return ResPackage{
+    Header:            header,
+    Id:                id,
+    Name:              name,
+    TypeStrPoolStart:  typeStrPoolStart,
+    TypeCount:         typeCount,
+    EntryStrPoolStart: entryStrPoolStart,
+    EntryCount:        entryCount,
+    TypeIdOffset:      typeIdOffset,
+    TypeStrPool:       typeStrPool,
+    EntryStrPool:      entryStrPool,
+  }
 }
