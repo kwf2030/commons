@@ -95,9 +95,9 @@ type ResPackage struct {
 type ResTable struct {
   data []byte
 
-  Header        ResHeader
-  GlobalStrPool ResStrPool
-  Package       ResPackage
+  Header  ResHeader
+  StrPool ResStrPool
+  Package ResPackage
 }
 
 func ParseResTable(file string) *ResTable {
@@ -107,7 +107,7 @@ func ParseResTable(file string) *ResTable {
   }
   ret := &ResTable{data: data}
   ret.parseHeader()
-  ret.parseGlobalStrPool()
+  ret.parseStrPool()
   ret.parsePackage()
   return ret
 }
@@ -119,12 +119,12 @@ func (r *ResTable) parseHeader() {
   }
 }
 
-func (r *ResTable) parseGlobalStrPool() {
-  r.GlobalStrPool = parseStrPool(r.data, 12)
+func (r *ResTable) parseStrPool() {
+  r.StrPool = parseStrPool(r.data, 12)
 }
 
 func (r *ResTable) parsePackage() {
-  p := 12 + r.GlobalStrPool.Size
+  p := 12 + r.StrPool.Size
 
   header := parseHeader(r.data, p)
   id := conv.BytesToUint32L(r.data[p+8 : p+12])
@@ -142,6 +142,8 @@ func (r *ResTable) parsePackage() {
   entryStrPoolStart := conv.BytesToUint32L(r.data[p+276 : p+280])
   entryCount := conv.BytesToUint32L(r.data[p+280 : p+284])
   typeIdOffset := conv.BytesToUint32L(r.data[p+284 : p+288])
+  typeStrPool := parseStrPool(r.data, p+typeStrPoolStart)
+  entryStrPool := parseStrPool(r.data, p+entryStrPoolStart)
 
   r.Package = ResPackage{
     Header:            header,
@@ -151,9 +153,9 @@ func (r *ResTable) parsePackage() {
     TypeCount:         typeCount,
     EntryStrPoolStart: entryStrPoolStart,
     EntryCount:        entryCount,
-    TypeStrPool:       parseStrPool(r.data, p+typeStrPoolStart),
-    EntryStrPool:      parseStrPool(r.data, p+entryStrPoolStart),
     TypeIdOffset:      typeIdOffset,
+    TypeStrPool:       typeStrPool,
+    EntryStrPool:      entryStrPool,
   }
 }
 
