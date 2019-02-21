@@ -1,6 +1,7 @@
 package main
 
 import (
+  "fmt"
   "io/ioutil"
 
   "github.com/kwf2030/commons/conv"
@@ -226,6 +227,14 @@ func parsePackage(data []byte, offset uint32) ResPackage {
   typeIdOffset := conv.BytesToUint32L(data[offset+284 : offset+288])
   typeStrPool := parseStrPool(data, offset+typeStrPoolStart)
   entryStrPool := parseStrPool(data, offset+entryStrPoolStart)
+
+  spec := parseTypeSpec(data, offset+entryStrPoolStart+entryStrPool.Size)
+  fmt.Println("<<<<<<<<<<<<<<<<")
+  fmt.Println(spec.Size, spec.Id, spec.Type, spec.EntryCount)
+  for i := 0; i < 100; i++ {
+    fmt.Println(spec.Entries[i])
+  }
+
   return ResPackage{
     Header:            header,
     Id:                id,
@@ -252,10 +261,37 @@ type ResTypeSpec struct {
 
   // 本类型资源项个数
   EntryCount uint32
+
+  // 资源项
+  Entries []uint32
 }
 
 func parseTypeSpec(data []byte, offset uint32) ResTypeSpec {
-  return ResTypeSpec{}
+  header := parseHeader(data, offset)
+  id := uint8(data[offset+8])
+  res0 := uint8(data[offset+9])
+  res1 := conv.BytesToUint16L(data[offset+10 : offset+12])
+  entryCount := conv.BytesToUint32L(data[offset+12 : offset+16])
+
+  var entries []uint32
+  if entryCount > 0 {
+    entries = make([]uint32, entryCount)
+    var s, e uint32
+    for i := uint32(0); i < entryCount; i++ {
+      s = offset + 16 + i*4
+      e = s + 4
+      entries[i] = conv.BytesToUint32L(data[s:e])
+    }
+  }
+
+  return ResTypeSpec{
+    Header:     header,
+    Id:         id,
+    Res0:       res0,
+    Res1:       res1,
+    EntryCount: entryCount,
+    Entries:    entries,
+  }
 }
 
 type ResTable struct {

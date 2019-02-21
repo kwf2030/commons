@@ -32,7 +32,7 @@ func main() {
   case "windows":
     file = "C:\\Users\\WangFeng\\Desktop\\resources.arsc"
   case "linux":
-    file = "/home/wangfeng/workspace/wechat/tmp/resources.arsc"
+    file = "/home/wangfeng/workspace/wechat/raw/resources.arsc"
   default:
     panic(errors.New("os not supported"))
   }
