@@ -17,6 +17,14 @@ type Header struct {
   Size uint32
 }
 
+func parseHeader(data []byte, offset uint32) Header {
+  return Header{
+    Type:       conv.BytesToUint16L(data[offset : offset+2]),
+    HeaderSize: conv.BytesToUint16L(data[offset+2 : offset+4]),
+    Size:       conv.BytesToUint32L(data[offset+4 : offset+8]),
+  }
+}
+
 type ResHeader struct {
   Header
 
@@ -59,78 +67,6 @@ type ResStrPool struct {
 
   // 字符串样式
   Styles []string
-}
-
-type ResPackage struct {
-  Header
-
-  // 包Id，用户包是0x7F，系统包是0x01
-  Id uint32
-
-  // 包名
-  Name string
-
-  // 资源类型字符串池起始位置偏移（相对header）
-  TypeStrPoolStart uint32
-
-  // 资源类型个数
-  TypeCount uint32
-
-  // 资源项名称字符串池起始位置偏移（相对header）
-  EntryStrPoolStart uint32
-
-  // 资源项名称个数
-  EntryCount uint32
-
-  // 暂时没用
-  TypeIdOffset uint32
-
-  // 资源类型字符串池
-  TypeStrPool ResStrPool
-
-  // 资源项名称字符串池
-  EntryStrPool ResStrPool
-}
-
-type ResPackageTypeSpec struct {
-}
-
-type ResTable struct {
-  Header   ResHeader
-  StrPool  ResStrPool
-  Packages []ResPackage
-}
-
-func ParseResTable(file string) *ResTable {
-  data, e := ioutil.ReadFile(file)
-  if e != nil {
-    return nil
-  }
-  header := ResHeader{
-    Header:       parseHeader(data, 0),
-    PackageCount: conv.BytesToUint32L(data[8:12]),
-  }
-  strPool := parseStrPool(data, 12)
-  packages := make([]ResPackage, 0, header.PackageCount)
-  offset := 12 + strPool.Size
-  for i := uint32(0); i < header.PackageCount; i++ {
-    pkg := parsePackage(data, offset)
-    offset += pkg.Size
-    packages = append(packages, pkg)
-  }
-  return &ResTable{
-    Header:   header,
-    StrPool:  strPool,
-    Packages: packages,
-  }
-}
-
-func parseHeader(data []byte, offset uint32) Header {
-  return Header{
-    Type:       conv.BytesToUint16L(data[offset : offset+2]),
-    HeaderSize: conv.BytesToUint16L(data[offset+2 : offset+4]),
-    Size:       conv.BytesToUint32L(data[offset+4 : offset+8]),
-  }
 }
 
 func parseStrPool(data []byte, offset uint32) ResStrPool {
@@ -240,6 +176,37 @@ func str16(data []byte, offset uint32) string {
   return string(data[s:e])
 }
 
+type ResPackage struct {
+  Header
+
+  // 包Id，用户包是0x7F，系统包是0x01
+  Id uint32
+
+  // 包名
+  Name string
+
+  // 资源类型字符串池起始位置偏移（相对header）
+  TypeStrPoolStart uint32
+
+  // 资源类型个数
+  TypeCount uint32
+
+  // 资源项名称字符串池起始位置偏移（相对header）
+  EntryStrPoolStart uint32
+
+  // 资源项名称个数
+  EntryCount uint32
+
+  // 暂时没用
+  TypeIdOffset uint32
+
+  // 资源类型字符串池
+  TypeStrPool ResStrPool
+
+  // 资源项名称字符串池
+  EntryStrPool ResStrPool
+}
+
 func parsePackage(data []byte, offset uint32) ResPackage {
   header := parseHeader(data, offset)
   id := conv.BytesToUint32L(data[offset+8 : offset+12])
@@ -270,5 +237,55 @@ func parsePackage(data []byte, offset uint32) ResPackage {
     TypeIdOffset:      typeIdOffset,
     TypeStrPool:       typeStrPool,
     EntryStrPool:      entryStrPool,
+  }
+}
+
+type ResTypeSpec struct {
+  Header
+
+  // 资源类型Id
+  Id uint8
+
+  // 两个保留字段
+  Res0 uint8
+  Res1 uint16
+
+  // 本类型资源项个数
+  EntryCount uint32
+}
+
+func parseTypeSpec(data []byte, offset uint32) ResTypeSpec {
+  return ResTypeSpec{}
+}
+
+type ResTable struct {
+  Header   ResHeader
+  StrPool  ResStrPool
+  Packages []ResPackage
+}
+
+func ParseResTable(file string) *ResTable {
+  data, e := ioutil.ReadFile(file)
+  if e != nil {
+    return nil
+  }
+  header := ResHeader{
+    Header:       parseHeader(data, 0),
+    PackageCount: conv.BytesToUint32L(data[8:12]),
+  }
+  strPool := parseStrPool(data, 12)
+  packages := make([]ResPackage, 0, header.PackageCount)
+  offset := 12 + strPool.Size
+  for i := uint32(0); i < header.PackageCount; i++ {
+    if i > 0 {
+      offset += packages[i-1].Size
+    }
+    pkg := parsePackage(data, offset)
+    packages = append(packages, pkg)
+  }
+  return &ResTable{
+    Header:   header,
+    StrPool:  strPool,
+    Packages: packages,
   }
 }
