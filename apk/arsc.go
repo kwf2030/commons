@@ -209,7 +209,7 @@ type ResPackage struct {
   // 资源项名称字符串池
   KeyStrPool ResStrPool
 
-  // 类型规范数据，长度为TypeCount
+  Types     []ResType
   TypeSpecs []ResTypeSpec
 }
 
@@ -234,14 +234,27 @@ func parsePackage(data []byte, offset uint32) ResPackage {
   keyStrPool := parseStrPool(data, offset+keyStrPoolStart)
 
   var typeSpecs []ResTypeSpec
+  var types []ResType
   if typeCount > 0 {
-    typeSpecs = make([]ResTypeSpec, typeCount)
-    o := offset + keyStrPoolStart + keyStrPool.Size
-    for i := uint32(0); i < typeCount; i++ {
-      if i > 0 {
-        o += typeSpecs[i-1].Size
+    typeSpecs = make([]ResTypeSpec, 0, typeCount)
+    types = make([]ResType, 0, typeCount)
+    l := uint32(len(data))
+    offset += keyStrPoolStart + keyStrPool.Size
+    for offset < l {
+      switch conv.BytesToUint16L(data[offset : offset+2]) {
+      case 0x0201:
+        // Type
+        t := parseType(data, offset)
+        types = append(types, t)
+        offset += t.Size
+      case 0x0202:
+        // Type Spec
+        t := parseTypeSpec(data, offset)
+        typeSpecs = append(typeSpecs, t)
+        offset += t.Size
+      default:
+        offset += 2
       }
-      typeSpecs[i] = parseTypeSpec(data, o)
     }
   }
 
@@ -256,6 +269,7 @@ func parsePackage(data []byte, offset uint32) ResPackage {
     Res0:             res0,
     TypeStrPool:      typeStrPool,
     KeyStrPool:       keyStrPool,
+    Types:            types,
     TypeSpecs:        typeSpecs,
   }
 }
@@ -274,8 +288,8 @@ type ResTypeSpec struct {
   // 资源项个数
   EntryCount uint32
 
-  // 资源项，长度为EntryCount
-  Entries []uint32
+  // 资源项标记，长度为EntryCount
+  EntryFlags []uint32
 }
 
 func parseTypeSpec(data []byte, offset uint32) ResTypeSpec {
@@ -285,14 +299,14 @@ func parseTypeSpec(data []byte, offset uint32) ResTypeSpec {
   res1 := conv.BytesToUint16L(data[offset+10 : offset+12])
   entryCount := conv.BytesToUint32L(data[offset+12 : offset+16])
 
-  var entries []uint32
+  var entryFlags []uint32
   if entryCount > 0 {
-    entries = make([]uint32, entryCount)
+    entryFlags = make([]uint32, entryCount)
     var s, e uint32
     for i := uint32(0); i < entryCount; i++ {
       s = offset + 16 + i*4
       e = s + 4
-      entries[i] = conv.BytesToUint32L(data[s:e])
+      entryFlags[i] = conv.BytesToUint32L(data[s:e])
     }
   }
 
@@ -302,20 +316,80 @@ func parseTypeSpec(data []byte, offset uint32) ResTypeSpec {
     Res0:       res0,
     Res1:       res1,
     EntryCount: entryCount,
-    Entries:    entries,
+    EntryFlags: entryFlags,
   }
 }
 
 type ResType struct {
+  Header
+
+  // 资源类型Id
+  Id uint8
+
+  // 两个保留字段
+  Res0 uint8
+  Res1 uint16
+
+  // 资源项个数
+  EntryCount uint32
+
+  // 资源项起始位置偏移（相对header）
+  EntryStart uint32
+
+  // 配置描述
+  Config ResConfig
+
+  // 资源项偏移数组，长度为EntryCount
+  EntryOffsets []uint32
+
+  // 资源项
+  Entries []ResEntry
+}
+
+func parseType(data []byte, offset uint32) ResType {
+  header := parseHeader(data, offset)
+  id := uint8(data[offset+8])
+  res0 := uint8(data[offset+9])
+  res1 := conv.BytesToUint16L(data[offset+10 : offset+12])
+  entryCount := conv.BytesToUint32L(data[offset+12 : offset+16])
+  entryStart := conv.BytesToUint32L(data[offset+16 : offset+20])
+
+  return ResType{
+    Header:     header,
+    Id:         id,
+    Res0:       res0,
+    Res1:       res1,
+    EntryCount: entryCount,
+    EntryStart: entryStart,
+  }
+}
+
+type ResConfig struct {
+}
+
+func parseConfig(data []byte, offset uint32) ResConfig {
+  return ResConfig{}
 }
 
 type ResEntry struct {
 }
 
+func parseEntry(data []byte, offset uint32) ResEntry {
+  return ResEntry{}
+}
+
 type ResMapEntry struct {
 }
 
+func parseMapEntry(data []byte, offset uint32) ResMapEntry {
+  return ResMapEntry{}
+}
+
 type ResValue struct {
+}
+
+func parseValue(data []byte, offset uint32) ResValue {
+  return ResValue{}
 }
 
 type ResTable struct {
@@ -337,10 +411,8 @@ func ParseResTable(file string) *ResTable {
   packages := make([]ResPackage, header.PackageCount)
   offset := 12 + strPool.Size
   for i := uint32(0); i < header.PackageCount; i++ {
-    if i > 0 {
-      offset += packages[i-1].Size
-    }
     packages[i] = parsePackage(data, offset)
+    offset += packages[i].Size
   }
   return &ResTable{
     Header:   header,

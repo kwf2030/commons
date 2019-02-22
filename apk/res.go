@@ -63,6 +63,15 @@ func printTableInfo(table *ResTable) {
   fmt.Println("TypeStrPoolStart:", table.Packages[0].TypeStrPoolStart)
   fmt.Printf("KeyCount/KeyStrCount: %d/%d\n", table.Packages[0].KeyCount, table.Packages[0].KeyStrPool.StrCount)
   fmt.Println("KeyStrPoolStart:", table.Packages[0].KeyStrPoolStart)
+  for i, v := range table.Packages[0].Types {
+    fmt.Println("==========Types[" + strconv.Itoa(i) + "]==========")
+    fmt.Println("Type:", v.Type)
+    fmt.Println("Size:", v.Size)
+    fmt.Println("HeaderSize:", v.HeaderSize)
+    fmt.Println("Id:", v.Id)
+    fmt.Println("EntryCount:", v.EntryCount)
+    fmt.Println("EntryStart:", v.EntryStart)
+  }
   for i, v := range table.Packages[0].TypeSpecs {
     fmt.Println("==========Type Spec[" + strconv.Itoa(i) + "]==========")
     fmt.Println("Type:", v.Type)
