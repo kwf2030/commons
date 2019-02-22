@@ -4,6 +4,7 @@ import (
   "errors"
   "fmt"
   "runtime"
+  "strconv"
 )
 
 type ResStrStyle struct {
@@ -57,8 +58,17 @@ func printTableInfo(table *ResTable) {
   fmt.Println("Type:", table.Packages[0].Type)
   fmt.Println("Size:", table.Packages[0].Size)
   fmt.Println("HeaderSize:", table.Packages[0].HeaderSize)
+  fmt.Println("Types:", table.Packages[0].TypeStrPool.Strs)
   fmt.Printf("TypeCount/TypeStrCount: %d/%d\n", table.Packages[0].TypeCount, table.Packages[0].TypeStrPool.StrCount)
   fmt.Println("TypeStrPoolStart:", table.Packages[0].TypeStrPoolStart)
-  fmt.Printf("EntryCount/EntryStrCount: %d/%d\n", table.Packages[0].EntryCount, table.Packages[0].EntryStrPool.StrCount)
-  fmt.Println("EntryStrPoolStart:", table.Packages[0].EntryStrPoolStart)
+  fmt.Printf("KeyCount/KeyStrCount: %d/%d\n", table.Packages[0].KeyCount, table.Packages[0].KeyStrPool.StrCount)
+  fmt.Println("KeyStrPoolStart:", table.Packages[0].KeyStrPoolStart)
+  for i, v := range table.Packages[0].TypeSpecs {
+    fmt.Println("==========Type Spec[" + strconv.Itoa(i) + "]==========")
+    fmt.Println("Type:", v.Type)
+    fmt.Println("Size:", v.Size)
+    fmt.Println("HeaderSize:", v.HeaderSize)
+    fmt.Println("Id:", v.Id)
+    fmt.Println("EntryCount:", v.EntryCount)
+  }
 }
