@@ -34,6 +34,7 @@ type ResHeader struct {
   PackageCount uint32
 }
 
+// Header Size: 28
 // Size: 28+StrCount*4+StyleCount*4+Strs+Styles
 type ResStrPool struct {
   Header
@@ -126,6 +127,7 @@ func parseStrPool(data []byte, offset uint32) ResStrPool {
   }
 
   // todo parse style strings
+
   return ResStrPool{
     Header:       header,
     StrCount:     strCount,
@@ -178,6 +180,7 @@ func str16(data []byte, offset uint32) string {
   return string(data[s:e])
 }
 
+// Header Size: 288
 // Size: 288+TypeStrPool+KeyStrPool+TypeSpecs
 type ResPackage struct {
   Header
@@ -185,7 +188,7 @@ type ResPackage struct {
   // 包Id，用户包是0x7F，系统包是0x01
   Id uint32
 
-  // 包名
+  // 包名（原本256个字节，这里已经把多余的字节去掉了）
   Name string
 
   // 资源类型字符串池起始位置偏移（相对header）
@@ -217,7 +220,7 @@ func parsePackage(data []byte, offset uint32) ResPackage {
   header := parseHeader(data, offset)
   id := conv.BytesToUint32L(data[offset+8 : offset+12])
   // 包名是固定的256个字节，不足的会填充0，
-  // UTF-16编码，字符之间也有0，需要去掉
+  // UTF-16编码，每2个字节表示一个字符，所以字符之间会有0，需要去掉
   arr := make([]byte, 0, 128)
   for _, v := range data[offset+12 : offset+268] {
     if v != 0 {
@@ -274,6 +277,7 @@ func parsePackage(data []byte, offset uint32) ResPackage {
   }
 }
 
+// Header Size: 16
 // Size: 16+EntryCount*4
 type ResTypeSpec struct {
   Header
@@ -320,6 +324,8 @@ func parseTypeSpec(data []byte, offset uint32) ResTypeSpec {
   }
 }
 
+// Header Size: 76
+// Size: 76+EntryCount*4+Entries
 type ResType struct {
   Header
 
@@ -353,22 +359,81 @@ func parseType(data []byte, offset uint32) ResType {
   res1 := conv.BytesToUint16L(data[offset+10 : offset+12])
   entryCount := conv.BytesToUint32L(data[offset+12 : offset+16])
   entryStart := conv.BytesToUint32L(data[offset+16 : offset+20])
+  config := parseConfig(data, offset+20)
+
+  var entryOffsets []uint32
+  if entryCount > 0 {
+    entryOffsets = make([]uint32, entryCount)
+    var s, e uint32
+    for i := uint32(0); i < entryCount; i++ {
+      s = offset + 76 + i*4
+      e = s + 4
+      // 可能存在无效偏移值（math.MaxUint32）
+      entryOffsets[i] = conv.BytesToUint32L(data[s:e])
+    }
+  }
 
   return ResType{
-    Header:     header,
-    Id:         id,
-    Res0:       res0,
-    Res1:       res1,
-    EntryCount: entryCount,
-    EntryStart: entryStart,
+    Header:       header,
+    Id:           id,
+    Res0:         res0,
+    Res1:         res1,
+    EntryCount:   entryCount,
+    EntryStart:   entryStart,
+    Config:       config,
+    EntryOffsets: entryOffsets,
   }
 }
 
+// Size: 56
 type ResConfig struct {
+  Size                  uint32
+  Mcc                   uint16
+  Mnc                   uint16
+  Language              uint16
+  Country               uint16
+  Orientation           uint8
+  Touchscreen           uint8
+  Density               uint16
+  Keyboard              uint8
+  Navigation            uint8
+  InputFlags            uint8
+  InputPad0             uint8
+  ScreenWidth           uint16
+  ScreenHeight          uint16
+  SdkVersion            uint16
+  MinorVersion          uint16
+  ScreenLayout          uint8
+  UiMode                uint8
+  SmallestScreenWidthDp uint16
+  ScreenWidthDp         uint16
+  ScreenHeightDp        uint16
 }
 
 func parseConfig(data []byte, offset uint32) ResConfig {
-  return ResConfig{}
+  return ResConfig{
+    Size:                  conv.BytesToUint32L(data[offset : offset+4]),
+    Mcc:                   conv.BytesToUint16L(data[offset+4 : offset+6]),
+    Mnc:                   conv.BytesToUint16L(data[offset+6 : offset+8]),
+    Language:              conv.BytesToUint16L(data[offset+8 : offset+10]),
+    Country:               conv.BytesToUint16L(data[offset+10 : offset+12]),
+    Orientation:           uint8(data[offset+12]),
+    Touchscreen:           uint8(data[offset+13]),
+    Density:               conv.BytesToUint16L(data[offset+14 : offset+16]),
+    Keyboard:              uint8(data[offset+16]),
+    Navigation:            uint8(data[offset+17]),
+    InputFlags:            uint8(data[offset+18]),
+    InputPad0:             uint8(data[offset+19]),
+    ScreenWidth:           conv.BytesToUint16L(data[offset+20 : offset+22]),
+    ScreenHeight:          conv.BytesToUint16L(data[offset+22 : offset+24]),
+    SdkVersion:            conv.BytesToUint16L(data[offset+24 : offset+26]),
+    MinorVersion:          conv.BytesToUint16L(data[offset+26 : offset+28]),
+    ScreenLayout:          uint8(data[offset+28]),
+    UiMode:                uint8(data[offset+29]),
+    SmallestScreenWidthDp: conv.BytesToUint16L(data[offset+30 : offset+32]),
+    ScreenWidthDp:         conv.BytesToUint16L(data[offset+32 : offset+34]),
+    ScreenHeightDp:        conv.BytesToUint16L(data[offset+34 : offset+36]),
+  }
 }
 
 type ResEntry struct {
@@ -392,8 +457,10 @@ func parseValue(data []byte, offset uint32) ResValue {
   return ResValue{}
 }
 
+// Header Size: 12
+// Size: resources.arsc
 type ResTable struct {
-  Header   ResHeader
+  ResHeader
   StrPool  ResStrPool
   Packages []ResPackage
 }
@@ -415,8 +482,8 @@ func ParseResTable(file string) *ResTable {
     offset += packages[i].Size
   }
   return &ResTable{
-    Header:   header,
-    StrPool:  strPool,
-    Packages: packages,
+    ResHeader: header,
+    StrPool:   strPool,
+    Packages:  packages,
   }
 }

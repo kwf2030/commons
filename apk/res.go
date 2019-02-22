@@ -37,15 +37,16 @@ func main() {
   default:
     panic(errors.New("os not supported"))
   }
-  table := ParseResTable(file)
-  printTableInfo(table)
+  ParseResTable(file)
+  /*table := ParseResTable(file)
+  printTableInfo(table)*/
 }
 
 func printTableInfo(table *ResTable) {
   fmt.Println("==========Table==========")
-  fmt.Println("Type:", table.Header.Type)
-  fmt.Println("Size:", table.Header.Size)
-  fmt.Println("HeaderSize:", table.Header.HeaderSize)
+  fmt.Println("Type:", table.Type)
+  fmt.Println("Size:", table.Size)
+  fmt.Println("HeaderSize:", table.HeaderSize)
   fmt.Println("==========String Pool==========")
   fmt.Println("Type:", table.StrPool.Type)
   fmt.Println("Size:", table.StrPool.Size)
@@ -71,6 +72,7 @@ func printTableInfo(table *ResTable) {
     fmt.Println("Id:", v.Id)
     fmt.Println("EntryCount:", v.EntryCount)
     fmt.Println("EntryStart:", v.EntryStart)
+    fmt.Println("ConfigSize:", v.Config.Size)
   }
   for i, v := range table.Packages[0].TypeSpecs {
     fmt.Println("==========Type Spec[" + strconv.Itoa(i) + "]==========")
