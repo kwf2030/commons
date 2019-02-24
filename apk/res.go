@@ -37,12 +37,12 @@ func main() {
   default:
     panic(errors.New("os not supported"))
   }
-  ParseResTable(file)
-  /*table := ParseResTable(file)
+  ParseResTable1(file)
+  /*table := ParseResTable1(file)
   printTableInfo(table)*/
 }
 
-func printTableInfo(table *ResTable) {
+func printTableInfo(table *ResTable1) {
   fmt.Println("==========Table==========")
   fmt.Println("Type:", table.Type)
   fmt.Println("Size:", table.Size)
