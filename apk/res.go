@@ -38,16 +38,16 @@ func main() {
     panic(errors.New("os not supported"))
   }
   ParseResTable(file)
-  // table := ParseResTable(file)
-  // printTableInfo(table)
+  //table := ParseResTable(file)
+  //printTableInfo(table)
 }
 
 func printTableInfo(table *ResTable) {
-  fmt.Println("==========Table==========")
+  fmt.Println("====Table====")
   fmt.Println("Type:", table.Type)
   fmt.Println("Size:", table.Size)
   fmt.Println("HeaderSize:", table.HeaderSize)
-  fmt.Println("==========String Pool==========")
+  fmt.Println("========String Pool========")
   fmt.Println("Type:", table.StrPool.Type)
   fmt.Println("Size:", table.StrPool.Size)
   fmt.Println("HeaderSize:", table.StrPool.HeaderSize)
@@ -59,7 +59,7 @@ func printTableInfo(table *ResTable) {
   /*for i := 0; i < 10; i++ {
     fmt.Println("Sting Pool", i, table.StrPool.Strs[i])
   }*/
-  fmt.Println("==========Package==========")
+  fmt.Println("========Package========")
   fmt.Println("Type:", table.Packages[0].Type)
   fmt.Println("Size:", table.Packages[0].Size)
   fmt.Println("HeaderSize:", table.Packages[0].HeaderSize)
@@ -75,7 +75,10 @@ func printTableInfo(table *ResTable) {
     fmt.Println("Key Sting Pool", i, table.Packages[0].KeyStrPool.Strs[i])
   }*/
   for i, v := range table.Packages[0].TypeSpecs {
-    fmt.Println("==========Type Spec[" + strconv.Itoa(i) + "]==========")
+    if v == nil {
+      continue
+    }
+    fmt.Println("============Type Spec[" + strconv.Itoa(i) + "]============")
     fmt.Println("Type:", v.Type)
     fmt.Println("Size:", v.Size)
     fmt.Println("HeaderSize:", v.HeaderSize)
@@ -83,13 +86,23 @@ func printTableInfo(table *ResTable) {
     fmt.Println("EntryCount:", v.EntryCount)
   }
   for i, v := range table.Packages[0].Types {
-    fmt.Println("==========Types[" + strconv.Itoa(i) + "]==========")
+    if v == nil {
+      continue
+    }
+    fmt.Println("============Types[" + strconv.Itoa(i) + "]============")
     fmt.Println("Type:", v.Type)
     fmt.Println("Size:", v.Size)
     fmt.Println("HeaderSize:", v.HeaderSize)
     fmt.Println("Id:", v.Id)
     fmt.Println("EntryCount:", v.EntryCount)
     fmt.Println("EntryStart:", v.EntryStart)
-    fmt.Println("ConfigSize:", v.Config.Size)
+    fmt.Println("EntryConfigSize:", v.EntryConfig.Size)
+    for ii, vv := range v.Entries {
+      fmt.Println("================Entries[" + strconv.Itoa(ii) + "]==============")
+      fmt.Println("Size:", vv.Size)
+      fmt.Println("Flags:", vv.Flags)
+      fmt.Println("Key:", vv.Key)
+      fmt.Println("Count:", vv.Count)
+    }
   }
 }

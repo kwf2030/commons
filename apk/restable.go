@@ -2,11 +2,10 @@ package main
 
 import (
   "bytes"
-  "fmt"
+  "github.com/kwf2030/commons/conv"
   "io"
   "io/ioutil"
-
-  "github.com/kwf2030/commons/conv"
+  "math"
 )
 
 type Header struct {
@@ -124,7 +123,7 @@ type ResType struct {
   EntryStart uint32
 
   // 配置描述
-  Config *ResConfig
+  EntryConfig *ResEntryConfig
 
   // 资源项偏移数组，长度为EntryCount
   EntryOffsets []uint32
@@ -133,7 +132,7 @@ type ResType struct {
   Entries []*ResEntry
 }
 
-type ResConfig struct {
+type ResEntryConfig struct {
   Size                  uint32
   Mcc                   uint16
   Mnc                   uint16
@@ -158,13 +157,14 @@ type ResConfig struct {
 }
 
 type ResEntry struct {
-  Size      uint16
-  Flags     uint16
-  Key       uint32
-  Value     *ResValue
-  ParentRef uint32
-  Count     uint32
-  Values    []*ResValue
+  Size        uint16
+  Flags       uint16
+  Key         uint32
+  Value       *ResValue
+  ParentRef   uint32
+  Count       uint32
+  Values      map[uint32]*ResValue
+  ValueOrders []uint32
 }
 
 type ResValue struct {
@@ -173,6 +173,16 @@ type ResValue struct {
   DataType uint8
   Data     uint32
 }
+
+/*type store struct {
+  pkgId       uint32
+  pkgName     string
+  typeStrs    []string
+  keyStrs     []string
+  typeId      uint8
+  entryConfig *ResEntryConfig
+  index       uint32
+}*/
 
 type ResTable struct {
   *bytesReader
@@ -294,6 +304,12 @@ func (rt *ResTable) parsePackage() *ResPackage {
   if typeCount > 0 {
     typeSpecs = make([]*ResTypeSpec, 0, typeCount)
     types = make([]*ResType, 0, typeCount)
+    /*st := &store{
+      pkgId:    id,
+      pkgName:  name,
+      typeStrs: typeStrPool.Strs,
+      keyStrs:  keyStrPool.Strs,
+    }*/
     e := s + header.Size
     for rt.pos() < e {
       switch rt.readUint16() {
@@ -326,15 +342,12 @@ func (rt *ResTable) parsePackage() *ResPackage {
 }
 
 func (rt *ResTable) parseTypeSpec() *ResTypeSpec {
-  fmt.Println("parseTypeSpec1>>>>>", rt.pos())
   header := rt.parseHeader()
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
   entryCount := rt.readUint32()
-  fmt.Println("parseTypeSpec2>>>>>", rt.pos())
   entryFlags := rt.readUint32Array(entryCount)
-  fmt.Println("parseTypeSpec3>>>>>", rt.pos())
   return &ResTypeSpec{
     Header:     header,
     Id:         id,
@@ -346,24 +359,23 @@ func (rt *ResTable) parseTypeSpec() *ResTypeSpec {
 }
 
 func (rt *ResTable) parseType() *ResType {
-  p := rt.pos()
   header := rt.parseHeader()
-  rt.Seek(int64(p+header.Size), io.SeekStart)
-  return nil
-  /*header := rt.parseHeader()
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
   entryCount := rt.readUint32()
   entryStart := rt.readUint32()
-  config := rt.parseConfig()
+  entryConfig := rt.parseEntryConfig()
   entryOffsets := rt.readUint32Array(entryCount)
 
   var entries []*ResEntry
   if entryCount > 0 {
     entries = make([]*ResEntry, 0, entryCount)
+    //st.typeId = id
+    //st.entryConfig = entryConfig
     for i := uint32(0); i < entryCount; i++ {
       if entryOffsets[i] != math.MaxUint32 {
+        //st.index = i
         entries = append(entries, rt.parseEntry())
       }
     }
@@ -376,14 +388,14 @@ func (rt *ResTable) parseType() *ResType {
     Res1:         res1,
     EntryCount:   entryCount,
     EntryStart:   entryStart,
-    Config:       config,
+    EntryConfig:  entryConfig,
     EntryOffsets: entryOffsets,
     Entries:      entries,
-  }*/
+  }
 }
 
-func (rt *ResTable) parseConfig() *ResConfig {
-  return &ResConfig{
+func (rt *ResTable) parseEntryConfig() *ResEntryConfig {
+  return &ResEntryConfig{
     Size:                  rt.readUint32(),
     Mcc:                   rt.readUint16(),
     Mnc:                   rt.readUint16(),
@@ -409,13 +421,48 @@ func (rt *ResTable) parseConfig() *ResConfig {
 }
 
 func (rt *ResTable) parseEntry() *ResEntry {
-  // todo
-  return nil
+  size := rt.readUint16()
+  flags := rt.readUint16()
+  key := rt.readUint32()
+  //ref := int64(st.pkgId)<<24 | int64(st.typeId)<<16 | int64(st.index)
+
+  var value *ResValue
+  var parentRef, count uint32
+  var values map[uint32]*ResValue
+  var valueOrders []uint32
+  if flags&0x0001 == 0 {
+    value = rt.parseValue()
+  } else {
+    parentRef = rt.readUint32()
+    count = rt.readUint32()
+    values = make(map[uint32]*ResValue, count)
+    valueOrders = make([]uint32, count)
+    for i := uint32(0); i < count; i++ {
+      name := rt.readUint32()
+      values[name] = rt.parseValue()
+      valueOrders[i] = name
+    }
+  }
+
+  return &ResEntry{
+    Size:        size,
+    Flags:       flags,
+    Key:         key,
+    Value:       value,
+    ParentRef:   parentRef,
+    Count:       count,
+    Values:      values,
+    ValueOrders: valueOrders,
+  }
 }
 
 func (rt *ResTable) parseValue() *ResValue {
-  // todo
-  return nil
+  return &ResValue{
+    Size:     rt.readUint16(),
+    Res0:     rt.readUint8(),
+    DataType: rt.readUint8(),
+    Data:     rt.readUint32(),
+  }
 }
 
 type bytesReader struct {
@@ -441,14 +488,11 @@ func (r *bytesReader) readN(n uint32) []byte {
   return ret
 }
 
-func (r *bytesReader) unreadN(n uint32) {
+func (r *bytesReader) unreadN(n int64) {
   if n < 1 {
     return
   }
-  r.Seek(int64(-n), io.SeekCurrent)
-  /*for i:=uint32(0) ;i < n; i++ {
-    r.UnreadByte()
-  }*/
+  r.Seek(-n, io.SeekCurrent)
 }
 
 func (r *bytesReader) readUint8() uint8 {
