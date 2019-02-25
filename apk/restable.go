@@ -2,6 +2,7 @@ package main
 
 import (
   "bytes"
+  "fmt"
   "io"
   "io/ioutil"
 
@@ -51,7 +52,6 @@ type ResStrPool struct {
   // 若是UTF-16编码，以0x0000（2个字节）作为结束符
   Strs []string
 
-  // 字符串样式
   Styles []string
 }
 
@@ -198,17 +198,17 @@ func ParseResTable(file string) *ResTable {
   if e != nil {
     return nil
   }
-  ret := &ResTable{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}}
-  ret.Header = ret.parseHeader()
-  ret.PackageCount = ret.readUint32()
-  ret.StrPool = ret.parseStrPool()
-  if ret.PackageCount > 0 {
-    ret.Packages = make([]*ResPackage, 0, ret.PackageCount)
-    for i := uint32(0); i < ret.PackageCount; i++ {
-      ret.Packages = append(ret.Packages, ret.parsePackage())
+  rt := &ResTable{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}}
+  rt.Header = rt.parseHeader()
+  rt.PackageCount = rt.readUint32()
+  rt.StrPool = rt.parseStrPool()
+  if rt.PackageCount > 0 {
+    rt.Packages = make([]*ResPackage, 0, rt.PackageCount)
+    for i := uint32(0); i < rt.PackageCount; i++ {
+      rt.Packages = append(rt.Packages, rt.parsePackage())
     }
   }
-  return ret
+  return rt
 }
 
 func (rt *ResTable) parseHeader() *Header {
@@ -221,7 +221,6 @@ func (rt *ResTable) parseHeader() *Header {
 
 func (rt *ResTable) parseStrPool() *ResStrPool {
   s := rt.pos()
-
   header := rt.parseHeader()
   strCount := rt.readUint32()
   styleCount := rt.readUint32()
@@ -237,20 +236,23 @@ func (rt *ResTable) parseStrPool() *ResStrPool {
     if styleCount > 0 {
       e = s + styleStart
     }
-    arr := rt.data[s:e]
+    block := rt.slice(rt.pos(), e)
     strs = make([]string, strCount)
     if flags&0x0100 != 0 {
       // UTF-8
       for i := uint32(0); i < strCount; i++ {
-        strs[i] = str8(arr, strOffsets[i])
+        strs[i] = str8(block, strOffsets[i])
       }
     } else {
       // UTF-16
       for i := uint32(0); i < strCount; i++ {
-        strs[i] = str16(arr, strOffsets[i])
+        strs[i] = str16(block, strOffsets[i])
       }
     }
   }
+
+  // todo 样式解析
+  rt.Seek(int64(s+header.Size), io.SeekStart)
 
   return &ResStrPool{
     Header:       header,
@@ -268,18 +270,17 @@ func (rt *ResTable) parseStrPool() *ResStrPool {
 
 func (rt *ResTable) parsePackage() *ResPackage {
   s := rt.pos()
-
   header := rt.parseHeader()
   id := rt.readUint32()
   // 包名是固定的256个字节，不足的会填充0，
   // UTF-16编码，每2个字节表示一个字符，所以字符之间会有0，需要去掉
-  arr := make([]byte, 0, 128)
+  block := make([]byte, 0, 128)
   for _, v := range rt.readN(256) {
     if v != 0 {
-      arr = append(arr, v)
+      block = append(block, v)
     }
   }
-  name := string(arr)
+  name := string(block)
   typeStrPoolStart := rt.readUint32()
   typeCount := rt.readUint32()
   keyStrPoolStart := rt.readUint32()
@@ -287,18 +288,98 @@ func (rt *ResTable) parsePackage() *ResPackage {
   res0 := rt.readUint32()
   typeStrPool := rt.parseStrPool()
   keyStrPool := rt.parseStrPool()
-  // todo
-  return nil
+
+  var typeSpecs []*ResTypeSpec
+  var types []*ResType
+  if typeCount > 0 {
+    typeSpecs = make([]*ResTypeSpec, 0, typeCount)
+    types = make([]*ResType, 0, typeCount)
+    e := s + header.Size
+    for rt.pos() < e {
+      switch rt.readUint16() {
+      case 0x0202:
+        // Type Spec
+        rt.unreadN(2)
+        typeSpecs = append(typeSpecs, rt.parseTypeSpec())
+      case 0x0201:
+        // Type
+        rt.unreadN(2)
+        types = append(types, rt.parseType())
+      }
+    }
+  }
+
+  return &ResPackage{
+    Header:           header,
+    Id:               id,
+    Name:             name,
+    TypeStrPoolStart: typeStrPoolStart,
+    TypeCount:        typeCount,
+    KeyStrPoolStart:  keyStrPoolStart,
+    KeyCount:         keyCount,
+    Res0:             res0,
+    TypeStrPool:      typeStrPool,
+    KeyStrPool:       keyStrPool,
+    Types:            types,
+    TypeSpecs:        typeSpecs,
+  }
 }
 
 func (rt *ResTable) parseTypeSpec() *ResTypeSpec {
-  // todo
-  return nil
+  fmt.Println("parseTypeSpec1>>>>>", rt.pos())
+  header := rt.parseHeader()
+  id := rt.readUint8()
+  res0 := rt.readUint8()
+  res1 := rt.readUint16()
+  entryCount := rt.readUint32()
+  fmt.Println("parseTypeSpec2>>>>>", rt.pos())
+  entryFlags := rt.readUint32Array(entryCount)
+  fmt.Println("parseTypeSpec3>>>>>", rt.pos())
+  return &ResTypeSpec{
+    Header:     header,
+    Id:         id,
+    Res0:       res0,
+    Res1:       res1,
+    EntryCount: entryCount,
+    EntryFlags: entryFlags,
+  }
 }
 
 func (rt *ResTable) parseType() *ResType {
-  // todo
+  p := rt.pos()
+  header := rt.parseHeader()
+  rt.Seek(int64(p+header.Size), io.SeekStart)
   return nil
+  /*header := rt.parseHeader()
+  id := rt.readUint8()
+  res0 := rt.readUint8()
+  res1 := rt.readUint16()
+  entryCount := rt.readUint32()
+  entryStart := rt.readUint32()
+  config := rt.parseConfig()
+  entryOffsets := rt.readUint32Array(entryCount)
+
+  var entries []*ResEntry
+  if entryCount > 0 {
+    entries = make([]*ResEntry, 0, entryCount)
+    for i := uint32(0); i < entryCount; i++ {
+      if entryOffsets[i] != math.MaxUint32 {
+        entries = append(entries, rt.parseEntry())
+      }
+    }
+  }
+
+  return &ResType{
+    Header:       header,
+    Id:           id,
+    Res0:         res0,
+    Res1:         res1,
+    EntryCount:   entryCount,
+    EntryStart:   entryStart,
+    Config:       config,
+    EntryOffsets: entryOffsets,
+    Entries:      entries,
+  }*/
 }
 
 func (rt *ResTable) parseConfig() *ResConfig {
@@ -342,16 +423,13 @@ type bytesReader struct {
   data []byte
 }
 
-func (r *bytesReader) len() uint32 {
-  return uint32(r.Len())
-}
-
-func (r *bytesReader) size() uint32 {
-  return uint32(r.Size())
-}
-
 func (r *bytesReader) pos() uint32 {
   return uint32(len(r.data) - r.Len())
+}
+
+func (r *bytesReader) slice(start, end uint32) []byte {
+  r.Seek(int64(end), io.SeekStart)
+  return r.data[start:end]
 }
 
 func (r *bytesReader) readN(n uint32) []byte {
@@ -368,17 +446,9 @@ func (r *bytesReader) unreadN(n uint32) {
     return
   }
   r.Seek(int64(-n), io.SeekCurrent)
-}
-
-func (r *bytesReader) skipN(n uint32) {
-  if n < 1 {
-    return
-  }
-  r.Seek(int64(n), io.SeekCurrent)
-}
-
-func (r *bytesReader) seek(offset uint32, whence int) {
-  r.Seek(int64(offset), whence)
+  /*for i:=uint32(0) ;i < n; i++ {
+    r.UnreadByte()
+  }*/
 }
 
 func (r *bytesReader) readUint8() uint8 {
