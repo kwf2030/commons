@@ -37,12 +37,12 @@ func main() {
   default:
     panic(errors.New("os not supported"))
   }
-  ParseResTable1(file)
-  /*table := ParseResTable1(file)
-  printTableInfo(table)*/
+  ParseResTable(file)
+  // table := ParseResTable(file)
+  // printTableInfo(table)
 }
 
-func printTableInfo(table *ResTable1) {
+func printTableInfo(table *ResTable) {
   fmt.Println("==========Table==========")
   fmt.Println("Type:", table.Type)
   fmt.Println("Size:", table.Size)
@@ -51,10 +51,14 @@ func printTableInfo(table *ResTable1) {
   fmt.Println("Type:", table.StrPool.Type)
   fmt.Println("Size:", table.StrPool.Size)
   fmt.Println("HeaderSize:", table.StrPool.HeaderSize)
+  fmt.Println("Flags:", table.StrPool.Flags)
   fmt.Println("StrCount:", table.StrPool.StrCount)
   fmt.Println("StrStart:", table.StrPool.StrStart)
   fmt.Println("StyleCount:", table.StrPool.StyleCount)
   fmt.Println("StyleStart:", table.StrPool.StyleStart)
+  /*for i := 0; i < 10; i++ {
+    fmt.Println("Sting Pool", i, table.StrPool.Strs[i])
+  }*/
   fmt.Println("==========Package==========")
   fmt.Println("Type:", table.Packages[0].Type)
   fmt.Println("Size:", table.Packages[0].Size)
@@ -64,6 +68,20 @@ func printTableInfo(table *ResTable1) {
   fmt.Println("TypeStrPoolStart:", table.Packages[0].TypeStrPoolStart)
   fmt.Printf("KeyCount/KeyStrCount: %d/%d\n", table.Packages[0].KeyCount, table.Packages[0].KeyStrPool.StrCount)
   fmt.Println("KeyStrPoolStart:", table.Packages[0].KeyStrPoolStart)
+  /*for i := 0; i < 10; i++ {
+    fmt.Println("Type Sting Pool", i, table.Packages[0].TypeStrPool.Strs[i])
+  }*/
+  /*for i := 0; i < 10; i++ {
+    fmt.Println("Key Sting Pool", i, table.Packages[0].KeyStrPool.Strs[i])
+  }*/
+  for i, v := range table.Packages[0].TypeSpecs {
+    fmt.Println("==========Type Spec[" + strconv.Itoa(i) + "]==========")
+    fmt.Println("Type:", v.Type)
+    fmt.Println("Size:", v.Size)
+    fmt.Println("HeaderSize:", v.HeaderSize)
+    fmt.Println("Id:", v.Id)
+    fmt.Println("EntryCount:", v.EntryCount)
+  }
   for i, v := range table.Packages[0].Types {
     fmt.Println("==========Types[" + strconv.Itoa(i) + "]==========")
     fmt.Println("Type:", v.Type)
@@ -73,13 +91,5 @@ func printTableInfo(table *ResTable1) {
     fmt.Println("EntryCount:", v.EntryCount)
     fmt.Println("EntryStart:", v.EntryStart)
     fmt.Println("ConfigSize:", v.Config.Size)
-  }
-  for i, v := range table.Packages[0].TypeSpecs {
-    fmt.Println("==========Type Spec[" + strconv.Itoa(i) + "]==========")
-    fmt.Println("Type:", v.Type)
-    fmt.Println("Size:", v.Size)
-    fmt.Println("HeaderSize:", v.HeaderSize)
-    fmt.Println("Id:", v.Id)
-    fmt.Println("EntryCount:", v.EntryCount)
   }
 }
