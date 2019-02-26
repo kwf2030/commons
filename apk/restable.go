@@ -5,11 +5,9 @@ import (
   "io"
   "io/ioutil"
   "math"
-
-  "github.com/kwf2030/commons/conv"
 )
 
-type Header struct {
+type ResTableHeader struct {
   // 类型
   Type uint16
 
@@ -20,8 +18,8 @@ type Header struct {
   Size uint32
 }
 
-type ResStrPool struct {
-  *Header
+type ResTableStrPool struct {
+  *ResTableHeader
 
   // 字符串个数
   StrCount uint32
@@ -55,8 +53,8 @@ type ResStrPool struct {
   Styles []string
 }
 
-type ResPackage struct {
-  *Header
+type ResTablePackage struct {
+  *ResTableHeader
 
   // 包Id，用户包是0x7F，系统包是0x01
   Id uint32
@@ -80,18 +78,18 @@ type ResPackage struct {
   Res0 uint32
 
   // 资源类型字符串池
-  TypeStrPool *ResStrPool
+  TypeStrPool *ResTableStrPool
 
   // 资源项名称字符串池
-  KeyStrPool *ResStrPool
+  KeyStrPool *ResTableStrPool
 
-  TypeSpecs []*ResTypeSpec
+  TypeSpecs []*ResTableTypeSpec
 
-  Types []*ResType
+  Types []*ResTableType
 }
 
-type ResTypeSpec struct {
-  *Header
+type ResTableTypeSpec struct {
+  *ResTableHeader
 
   // 资源类型Id
   Id uint8
@@ -107,8 +105,8 @@ type ResTypeSpec struct {
   EntryFlags []uint32
 }
 
-type ResType struct {
-  *Header
+type ResTableType struct {
+  *ResTableHeader
 
   // 资源类型Id
   Id uint8
@@ -124,16 +122,16 @@ type ResType struct {
   EntryStart uint32
 
   // 配置描述
-  EntryConfig *ResEntryConfig
+  EntryConfig *ResTableEntryConfig
 
   // 资源项偏移数组，长度为EntryCount
   EntryOffsets []uint32
 
   // 资源项
-  Entries []*ResEntry
+  Entries []*ResTableEntry
 }
 
-type ResEntryConfig struct {
+type ResTableEntryConfig struct {
   Size                  uint32
   Mcc                   uint16
   Mnc                   uint16
@@ -157,48 +155,38 @@ type ResEntryConfig struct {
   ScreenHeightDp        uint16
 }
 
-type ResEntry struct {
+type ResTableEntry struct {
   Size        uint16
   Flags       uint16
   Key         uint32
-  Value       *ResValue
+  Value       *ResTableValue
   ParentRef   uint32
   Count       uint32
-  Values      map[uint32]*ResValue
+  Values      map[uint32]*ResTableValue
   ValueOrders []uint32
 }
 
-type ResValue struct {
+type ResTableValue struct {
   Size     uint16
   Res0     uint8
   DataType uint8
   Data     uint32
 }
 
-/*type store struct {
-  pkgId       uint32
-  pkgName     string
-  typeStrs    []string
-  keyStrs     []string
-  typeId      uint8
-  entryConfig *ResEntryConfig
-  index       uint32
-}*/
-
 type ResTable struct {
   *bytesReader
 
-  *Header
+  *ResTableHeader
 
   // 资源包个数，通常一个app只有一个资源包
   PackageCount uint32
 
   // 全局字符串池
-  StrPool *ResStrPool
+  StrPool *ResTableStrPool
 
   // 资源包，
   // len(Packages)=PackageCount
-  Packages []*ResPackage
+  Packages []*ResTablePackage
 }
 
 func ParseResTable(file string) *ResTable {
@@ -210,29 +198,29 @@ func ParseResTable(file string) *ResTable {
     return nil
   }
   rt := &ResTable{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}}
-  rt.Header = rt.parseHeader()
+  rt.ResTableHeader = rt.parseResTableHeader()
   rt.PackageCount = rt.readUint32()
-  rt.StrPool = rt.parseStrPool()
+  rt.StrPool = rt.parseResTableStrPool()
   if rt.PackageCount > 0 && rt.PackageCount < math.MaxUint32 {
-    rt.Packages = make([]*ResPackage, 0, rt.PackageCount)
+    rt.Packages = make([]*ResTablePackage, 0, rt.PackageCount)
     for i := uint32(0); i < rt.PackageCount; i++ {
-      rt.Packages = append(rt.Packages, rt.parsePackage())
+      rt.Packages = append(rt.Packages, rt.parseResTablePackage())
     }
   }
   return rt
 }
 
-func (rt *ResTable) parseHeader() *Header {
-  return &Header{
+func (rt *ResTable) parseResTableHeader() *ResTableHeader {
+  return &ResTableHeader{
     Type:       rt.readUint16(),
     HeaderSize: rt.readUint16(),
     Size:       rt.readUint32(),
   }
 }
 
-func (rt *ResTable) parseStrPool() *ResStrPool {
+func (rt *ResTable) parseResTableStrPool() *ResTableStrPool {
   s := rt.pos()
-  header := rt.parseHeader()
+  header := rt.parseResTableHeader()
   strCount := rt.readUint32()
   styleCount := rt.readUint32()
   flags := rt.readUint32()
@@ -265,23 +253,23 @@ func (rt *ResTable) parseStrPool() *ResStrPool {
   // todo 样式解析
   rt.Seek(int64(s+header.Size), io.SeekStart)
 
-  return &ResStrPool{
-    Header:       header,
-    StrCount:     strCount,
-    StyleCount:   styleCount,
-    Flags:        flags,
-    StrStart:     strStart,
-    StyleStart:   styleStart,
-    StrOffsets:   strOffsets,
-    StyleOffsets: styleOffsets,
-    Strs:         strs,
-    Styles:       nil,
+  return &ResTableStrPool{
+    ResTableHeader: header,
+    StrCount:       strCount,
+    StyleCount:     styleCount,
+    Flags:          flags,
+    StrStart:       strStart,
+    StyleStart:     styleStart,
+    StrOffsets:     strOffsets,
+    StyleOffsets:   styleOffsets,
+    Strs:           strs,
+    Styles:         nil,
   }
 }
 
-func (rt *ResTable) parsePackage() *ResPackage {
+func (rt *ResTable) parseResTablePackage() *ResTablePackage {
   s := rt.pos()
-  header := rt.parseHeader()
+  header := rt.parseResTableHeader()
   id := rt.readUint32()
   // 包名是固定的256个字节，不足的会填充0，
   // UTF-16编码，每2个字节表示一个字符，所以字符之间会有0，需要去掉
@@ -297,37 +285,31 @@ func (rt *ResTable) parsePackage() *ResPackage {
   keyStrPoolStart := rt.readUint32()
   keyCount := rt.readUint32()
   res0 := rt.readUint32()
-  typeStrPool := rt.parseStrPool()
-  keyStrPool := rt.parseStrPool()
+  typeStrPool := rt.parseResTableStrPool()
+  keyStrPool := rt.parseResTableStrPool()
 
-  var typeSpecs []*ResTypeSpec
-  var types []*ResType
+  var typeSpecs []*ResTableTypeSpec
+  var types []*ResTableType
   if typeCount > 0 && typeCount < math.MaxUint32 {
-    typeSpecs = make([]*ResTypeSpec, 0, typeCount)
-    types = make([]*ResType, 0, typeCount)
-    /*st := &store{
-      pkgId:    id,
-      pkgName:  name,
-      typeStrs: typeStrPool.Strs,
-      keyStrs:  keyStrPool.Strs,
-    }*/
+    typeSpecs = make([]*ResTableTypeSpec, 0, typeCount)
+    types = make([]*ResTableType, 0, typeCount)
     e := s + header.Size
     for rt.pos() < e {
       switch rt.readUint16() {
       case 0x0202:
         // Type Spec
         rt.unreadN(2)
-        typeSpecs = append(typeSpecs, rt.parseTypeSpec())
+        typeSpecs = append(typeSpecs, rt.parseResTableTypeSpec())
       case 0x0201:
         // Type
         rt.unreadN(2)
-        types = append(types, rt.parseType())
+        types = append(types, rt.parseResTableType())
       }
     }
   }
 
-  return &ResPackage{
-    Header:           header,
+  return &ResTablePackage{
+    ResTableHeader:   header,
     Id:               id,
     Name:             name,
     TypeStrPoolStart: typeStrPoolStart,
@@ -342,62 +324,59 @@ func (rt *ResTable) parsePackage() *ResPackage {
   }
 }
 
-func (rt *ResTable) parseTypeSpec() *ResTypeSpec {
-  header := rt.parseHeader()
+func (rt *ResTable) parseResTableTypeSpec() *ResTableTypeSpec {
+  header := rt.parseResTableHeader()
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
   entryCount := rt.readUint32()
   entryFlags := rt.readUint32Array(entryCount)
-  return &ResTypeSpec{
-    Header:     header,
-    Id:         id,
-    Res0:       res0,
-    Res1:       res1,
-    EntryCount: entryCount,
-    EntryFlags: entryFlags,
+  return &ResTableTypeSpec{
+    ResTableHeader: header,
+    Id:             id,
+    Res0:           res0,
+    Res1:           res1,
+    EntryCount:     entryCount,
+    EntryFlags:     entryFlags,
   }
 }
 
-func (rt *ResTable) parseType() *ResType {
-  header := rt.parseHeader()
+func (rt *ResTable) parseResTableType() *ResTableType {
+  header := rt.parseResTableHeader()
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
   entryCount := rt.readUint32()
   entryStart := rt.readUint32()
-  entryConfig := rt.parseEntryConfig()
+  entryConfig := rt.parseResTableEntryConfig()
   entryOffsets := rt.readUint32Array(entryCount)
 
-  var entries []*ResEntry
+  var entries []*ResTableEntry
   if entryCount > 0 && entryCount < math.MaxUint32 {
-    entries = make([]*ResEntry, 0, entryCount)
-    // st.typeId = id
-    // st.entryConfig = entryConfig
+    entries = make([]*ResTableEntry, 0, entryCount)
     for i := uint32(0); i < entryCount; i++ {
       if entryOffsets[i] > 0 && entryOffsets[i] < math.MaxUint32 {
-        // st.index = i
-        entries = append(entries, rt.parseEntry())
+        entries = append(entries, rt.parseResTableEntry())
       }
     }
   }
 
-  return &ResType{
-    Header:       header,
-    Id:           id,
-    Res0:         res0,
-    Res1:         res1,
-    EntryCount:   entryCount,
-    EntryStart:   entryStart,
-    EntryConfig:  entryConfig,
-    EntryOffsets: entryOffsets,
-    Entries:      entries,
+  return &ResTableType{
+    ResTableHeader: header,
+    Id:             id,
+    Res0:           res0,
+    Res1:           res1,
+    EntryCount:     entryCount,
+    EntryStart:     entryStart,
+    EntryConfig:    entryConfig,
+    EntryOffsets:   entryOffsets,
+    Entries:        entries,
   }
 }
 
-func (rt *ResTable) parseEntryConfig() *ResEntryConfig {
+func (rt *ResTable) parseResTableEntryConfig() *ResTableEntryConfig {
   // 76个字节，目前只解析了56个字节
-  ret := &ResEntryConfig{
+  ret := &ResTableEntryConfig{
     Size:                  rt.readUint32(),
     Mcc:                   rt.readUint16(),
     Mnc:                   rt.readUint16(),
@@ -425,33 +404,32 @@ func (rt *ResTable) parseEntryConfig() *ResEntryConfig {
   return ret
 }
 
-func (rt *ResTable) parseEntry() *ResEntry {
+func (rt *ResTable) parseResTableEntry() *ResTableEntry {
   size := rt.readUint16()
   flags := rt.readUint16()
   key := rt.readUint32()
-  // ref := int64(st.pkgId)<<24 | int64(st.typeId)<<16 | int64(st.index)
 
-  var value *ResValue
+  var value *ResTableValue
   var parentRef, count uint32
-  var values map[uint32]*ResValue
+  var values map[uint32]*ResTableValue
   var valueOrders []uint32
   if flags&0x0001 == 0 {
-    value = rt.parseValue()
+    value = rt.parseResTableValue()
   } else {
     parentRef = rt.readUint32()
     count = rt.readUint32()
     if count > 0 && count < math.MaxUint32 {
-      values = make(map[uint32]*ResValue, count)
+      values = make(map[uint32]*ResTableValue, count)
       valueOrders = make([]uint32, count)
       for i := uint32(0); i < count; i++ {
         name := rt.readUint32()
-        values[name] = rt.parseValue()
+        values[name] = rt.parseResTableValue()
         valueOrders[i] = name
       }
     }
   }
 
-  return &ResEntry{
+  return &ResTableEntry{
     Size:        size,
     Flags:       flags,
     Key:         key,
@@ -463,8 +441,8 @@ func (rt *ResTable) parseEntry() *ResEntry {
   }
 }
 
-func (rt *ResTable) parseValue() *ResValue {
-  return &ResValue{
+func (rt *ResTable) parseResTableValue() *ResTableValue {
+  return &ResTableValue{
     Size:     rt.readUint16(),
     Res0:     rt.readUint8(),
     DataType: rt.readUint8(),
@@ -472,94 +450,22 @@ func (rt *ResTable) parseValue() *ResValue {
   }
 }
 
-type bytesReader struct {
-  *bytes.Reader
-  data []byte
+/*type ResStrStyle struct {
+  Ref   ResStrRef
+  Spans []ResStrSpan
 }
 
-func (r *bytesReader) pos() uint32 {
-  return uint32(len(r.data) - r.Len())
+type ResStrRef struct {
+  Index uint32
 }
 
-func (r *bytesReader) slice(start, end uint32) []byte {
-  r.Seek(int64(end), io.SeekStart)
-  return r.data[start:end]
-}
+type ResStrSpan struct {
+  // 样式字符串在字符串池中的偏移
+  Name ResStrRef
 
-func (r *bytesReader) readN(n uint32) []byte {
-  if n < 1 {
-    return nil
-  }
-  ret := make([]byte, n)
-  r.Read(ret)
-  return ret
-}
+  // 应用样式的第一个字符
+  FirstChar uint32
 
-func (r *bytesReader) unreadN(n int64) {
-  if n < 1 {
-    return
-  }
-  r.Seek(-n, io.SeekCurrent)
-}
-
-func (r *bytesReader) readUint8() uint8 {
-  b, _ := r.ReadByte()
-  return uint8(b)
-}
-
-func (r *bytesReader) readUint16() uint16 {
-  return conv.BytesToUint16L(r.readN(2))
-}
-
-func (r *bytesReader) readUint32() uint32 {
-  return conv.BytesToUint32L(r.readN(4))
-}
-
-func (r *bytesReader) readUint32Array(count uint32) []uint32 {
-  if count < 1 {
-    return nil
-  }
-  ret := make([]uint32, count)
-  for i := uint32(0); i < count; i++ {
-    ret[i] = r.readUint32()
-  }
-  return ret
-}
-
-func str8(data []byte, offset uint32) string {
-  n := 1
-  if x := data[offset] & 0x80; x != 0 {
-    n = 2
-  }
-  s := offset + uint32(n)
-  l := data[s]
-  if l == 0 {
-    return ""
-  }
-  s++
-  if l&0x80 != 0 {
-    l = (l&0x7F)<<8 | data[s]&0xFF
-    s++
-  }
-  return string(data[s : s+uint32(l)])
-}
-
-func str16(data []byte, offset uint32) string {
-  n := 2
-  if x := data[offset+1] & 0x80; x != 0 {
-    n = 4
-  }
-  s := offset + uint32(n)
-  e := s
-  l := uint32(len(data))
-  for {
-    if e+1 >= l {
-      break
-    }
-    if data[e] == 0 && data[e+1] == 0 {
-      break
-    }
-    e += 2
-  }
-  return string(data[s:e])
-}
+  // 应用样式的最后一个字符
+  LastChar uint32
+}*/

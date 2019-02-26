@@ -7,26 +7,6 @@ import (
   "strconv"
 )
 
-type ResStrStyle struct {
-  Ref   ResStrRef
-  Spans []ResStrSpan
-}
-
-type ResStrRef struct {
-  Index uint32
-}
-
-type ResStrSpan struct {
-  // 样式字符串在字符串池中的偏移
-  Name ResStrRef
-
-  // 应用样式的第一个字符
-  FirstChar uint32
-
-  // 应用样式的最后一个字符
-  LastChar uint32
-}
-
 func main() {
   var file string
   switch runtime.GOOS {
@@ -37,43 +17,43 @@ func main() {
   default:
     panic(errors.New("os not supported"))
   }
-  table := ParseResTable(file)
-  printTableInfo(table)
+  rt := ParseResTable(file)
+  printTableInfo(rt)
 }
 
-func printTableInfo(table *ResTable) {
+func printTableInfo(rt *ResTable) {
   fmt.Println("====Table====")
-  fmt.Println("Type:", table.Type)
-  fmt.Println("Size:", table.Size)
-  fmt.Println("HeaderSize:", table.HeaderSize)
+  fmt.Println("Type:", rt.Type)
+  fmt.Println("Size:", rt.Size)
+  fmt.Println("HeaderSize:", rt.HeaderSize)
   fmt.Println("========String Pool========")
-  fmt.Println("Type:", table.StrPool.Type)
-  fmt.Println("Size:", table.StrPool.Size)
-  fmt.Println("HeaderSize:", table.StrPool.HeaderSize)
-  fmt.Println("Flags:", table.StrPool.Flags)
-  fmt.Println("StrCount:", table.StrPool.StrCount)
-  fmt.Println("StrStart:", table.StrPool.StrStart)
-  fmt.Println("StyleCount:", table.StrPool.StyleCount)
-  fmt.Println("StyleStart:", table.StrPool.StyleStart)
+  fmt.Println("Type:", rt.StrPool.Type)
+  fmt.Println("Size:", rt.StrPool.Size)
+  fmt.Println("HeaderSize:", rt.StrPool.HeaderSize)
+  fmt.Println("Flags:", rt.StrPool.Flags)
+  fmt.Println("StrCount:", rt.StrPool.StrCount)
+  fmt.Println("StrStart:", rt.StrPool.StrStart)
+  fmt.Println("StyleCount:", rt.StrPool.StyleCount)
+  fmt.Println("StyleStart:", rt.StrPool.StyleStart)
   /*for i := 0; i < 10; i++ {
     fmt.Println("Sting Pool", i, table.StrPool.Strs[i])
   }*/
   fmt.Println("========Package========")
-  fmt.Println("Type:", table.Packages[0].Type)
-  fmt.Println("Size:", table.Packages[0].Size)
-  fmt.Println("HeaderSize:", table.Packages[0].HeaderSize)
-  fmt.Println("Types:", table.Packages[0].TypeStrPool.Strs)
-  fmt.Printf("TypeCount/TypeStrCount: %d/%d\n", table.Packages[0].TypeCount, table.Packages[0].TypeStrPool.StrCount)
-  fmt.Println("TypeStrPoolStart:", table.Packages[0].TypeStrPoolStart)
-  fmt.Printf("KeyCount/KeyStrCount: %d/%d\n", table.Packages[0].KeyCount, table.Packages[0].KeyStrPool.StrCount)
-  fmt.Println("KeyStrPoolStart:", table.Packages[0].KeyStrPoolStart)
+  fmt.Println("Type:", rt.Packages[0].Type)
+  fmt.Println("Size:", rt.Packages[0].Size)
+  fmt.Println("HeaderSize:", rt.Packages[0].HeaderSize)
+  fmt.Println("Types:", rt.Packages[0].TypeStrPool.Strs)
+  fmt.Printf("TypeCount/TypeStrCount: %d/%d\n", rt.Packages[0].TypeCount, rt.Packages[0].TypeStrPool.StrCount)
+  fmt.Println("TypeStrPoolStart:", rt.Packages[0].TypeStrPoolStart)
+  fmt.Printf("KeyCount/KeyStrCount: %d/%d\n", rt.Packages[0].KeyCount, rt.Packages[0].KeyStrPool.StrCount)
+  fmt.Println("KeyStrPoolStart:", rt.Packages[0].KeyStrPoolStart)
   /*for i := 0; i < 10; i++ {
     fmt.Println("Type Sting Pool", i, table.Packages[0].TypeStrPool.Strs[i])
   }*/
   /*for i := 0; i < 10; i++ {
     fmt.Println("Key Sting Pool", i, table.Packages[0].KeyStrPool.Strs[i])
   }*/
-  for i, v := range table.Packages[0].TypeSpecs {
+  for i, v := range rt.Packages[0].TypeSpecs {
     if v == nil {
       continue
     }
@@ -84,7 +64,7 @@ func printTableInfo(table *ResTable) {
     fmt.Println("Id:", v.Id)
     fmt.Println("EntryCount:", v.EntryCount)
   }
-  for i, v := range table.Packages[0].Types {
+  for i, v := range rt.Packages[0].Types {
     if v == nil {
       continue
     }
