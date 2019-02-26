@@ -2,10 +2,11 @@ package main
 
 import (
   "bytes"
-  "github.com/kwf2030/commons/conv"
   "io"
   "io/ioutil"
   "math"
+
+  "github.com/kwf2030/commons/conv"
 )
 
 type Header struct {
@@ -212,7 +213,7 @@ func ParseResTable(file string) *ResTable {
   rt.Header = rt.parseHeader()
   rt.PackageCount = rt.readUint32()
   rt.StrPool = rt.parseStrPool()
-  if rt.PackageCount > 0 {
+  if rt.PackageCount > 0 && rt.PackageCount < math.MaxUint32 {
     rt.Packages = make([]*ResPackage, 0, rt.PackageCount)
     for i := uint32(0); i < rt.PackageCount; i++ {
       rt.Packages = append(rt.Packages, rt.parsePackage())
@@ -241,9 +242,9 @@ func (rt *ResTable) parseStrPool() *ResStrPool {
   styleOffsets := rt.readUint32Array(styleCount)
 
   var strs []string
-  if strCount > 0 {
+  if strCount > 0 && styleCount < math.MaxUint32 {
     e := s + header.Size
-    if styleCount > 0 {
+    if styleCount > 0 && styleCount < math.MaxUint32 {
       e = s + styleStart
     }
     block := rt.slice(rt.pos(), e)
@@ -301,7 +302,7 @@ func (rt *ResTable) parsePackage() *ResPackage {
 
   var typeSpecs []*ResTypeSpec
   var types []*ResType
-  if typeCount > 0 {
+  if typeCount > 0 && typeCount < math.MaxUint32 {
     typeSpecs = make([]*ResTypeSpec, 0, typeCount)
     types = make([]*ResType, 0, typeCount)
     /*st := &store{
@@ -369,13 +370,13 @@ func (rt *ResTable) parseType() *ResType {
   entryOffsets := rt.readUint32Array(entryCount)
 
   var entries []*ResEntry
-  if entryCount > 0 {
+  if entryCount > 0 && entryCount < math.MaxUint32 {
     entries = make([]*ResEntry, 0, entryCount)
-    //st.typeId = id
-    //st.entryConfig = entryConfig
+    // st.typeId = id
+    // st.entryConfig = entryConfig
     for i := uint32(0); i < entryCount; i++ {
-      if entryOffsets[i] != math.MaxUint32 {
-        //st.index = i
+      if entryOffsets[i] > 0 && entryOffsets[i] < math.MaxUint32 {
+        // st.index = i
         entries = append(entries, rt.parseEntry())
       }
     }
@@ -395,7 +396,8 @@ func (rt *ResTable) parseType() *ResType {
 }
 
 func (rt *ResTable) parseEntryConfig() *ResEntryConfig {
-  return &ResEntryConfig{
+  // 76个字节，目前只解析了56个字节
+  ret := &ResEntryConfig{
     Size:                  rt.readUint32(),
     Mcc:                   rt.readUint16(),
     Mnc:                   rt.readUint16(),
@@ -418,13 +420,16 @@ func (rt *ResTable) parseEntryConfig() *ResEntryConfig {
     ScreenWidthDp:         rt.readUint16(),
     ScreenHeightDp:        rt.readUint16(),
   }
+  // 跳过未解析的20个字节
+  rt.Seek(20, io.SeekCurrent)
+  return ret
 }
 
 func (rt *ResTable) parseEntry() *ResEntry {
   size := rt.readUint16()
   flags := rt.readUint16()
   key := rt.readUint32()
-  //ref := int64(st.pkgId)<<24 | int64(st.typeId)<<16 | int64(st.index)
+  // ref := int64(st.pkgId)<<24 | int64(st.typeId)<<16 | int64(st.index)
 
   var value *ResValue
   var parentRef, count uint32
@@ -435,12 +440,14 @@ func (rt *ResTable) parseEntry() *ResEntry {
   } else {
     parentRef = rt.readUint32()
     count = rt.readUint32()
-    values = make(map[uint32]*ResValue, count)
-    valueOrders = make([]uint32, count)
-    for i := uint32(0); i < count; i++ {
-      name := rt.readUint32()
-      values[name] = rt.parseValue()
-      valueOrders[i] = name
+    if count > 0 && count < math.MaxUint32 {
+      values = make(map[uint32]*ResValue, count)
+      valueOrders = make([]uint32, count)
+      for i := uint32(0); i < count; i++ {
+        name := rt.readUint32()
+        values[name] = rt.parseValue()
+        valueOrders[i] = name
+      }
     }
   }
 

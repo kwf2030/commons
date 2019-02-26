@@ -37,9 +37,8 @@ func main() {
   default:
     panic(errors.New("os not supported"))
   }
-  ParseResTable(file)
-  //table := ParseResTable(file)
-  //printTableInfo(table)
+  table := ParseResTable(file)
+  printTableInfo(table)
 }
 
 func printTableInfo(table *ResTable) {
@@ -97,12 +96,20 @@ func printTableInfo(table *ResTable) {
     fmt.Println("EntryCount:", v.EntryCount)
     fmt.Println("EntryStart:", v.EntryStart)
     fmt.Println("EntryConfigSize:", v.EntryConfig.Size)
-    for ii, vv := range v.Entries {
-      fmt.Println("================Entries[" + strconv.Itoa(ii) + "]==============")
-      fmt.Println("Size:", vv.Size)
-      fmt.Println("Flags:", vv.Flags)
-      fmt.Println("Key:", vv.Key)
-      fmt.Println("Count:", vv.Count)
+    for j := 0; j < 5; j++ {
+      if len(v.Entries) <= j {
+        continue
+      }
+      fmt.Println("================Entries[" + strconv.Itoa(j) + "]==============")
+      fmt.Println("Size:", v.Entries[j].Size)
+      fmt.Println("Flags:", v.Entries[j].Flags)
+      fmt.Println("Key:", v.Entries[j].Key)
+      if v.Entries[j].Flags&0x0001 == 0 {
+        fmt.Println("Value:", v.Entries[j].Value)
+      } else {
+        fmt.Println("ParentRef:", v.Entries[j].ParentRef)
+        fmt.Println("Count:", v.Entries[j].Count)
+      }
     }
   }
 }
