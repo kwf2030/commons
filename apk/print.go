@@ -8,11 +8,11 @@ import (
 )
 
 func main() {
-  showManifest()
+  showXml()
   // showResTable()
 }
 
-func showManifest() {
+func showXml() {
   var file string
   switch runtime.GOOS {
   case "windows":

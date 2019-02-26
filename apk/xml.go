@@ -2,6 +2,7 @@ package main
 
 import (
   "bytes"
+  "fmt"
   "io"
   "io/ioutil"
   "math"
@@ -64,11 +65,13 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
     block := xml.slice(xml.pos(), e)
     strs = make([]string, strCount)
     if flags&0x0100 != 0 {
+      fmt.Println("UTF8")
       // UTF-8
       for i := uint32(0); i < strCount; i++ {
         strs[i] = str8(block, strOffsets[i])
       }
     } else {
+      fmt.Println("UTF16")
       // UTF-16
       for i := uint32(0); i < strCount; i++ {
         strs[i] = str16(block, strOffsets[i])
