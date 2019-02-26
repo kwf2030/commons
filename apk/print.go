@@ -8,6 +8,42 @@ import (
 )
 
 func main() {
+  showManifest()
+  // showResTable()
+}
+
+func showManifest() {
+  var file string
+  switch runtime.GOOS {
+  case "windows":
+    file = "C:\\Users\\WangFeng\\Desktop\\AndroidManifest.xml"
+  case "linux":
+    file = "/home/wangfeng/workspace/wechat/raw/AndroidManifest.xml"
+  default:
+    panic(errors.New("os not supported"))
+  }
+  xml := ParseXml(file)
+  printXmlInfo(xml)
+}
+
+func printXmlInfo(xml *Xml) {
+  fmt.Println("====Xml====")
+  fmt.Println("MagicNumber:", xml.MagicNumber)
+  fmt.Println("FileSize:", xml.FileSize)
+  fmt.Println("========String Pool========")
+  fmt.Println("Type:", xml.StrPool.Type)
+  fmt.Println("Size:", xml.StrPool.Size)
+  fmt.Println("StrCount:", xml.StrPool.StrCount)
+  fmt.Println("StyleCount:", xml.StrPool.StyleCount)
+  fmt.Println("Flags:", xml.StrPool.Flags)
+  fmt.Println("StrStart:", xml.StrPool.StrStart)
+  fmt.Println("StyleStart:", xml.StrPool.StyleStart)
+  for i := 0; i < 10; i++ {
+    fmt.Println("Sting Pool", i, xml.StrPool.Strs[i])
+  }
+}
+
+func showResTable() {
   var file string
   switch runtime.GOOS {
   case "windows":
@@ -18,10 +54,10 @@ func main() {
     panic(errors.New("os not supported"))
   }
   rt := ParseResTable(file)
-  printTableInfo(rt)
+  printResTableInfo(rt)
 }
 
-func printTableInfo(rt *ResTable) {
+func printResTableInfo(rt *ResTable) {
   fmt.Println("====Table====")
   fmt.Println("Type:", rt.Type)
   fmt.Println("Size:", rt.Size)
