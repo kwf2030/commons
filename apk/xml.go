@@ -7,9 +7,14 @@ import (
   "math"
 )
 
+type XmlHeader struct {
+  Type       uint16
+  HeaderSize uint16
+  Size       uint32
+}
+
 type XmlStrPool struct {
-  Type         uint32
-  Size         uint32
+  *XmlHeader
   StrCount     uint32
   StyleCount   uint32
   Flags        uint32
@@ -22,14 +27,12 @@ type XmlStrPool struct {
 }
 
 type XmlResId struct {
-  Type uint32
-  Size uint32
-  Ids  []uint32
+  *XmlHeader
+  Ids []uint32
 }
 
 type XmlNamespace struct {
-  Type       uint32
-  Size       uint32
+  *XmlHeader
   LineNumber uint32
   Res0       uint32
   Prefix     uint32
@@ -37,8 +40,7 @@ type XmlNamespace struct {
 }
 
 type XmlTag struct {
-  Type         uint32
-  Size         uint32
+  *XmlHeader
   LineNumber   uint32
   Res0         uint32
   NamespaceUri uint32
@@ -59,12 +61,11 @@ type XmlAttr struct {
 
 type Xml struct {
   *bytesReader
-  MagicNumber uint32
-  FileSize    uint32
-  StrPool     *XmlStrPool
-  ResId       *XmlResId
-  Namespace   *XmlNamespace
-  Tag         *XmlTag
+  *XmlHeader
+  StrPool   *XmlStrPool
+  ResId     *XmlResId
+  Namespace []*XmlNamespace
+  Tags      []*XmlTag
 }
 
 func ParseXml(file string) *Xml {
@@ -76,19 +77,38 @@ func ParseXml(file string) *Xml {
     return nil
   }
   xml := &Xml{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}}
-  xml.MagicNumber = xml.readUint32()
-  xml.FileSize = xml.readUint32()
+  xml.XmlHeader = xml.parseXmlHeader()
   xml.StrPool = xml.parseXmlStrPool()
   xml.ResId = xml.parseXmlResId()
-  xml.Namespace = xml.parseXmlNamespace()
-  xml.Tag = xml.parseXmlTag()
+  xml.Namespace = make([]*XmlNamespace, 0, 4)
+  xml.Tags = make([]*XmlTag, 0, 4096)
+  for xml.pos() < xml.Size {
+    switch xml.readUint16() {
+    case 0x102:
+      xml.unreadN(2)
+      xml.Tags = append(xml.Tags, xml.parseXmlStartTag())
+    case 0x103:
+      xml.unreadN(2)
+      xml.Tags = append(xml.Tags, xml.parseXmlEndTag())
+    case 0x0100, 0x0101:
+      xml.unreadN(2)
+      xml.Namespace = append(xml.Namespace, xml.parseXmlNamespace())
+    }
+  }
   return xml
+}
+
+func (xml *Xml) parseXmlHeader() *XmlHeader {
+  return &XmlHeader{
+    Type:       xml.readUint16(),
+    HeaderSize: xml.readUint16(),
+    Size:       xml.readUint32(),
+  }
 }
 
 func (xml *Xml) parseXmlStrPool() *XmlStrPool {
   s := xml.pos()
-  tp := xml.readUint32()
-  size := xml.readUint32()
+  header := xml.parseXmlHeader()
   strCount := xml.readUint32()
   styleCount := xml.readUint32()
   flags := xml.readUint32()
@@ -99,7 +119,7 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
 
   var strs []string
   if strCount > 0 && styleCount < math.MaxUint32 {
-    e := s + size
+    e := s + header.Size
     if styleCount > 0 && styleCount < math.MaxUint32 {
       e = s + styleStart
     }
@@ -127,11 +147,10 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
   }
 
   // todo 样式解析
-  xml.Seek(int64(s+size), io.SeekStart)
+  xml.Seek(int64(s+header.Size), io.SeekStart)
 
   return &XmlStrPool{
-    Type:         tp,
-    Size:         size,
+    XmlHeader:    header,
     StrCount:     strCount,
     StyleCount:   styleCount,
     Flags:        flags,
@@ -145,26 +164,22 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
 }
 
 func (xml *Xml) parseXmlResId() *XmlResId {
-  tp := xml.readUint32()
-  size := xml.readUint32()
-  ids := xml.readUint32Array((size - 8) / 4)
+  header := xml.parseXmlHeader()
+  ids := xml.readUint32Array((header.Size - 8) / 4)
   return &XmlResId{
-    Type: tp,
-    Size: size,
-    Ids:  ids,
+    XmlHeader: header,
+    Ids:       ids,
   }
 }
 
 func (xml *Xml) parseXmlNamespace() *XmlNamespace {
-  tp := xml.readUint32()
-  size := xml.readUint32()
+  header := xml.parseXmlHeader()
   lineNumber := xml.readUint32()
   res0 := xml.readUint32()
   prefix := xml.readUint32()
   uri := xml.readUint32()
   return &XmlNamespace{
-    Type:       tp,
-    Size:       size,
+    XmlHeader:  header,
     LineNumber: lineNumber,
     Res0:       res0,
     Prefix:     prefix,
@@ -172,9 +187,8 @@ func (xml *Xml) parseXmlNamespace() *XmlNamespace {
   }
 }
 
-func (xml *Xml) parseXmlTag() *XmlTag {
-  tp := xml.readUint32()
-  size := xml.readUint32()
+func (xml *Xml) parseXmlStartTag() *XmlTag {
+  header := xml.parseXmlHeader()
   lineNumber := xml.readUint32()
   res0 := xml.readUint32()
   uri := xml.readUint32()
@@ -192,8 +206,7 @@ func (xml *Xml) parseXmlTag() *XmlTag {
   }
 
   return &XmlTag{
-    Type:         tp,
-    Size:         size,
+    XmlHeader:    header,
     LineNumber:   lineNumber,
     Res0:         res0,
     NamespaceUri: uri,
@@ -205,12 +218,22 @@ func (xml *Xml) parseXmlTag() *XmlTag {
   }
 }
 
+func (xml *Xml) parseXmlEndTag() *XmlTag {
+  return &XmlTag{
+    XmlHeader:    xml.parseXmlHeader(),
+    LineNumber:   xml.readUint32(),
+    Res0:         xml.readUint32(),
+    NamespaceUri: xml.readUint32(),
+    Name:         xml.readUint32(),
+  }
+}
+
 func (xml *Xml) parseXmlAttr() *XmlAttr {
   return &XmlAttr{
     Namespace: xml.readUint32(),
     Uri:       xml.readUint32(),
     Name:      xml.readUint32(),
-    Value:     xml.readUint32(),
+    Value:     xml.readUint32() >> 24,
     Data:      xml.readUint32(),
   }
 }
