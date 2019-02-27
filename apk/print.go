@@ -38,9 +38,28 @@ func printXmlInfo(xml *Xml) {
   fmt.Println("Flags:", xml.StrPool.Flags)
   fmt.Println("StrStart:", xml.StrPool.StrStart)
   fmt.Println("StyleStart:", xml.StrPool.StyleStart)
-  for i := 0; i < 10; i++ {
+  /*for i := 0; i < 10; i++ {
     fmt.Println("Sting Pool", i, xml.StrPool.Strs[i])
-  }
+  }*/
+  fmt.Println("========Resource Id========")
+  fmt.Println("Type:", xml.ResId.Type)
+  fmt.Println("Size:", xml.ResId.Size)
+  fmt.Println("Count", len(xml.ResId.Ids))
+  fmt.Println("========Namespace========")
+  fmt.Println("Type:", xml.Namespace.Type)
+  fmt.Println("Size:", xml.Namespace.Size)
+  fmt.Println("LineNumber", xml.Namespace.LineNumber)
+  fmt.Println("Prefix", xml.Namespace.Prefix, xml.StrPool.Strs[xml.Namespace.Prefix])
+  fmt.Println("Uri", xml.Namespace.Uri, xml.StrPool.Strs[xml.Namespace.Uri])
+  fmt.Println("========Tag========")
+  fmt.Println("Type:", xml.Tag.Type)
+  fmt.Println("Size:", xml.Tag.Size)
+  fmt.Println("LineNumber", xml.Tag.LineNumber)
+  fmt.Println("NamespaceUri", xml.Tag.NamespaceUri)
+  fmt.Println("Name", xml.Tag.Name)
+  fmt.Println("Flags", xml.Tag.Flags)
+  fmt.Println("AttrCount", xml.Tag.AttrCount)
+  fmt.Println("ClassAttr", xml.Tag.ClassAttr)
 }
 
 func showResTable() {
