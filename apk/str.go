@@ -1,6 +1,10 @@
 package main
 
 func str8(data []byte, offset uint32) string {
+  return string(str8Bytes(data, offset))
+}
+
+func str8Bytes(data []byte, offset uint32) []byte {
   n := 1
   if x := data[offset] & 0x80; x != 0 {
     n = 2
@@ -8,17 +12,21 @@ func str8(data []byte, offset uint32) string {
   s := offset + uint32(n)
   l := data[s]
   if l == 0 {
-    return ""
+    return nil
   }
   s++
   if l&0x80 != 0 {
     l = (l&0x7F)<<8 | data[s]&0xFF
     s++
   }
-  return string(data[s : s+uint32(l)])
+  return data[s : s+uint32(l)]
 }
 
 func str16(data []byte, offset uint32) string {
+  return string(str16Bytes(data, offset))
+}
+
+func str16Bytes(data []byte, offset uint32) []byte {
   n := 2
   if x := data[offset+1] & 0x80; x != 0 {
     n = 4
@@ -35,5 +43,5 @@ func str16(data []byte, offset uint32) string {
     }
     e += 2
   }
-  return string(data[s:e])
+  return data[s:e]
 }

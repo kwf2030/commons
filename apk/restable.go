@@ -273,13 +273,13 @@ func (rt *ResTable) parseResTablePackage() *ResTablePackage {
   id := rt.readUint32()
   // 包名是固定的256个字节，不足的会填充0，
   // UTF-16编码，每2个字节表示一个字符，所以字符之间会有0，需要去掉
-  block := make([]byte, 0, 128)
+  arr := make([]byte, 0, 128)
   for _, v := range rt.readN(256) {
     if v != 0 {
-      block = append(block, v)
+      arr = append(arr, v)
     }
   }
-  name := string(block)
+  name := string(arr)
   typeStrPoolStart := rt.readUint32()
   typeCount := rt.readUint32()
   keyStrPoolStart := rt.readUint32()
