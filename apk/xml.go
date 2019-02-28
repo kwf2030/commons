@@ -62,10 +62,10 @@ type XmlAttr struct {
 type Xml struct {
   *bytesReader
   *XmlHeader
-  StrPool   *XmlStrPool
-  ResId     *XmlResId
-  Namespace []*XmlNamespace
-  Tags      []*XmlTag
+  StrPool    *XmlStrPool
+  ResId      *XmlResId
+  Namespaces []*XmlNamespace
+  Tags       []*XmlTag
 }
 
 func ParseXml(file string) *Xml {
@@ -80,7 +80,7 @@ func ParseXml(file string) *Xml {
   xml.XmlHeader = xml.parseXmlHeader()
   xml.StrPool = xml.parseXmlStrPool()
   xml.ResId = xml.parseXmlResId()
-  xml.Namespace = make([]*XmlNamespace, 0, 4)
+  xml.Namespaces = make([]*XmlNamespace, 0, 4)
   xml.Tags = make([]*XmlTag, 0, 4096)
   for xml.pos() < xml.Size {
     switch xml.readUint16() {
@@ -92,7 +92,7 @@ func ParseXml(file string) *Xml {
       xml.Tags = append(xml.Tags, xml.parseXmlEndTag())
     case 0x0100, 0x0101:
       xml.unreadN(2)
-      xml.Namespace = append(xml.Namespace, xml.parseXmlNamespace())
+      xml.Namespaces = append(xml.Namespaces, xml.parseXmlNamespace())
     }
   }
   return xml
@@ -126,15 +126,12 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
     block := xml.slice(xml.pos(), e)
     strs = make([]string, strCount)
     if flags&0x0100 != 0 {
-      // UTF-8
       for i := uint32(0); i < strCount; i++ {
         strs[i] = str8(block, strOffsets[i])
       }
     } else {
-      // UTF-16
       for i := uint32(0); i < strCount; i++ {
         b := str16Bytes(block, strOffsets[i])
-        // 去掉字符之间的空格
         arr := make([]byte, 0, len(b))
         for _, v := range b {
           if v != 0 {

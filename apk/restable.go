@@ -8,14 +8,9 @@ import (
 )
 
 type ResTableHeader struct {
-  // 类型
-  Type uint16
-
-  // header大小
+  Type       uint16
   HeaderSize uint16
-
-  // chunk大小（包括header）
-  Size uint32
+  Size       uint32
 }
 
 type ResTableStrPool struct {
@@ -153,6 +148,9 @@ type ResTableEntryConfig struct {
   SmallestScreenWidthDp uint16
   ScreenWidthDp         uint16
   ScreenHeightDp        uint16
+
+  // 剩余20个字节未解析
+  Res0 []byte
 }
 
 type ResTableEntry struct {
@@ -163,7 +161,7 @@ type ResTableEntry struct {
   ParentRef   uint32
   Count       uint32
   Values      map[uint32]*ResTableValue
-  ValueOrders []uint32
+  valuesOrder []uint32
 }
 
 type ResTableValue struct {
@@ -238,12 +236,10 @@ func (rt *ResTable) parseResTableStrPool() *ResTableStrPool {
     block := rt.slice(rt.pos(), e)
     strs = make([]string, strCount)
     if flags&0x0100 != 0 {
-      // UTF-8
       for i := uint32(0); i < strCount; i++ {
         strs[i] = str8(block, strOffsets[i])
       }
     } else {
-      // UTF-16
       for i := uint32(0); i < strCount; i++ {
         strs[i] = str16(block, strOffsets[i])
       }
@@ -297,11 +293,9 @@ func (rt *ResTable) parseResTablePackage() *ResTablePackage {
     for rt.pos() < e {
       switch rt.readUint16() {
       case 0x0202:
-        // Type Spec
         rt.unreadN(2)
         typeSpecs = append(typeSpecs, rt.parseResTableTypeSpec())
       case 0x0201:
-        // Type
         rt.unreadN(2)
         types = append(types, rt.parseResTableType())
       }
@@ -375,7 +369,7 @@ func (rt *ResTable) parseResTableType() *ResTableType {
 }
 
 func (rt *ResTable) parseResTableEntryConfig() *ResTableEntryConfig {
-  // 76个字节，目前只解析了56个字节
+  // 76个字节
   ret := &ResTableEntryConfig{
     Size:                  rt.readUint32(),
     Mcc:                   rt.readUint16(),
@@ -398,9 +392,8 @@ func (rt *ResTable) parseResTableEntryConfig() *ResTableEntryConfig {
     SmallestScreenWidthDp: rt.readUint16(),
     ScreenWidthDp:         rt.readUint16(),
     ScreenHeightDp:        rt.readUint16(),
+    Res0:                  rt.readN(20),
   }
-  // 跳过未解析的20个字节
-  rt.Seek(20, io.SeekCurrent)
   return ret
 }
 
@@ -412,7 +405,7 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
   var value *ResTableValue
   var parentRef, count uint32
   var values map[uint32]*ResTableValue
-  var valueOrders []uint32
+  var valuesOrder []uint32
   if flags&0x0001 == 0 {
     value = rt.parseResTableValue()
   } else {
@@ -420,11 +413,11 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
     count = rt.readUint32()
     if count > 0 && count < math.MaxUint32 {
       values = make(map[uint32]*ResTableValue, count)
-      valueOrders = make([]uint32, count)
+      valuesOrder = make([]uint32, count)
       for i := uint32(0); i < count; i++ {
         name := rt.readUint32()
         values[name] = rt.parseResTableValue()
-        valueOrders[i] = name
+        valuesOrder[i] = name
       }
     }
   }
@@ -437,7 +430,7 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
     ParentRef:   parentRef,
     Count:       count,
     Values:      values,
-    ValueOrders: valueOrders,
+    valuesOrder: valuesOrder,
   }
 }
 

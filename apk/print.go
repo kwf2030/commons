@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-  showXml()
-  // showResTable()
+  // showXml()
+  showResTable()
 }
 
 func showXml() {
@@ -31,7 +31,7 @@ func printXmlInfo(xml *Xml) {
   fmt.Println("Version:", xml.Type)
   fmt.Println("HeaderSize:", xml.HeaderSize)
   fmt.Println("Size:", xml.Size)
-  fmt.Println("NamespaceCount:", len(xml.Namespace))
+  fmt.Println("NamespaceCount:", len(xml.Namespaces))
   fmt.Println("TagCount:", len(xml.Tags))
   fmt.Println("========String Pool========")
   fmt.Println("Type:", xml.StrPool.Type)
@@ -51,16 +51,16 @@ func printXmlInfo(xml *Xml) {
   fmt.Println("Size:", xml.ResId.Size)
   fmt.Println("Count:", len(xml.ResId.Ids))
   for i := 0; i < 10; i++ {
-    if len(xml.Namespace) <= i {
+    if len(xml.Namespaces) <= i {
       continue
     }
     fmt.Println("========Namespace[" + strconv.Itoa(i) + "]========")
-    fmt.Println("Type:", xml.Namespace[i].Type)
-    fmt.Println("HeaderSize:", xml.Namespace[i].HeaderSize)
-    fmt.Println("Size:", xml.Namespace[i].Size)
-    fmt.Println("LineNumber:", xml.Namespace[i].LineNumber)
-    fmt.Println("Prefix:", xml.Namespace[i].Prefix, xml.StrPool.Strs[xml.Namespace[i].Prefix])
-    fmt.Println("Uri:", xml.Namespace[i].Uri, xml.StrPool.Strs[xml.Namespace[i].Uri])
+    fmt.Println("Type:", xml.Namespaces[i].Type)
+    fmt.Println("HeaderSize:", xml.Namespaces[i].HeaderSize)
+    fmt.Println("Size:", xml.Namespaces[i].Size)
+    fmt.Println("LineNumber:", xml.Namespaces[i].LineNumber)
+    fmt.Println("Prefix:", xml.Namespaces[i].Prefix, xml.StrPool.Strs[xml.Namespaces[i].Prefix])
+    fmt.Println("Uri:", xml.Namespaces[i].Uri, xml.StrPool.Strs[xml.Namespaces[i].Uri])
   }
   for i := 0; i < 10; i++ {
     if len(xml.Tags) <= i {
