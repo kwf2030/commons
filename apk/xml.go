@@ -45,17 +45,22 @@ type XmlTag struct {
   Res0         uint32
   NamespaceUri uint32
   Name         uint32
-  Flags        uint32
-  AttrCount    uint32
-  ClassAttr    uint32
+  AttrStart    uint16
+  AttrSize     uint16
+  AttrCount    uint16
+  IdIndex      uint16
+  ClassIndex   uint16
+  StyleIndex   uint16
   Attrs        []*XmlAttr
 }
 
 type XmlAttr struct {
   Namespace uint32
-  Uri       uint32
   Name      uint32
-  Value     uint32
+  RawValue  uint32
+  ValueSize uint16
+  Res0      uint8
+  DataType  uint8
   Data      uint32
 }
 
@@ -188,16 +193,19 @@ func (xml *Xml) parseXmlStartTag() *XmlTag {
   header := xml.parseXmlHeader()
   lineNumber := xml.readUint32()
   res0 := xml.readUint32()
-  uri := xml.readUint32()
+  namespaceUri := xml.readUint32()
   name := xml.readUint32()
-  flags := xml.readUint32()
-  attrCount := xml.readUint32()
-  classAttr := xml.readUint32()
+  attrStart := xml.readUint16()
+  attrSize := xml.readUint16()
+  attrCount := xml.readUint16()
+  idIndex := xml.readUint16()
+  classIndex := xml.readUint16()
+  styleIndex := xml.readUint16()
 
   var attrs []*XmlAttr
-  if attrCount > 0 && attrCount < math.MaxUint32 {
+  if attrCount > 0 && attrCount < math.MaxUint16 {
     attrs = make([]*XmlAttr, 0, attrCount)
-    for i := uint32(0); i < attrCount; i++ {
+    for i := uint16(0); i < attrCount; i++ {
       attrs = append(attrs, xml.parseXmlAttr())
     }
   }
@@ -206,11 +214,14 @@ func (xml *Xml) parseXmlStartTag() *XmlTag {
     XmlHeader:    header,
     LineNumber:   lineNumber,
     Res0:         res0,
-    NamespaceUri: uri,
+    NamespaceUri: namespaceUri,
     Name:         name,
-    Flags:        flags,
+    AttrStart:    attrStart,
+    AttrSize:     attrSize,
     AttrCount:    attrCount,
-    ClassAttr:    classAttr,
+    IdIndex:      idIndex,
+    ClassIndex:   classIndex,
+    StyleIndex:   styleIndex,
     Attrs:        attrs,
   }
 }
@@ -228,9 +239,11 @@ func (xml *Xml) parseXmlEndTag() *XmlTag {
 func (xml *Xml) parseXmlAttr() *XmlAttr {
   return &XmlAttr{
     Namespace: xml.readUint32(),
-    Uri:       xml.readUint32(),
     Name:      xml.readUint32(),
-    Value:     xml.readUint32() >> 24,
+    RawValue:  xml.readUint32(),
+    ValueSize: xml.readUint16(),
+    Res0:      xml.readUint8(),
+    DataType:  xml.readUint8(),
     Data:      xml.readUint32(),
   }
 }

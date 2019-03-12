@@ -3,6 +3,7 @@ package main
 import (
   "errors"
   "fmt"
+  "math"
   "runtime"
   "strconv"
 )
@@ -72,16 +73,40 @@ func printXmlInfo(xml *Xml) {
     fmt.Println("Size:", xml.Tags[i].Size)
     fmt.Println("LineNumber:", xml.Tags[i].LineNumber)
     fmt.Println("NamespaceUri:", xml.Tags[i].NamespaceUri)
-    fmt.Println("Name:", xml.Tags[i].Name)
-    fmt.Println("Flags:", xml.Tags[i].Flags)
+    name := xml.Tags[i].Name
+    if name > 0 && name < math.MaxUint32 {
+      fmt.Println("Name:", name, xml.StrPool.Strs[name])
+    } else {
+      fmt.Println("Name:", name)
+    }
+    fmt.Println("AttrStart:", xml.Tags[i].AttrStart)
+    fmt.Println("AttrSize:", xml.Tags[i].AttrSize)
     fmt.Println("AttrCount:", xml.Tags[i].AttrCount)
-    fmt.Println("ClassAttr:", xml.Tags[i].ClassAttr)
+    fmt.Println("IdIndex:", xml.Tags[i].IdIndex)
+    fmt.Println("ClassIndex:", xml.Tags[i].ClassIndex)
+    fmt.Println("StyleIndex:", xml.Tags[i].StyleIndex)
     for i, v := range xml.Tags[i].Attrs {
       fmt.Println("============Attrs[" + strconv.Itoa(i) + "]============")
-      fmt.Println("Namespace", v.Namespace)
-      fmt.Println("Uri:", v.Uri)
-      fmt.Println("Name:", v.Name)
-      fmt.Println("Value:", v.Value)
+      ns := v.Namespace
+      if ns > 0 && ns < math.MaxUint32 {
+        fmt.Println("Namespace:", ns, xml.StrPool.Strs[ns])
+      } else {
+        fmt.Println("Namespace:", ns)
+      }
+      name2 := v.Name
+      if name2 > 0 && name2 < math.MaxUint32 {
+        fmt.Println("Name:", name2, xml.StrPool.Strs[name2])
+      } else {
+        fmt.Println("Name:", name2)
+      }
+      rawValue := v.RawValue
+      if rawValue > 0 && rawValue < math.MaxUint32 {
+        fmt.Println("RawValue:", rawValue, xml.StrPool.Strs[rawValue])
+      } else {
+        fmt.Println("RawValue:", rawValue)
+      }
+      fmt.Println("ValueSize:", v.ValueSize)
+      fmt.Println("DataType:", v.DataType)
       fmt.Println("Data:", v.Data)
     }
   }
