@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-  // showXml()
-  showResTable()
+  showXml()
+  // showResTable()
 }
 
 func showXml() {

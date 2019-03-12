@@ -285,20 +285,22 @@ func (rt *ResTable) parseResTablePackage() *ResTablePackage {
   keyStrPool := rt.parseResTableStrPool()
 
   var typeSpecs []*ResTableTypeSpec
-  var types []*ResTableType
   if typeCount > 0 && typeCount < math.MaxUint32 {
     typeSpecs = make([]*ResTableTypeSpec, 0, typeCount)
-    types = make([]*ResTableType, 0, typeCount)
-    e := s + header.Size
-    for rt.pos() < e {
-      switch rt.readUint16() {
-      case 0x0202:
-        rt.unreadN(2)
-        typeSpecs = append(typeSpecs, rt.parseResTableTypeSpec())
-      case 0x0201:
-        rt.unreadN(2)
-        types = append(types, rt.parseResTableType())
-      }
+  }
+  var types []*ResTableType
+  if keyCount > 0 && keyCount < math.MaxUint32 {
+    types = make([]*ResTableType, 0, keyCount)
+  }
+  e := s + header.Size
+  for rt.pos() < e {
+    switch rt.readUint16() {
+    case 514:
+      rt.unreadN(2)
+      typeSpecs = append(typeSpecs, rt.parseResTableTypeSpec())
+    case 513:
+      rt.unreadN(2)
+      types = append(types, rt.parseResTableType())
     }
   }
 

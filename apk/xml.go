@@ -84,13 +84,13 @@ func ParseXml(file string) *Xml {
   xml.Tags = make([]*XmlTag, 0, 4096)
   for xml.pos() < xml.Size {
     switch xml.readUint16() {
-    case 0x102:
+    case 258:
       xml.unreadN(2)
       xml.Tags = append(xml.Tags, xml.parseXmlStartTag())
-    case 0x103:
+    case 259:
       xml.unreadN(2)
       xml.Tags = append(xml.Tags, xml.parseXmlEndTag())
-    case 0x0100, 0x0101:
+    case 256, 257:
       xml.unreadN(2)
       xml.Namespaces = append(xml.Namespaces, xml.parseXmlNamespace())
     }
