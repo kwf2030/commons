@@ -204,9 +204,9 @@ func (xml *Xml) parseXmlStartTag() *XmlTag {
 
   var attrs []*XmlAttr
   if attrCount > 0 && attrCount < math.MaxUint16 {
-    attrs = make([]*XmlAttr, 0, attrCount)
+    attrs = make([]*XmlAttr, attrCount)
     for i := uint16(0); i < attrCount; i++ {
-      attrs = append(attrs, xml.parseXmlAttr())
+      attrs[i] = xml.parseXmlAttr()
     }
   }
 
