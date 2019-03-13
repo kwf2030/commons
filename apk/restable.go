@@ -40,7 +40,7 @@ type ResTableStrPool struct {
   // 字符串样式偏移数组，长度为StyleCount
   StyleOffsets []uint32
 
-  // 字符串，每个字符串前两个字节为长度，
+  // 字符串，长度为StrCount，每个字符串前两个字节为该字符串长度，
   // 若是UTF-8编码，以0x00（1个字节）作为结束符，
   // 若是UTF-16编码，以0x0000（2个字节）作为结束符
   Strs []string
@@ -122,7 +122,7 @@ type ResTableType struct {
   // 资源项偏移数组，长度为EntryCount
   EntryOffsets []uint32
 
-  // 资源项
+  // 资源项，长度为EntryCount
   Entries []*ResTableEntry
 }
 
@@ -183,8 +183,7 @@ type ResTable struct {
   // 全局字符串池
   StrPool *ResTableStrPool
 
-  // 资源包，
-  // len(Packages)=PackageCount
+  // 资源包，长度为PackageCount
   Packages []*ResTablePackage
 }
 
