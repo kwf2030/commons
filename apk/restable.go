@@ -154,10 +154,9 @@ type ResTableEntryConfig struct {
 }
 
 type ResTableEntry struct {
-  // 表示该Entry遍历时的位置（非协议字段）
-  Index uint32
-
-  Size      uint16
+  Size uint16
+  // Flags&0x0001==0，Value有值，
+  // 否则，ParentRef/Count/Values有值
   Flags     uint16
   Key       uint32
   Value     *ResTableValue
@@ -202,9 +201,9 @@ func ParseResTable(file string) *ResTable {
   rt.PackageCount = rt.readUint32()
   rt.StrPool = rt.parseResTableStrPool()
   if rt.PackageCount > 0 && rt.PackageCount < math.MaxUint32 {
-    rt.Packages = make([]*ResTablePackage, 0, rt.PackageCount)
+    rt.Packages = make([]*ResTablePackage, rt.PackageCount)
     for i := uint32(0); i < rt.PackageCount; i++ {
-      rt.Packages = append(rt.Packages, rt.parseResTablePackage())
+      rt.Packages[i] = rt.parseResTablePackage()
     }
   }
   return rt
@@ -351,12 +350,10 @@ func (rt *ResTable) parseResTableType() *ResTableType {
 
   var entries []*ResTableEntry
   if entryCount > 0 && entryCount < math.MaxUint32 {
-    entries = make([]*ResTableEntry, 0, entryCount)
+    entries = make([]*ResTableEntry, entryCount)
     for i := uint32(0); i < entryCount; i++ {
       if entryOffsets[i] > 0 && entryOffsets[i] < math.MaxUint32 {
-        entry := rt.parseResTableEntry()
-        entry.Index = i
-        entries = append(entries, entry)
+        entries[i] = rt.parseResTableEntry()
       }
     }
   }
@@ -408,27 +405,28 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
   flags := rt.readUint16()
   key := rt.readUint32()
 
-  var value *ResTableValue
-  var parentRef, count uint32
-  var values map[uint32]*ResTableValue
   if flags&0x0001 == 0 {
-    value = rt.parseResTableValue()
-  } else {
-    parentRef = rt.readUint32()
-    count = rt.readUint32()
-    if count > 0 && count < math.MaxUint32 {
-      values = make(map[uint32]*ResTableValue, count)
-      for i := uint32(0); i < count; i++ {
-        values[rt.readUint32()] = rt.parseResTableValue()
-      }
+    return &ResTableEntry{
+      Size:  size,
+      Flags: flags,
+      Key:   key,
+      Value: rt.parseResTableValue(),
     }
   }
 
+  parentRef := rt.readUint32()
+  count := rt.readUint32()
+  var values map[uint32]*ResTableValue
+  if count > 0 && count < math.MaxUint32 {
+    values = make(map[uint32]*ResTableValue, count)
+    for i := uint32(0); i < count; i++ {
+      values[rt.readUint32()] = rt.parseResTableValue()
+    }
+  }
   return &ResTableEntry{
     Size:      size,
     Flags:     flags,
     Key:       key,
-    Value:     value,
     ParentRef: parentRef,
     Count:     count,
     Values:    values,
