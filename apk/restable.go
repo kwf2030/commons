@@ -154,14 +154,16 @@ type ResTableEntryConfig struct {
 }
 
 type ResTableEntry struct {
-  Size        uint16
-  Flags       uint16
-  Key         uint32
-  Value       *ResTableValue
-  ParentRef   uint32
-  Count       uint32
-  Values      map[uint32]*ResTableValue
-  valuesOrder []uint32
+  // 表示该Entry遍历时的位置（非协议字段）
+  Index uint32
+
+  Size      uint16
+  Flags     uint16
+  Key       uint32
+  Value     *ResTableValue
+  ParentRef uint32
+  Count     uint32
+  Values    map[uint32]*ResTableValue
 }
 
 type ResTableValue struct {
@@ -352,7 +354,9 @@ func (rt *ResTable) parseResTableType() *ResTableType {
     entries = make([]*ResTableEntry, 0, entryCount)
     for i := uint32(0); i < entryCount; i++ {
       if entryOffsets[i] > 0 && entryOffsets[i] < math.MaxUint32 {
-        entries = append(entries, rt.parseResTableEntry())
+        entry := rt.parseResTableEntry()
+        entry.Index = i
+        entries = append(entries, entry)
       }
     }
   }
@@ -407,7 +411,6 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
   var value *ResTableValue
   var parentRef, count uint32
   var values map[uint32]*ResTableValue
-  var valuesOrder []uint32
   if flags&0x0001 == 0 {
     value = rt.parseResTableValue()
   } else {
@@ -415,24 +418,20 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
     count = rt.readUint32()
     if count > 0 && count < math.MaxUint32 {
       values = make(map[uint32]*ResTableValue, count)
-      valuesOrder = make([]uint32, count)
       for i := uint32(0); i < count; i++ {
-        name := rt.readUint32()
-        values[name] = rt.parseResTableValue()
-        valuesOrder[i] = name
+        values[rt.readUint32()] = rt.parseResTableValue()
       }
     }
   }
 
   return &ResTableEntry{
-    Size:        size,
-    Flags:       flags,
-    Key:         key,
-    Value:       value,
-    ParentRef:   parentRef,
-    Count:       count,
-    Values:      values,
-    valuesOrder: valuesOrder,
+    Size:      size,
+    Flags:     flags,
+    Key:       key,
+    Value:     value,
+    ParentRef: parentRef,
+    Count:     count,
+    Values:    values,
   }
 }
 
@@ -444,23 +443,3 @@ func (rt *ResTable) parseResTableValue() *ResTableValue {
     Data:     rt.readUint32(),
   }
 }
-
-/*type ResStrStyle struct {
-  Ref   ResStrRef
-  Spans []ResStrSpan
-}
-
-type ResStrRef struct {
-  Index uint32
-}
-
-type ResStrSpan struct {
-  // 样式字符串在字符串池中的偏移
-  Name ResStrRef
-
-  // 应用样式的第一个字符
-  FirstChar uint32
-
-  // 应用样式的最后一个字符
-  LastChar uint32
-}*/
