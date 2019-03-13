@@ -11,6 +11,24 @@ import (
 func main() {
   // showXml()
   showResTable()
+  //showResTable2()
+}
+
+func showResTable2() {
+  var file string
+  switch runtime.GOOS {
+  case "windows":
+    file = "C:\\Users\\WangFeng\\Desktop\\resources.arsc"
+  case "linux":
+    file = "/home/wangfeng/workspace/wechat/raw/resources.arsc"
+  default:
+    panic(errors.New("os not supported"))
+  }
+  rt := ParseResTable(file)
+  rt2 := NewResTable2(rt)
+  for k, v := range rt2.Entries {
+    fmt.Println(k, v)
+  }
 }
 
 func showXml() {
