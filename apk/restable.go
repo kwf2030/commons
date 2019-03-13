@@ -116,7 +116,7 @@ type ResTableType struct {
   EntryStart uint32
 
   // 配置描述
-  EntryConfig *ResTableEntryConfig
+  Config *ResTableConfig
 
   // 资源项偏移数组，长度为EntryCount
   EntryOffsets []uint32
@@ -125,7 +125,7 @@ type ResTableType struct {
   Entries []*ResTableEntry
 }
 
-type ResTableEntryConfig struct {
+type ResTableConfig struct {
   Size                  uint32
   Mcc                   uint16
   Mnc                   uint16
@@ -195,19 +195,19 @@ func ParseResTable(file string) *ResTable {
     return nil
   }
   rt := &ResTable{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}}
-  rt.ResTableHeader = rt.parseResTableHeader()
+  rt.ResTableHeader = rt.parseHeader()
   rt.PackageCount = rt.readUint32()
-  rt.StrPool = rt.parseResTableStrPool()
+  rt.StrPool = rt.parseStrPool()
   if rt.PackageCount > 0 && rt.PackageCount < math.MaxUint32 {
     rt.Packages = make([]*ResTablePackage, rt.PackageCount)
     for i := uint32(0); i < rt.PackageCount; i++ {
-      rt.Packages[i] = rt.parseResTablePackage()
+      rt.Packages[i] = rt.parsePackage()
     }
   }
   return rt
 }
 
-func (rt *ResTable) parseResTableHeader() *ResTableHeader {
+func (rt *ResTable) parseHeader() *ResTableHeader {
   return &ResTableHeader{
     Type:       rt.readUint16(),
     HeaderSize: rt.readUint16(),
@@ -215,9 +215,9 @@ func (rt *ResTable) parseResTableHeader() *ResTableHeader {
   }
 }
 
-func (rt *ResTable) parseResTableStrPool() *ResTableStrPool {
+func (rt *ResTable) parseStrPool() *ResTableStrPool {
   s := rt.pos()
-  header := rt.parseResTableHeader()
+  header := rt.parseHeader()
   strCount := rt.readUint32()
   styleCount := rt.readUint32()
   flags := rt.readUint32()
@@ -265,9 +265,9 @@ func (rt *ResTable) parseResTableStrPool() *ResTableStrPool {
   }
 }
 
-func (rt *ResTable) parseResTablePackage() *ResTablePackage {
+func (rt *ResTable) parsePackage() *ResTablePackage {
   s := rt.pos()
-  header := rt.parseResTableHeader()
+  header := rt.parseHeader()
   id := rt.readUint32()
   // 包名是固定的256个字节，不足的会填充0，
   // UTF-16编码，每2个字节表示一个字符，所以字符之间会有0，需要去掉
@@ -283,8 +283,8 @@ func (rt *ResTable) parseResTablePackage() *ResTablePackage {
   keyStrPoolStart := rt.readUint32()
   keyCount := rt.readUint32()
   res0 := rt.readUint32()
-  typeStrPool := rt.parseResTableStrPool()
-  keyStrPool := rt.parseResTableStrPool()
+  typeStrPool := rt.parseStrPool()
+  keyStrPool := rt.parseStrPool()
 
   var typeSpecs []*ResTableTypeSpec
   if typeCount > 0 && typeCount < math.MaxUint32 {
@@ -299,10 +299,10 @@ func (rt *ResTable) parseResTablePackage() *ResTablePackage {
     switch rt.readUint16() {
     case 514:
       rt.unreadN(2)
-      typeSpecs = append(typeSpecs, rt.parseResTableTypeSpec())
+      typeSpecs = append(typeSpecs, rt.parseTypeSpec())
     case 513:
       rt.unreadN(2)
-      types = append(types, rt.parseResTableType())
+      types = append(types, rt.parseType())
     }
   }
 
@@ -322,8 +322,8 @@ func (rt *ResTable) parseResTablePackage() *ResTablePackage {
   }
 }
 
-func (rt *ResTable) parseResTableTypeSpec() *ResTableTypeSpec {
-  header := rt.parseResTableHeader()
+func (rt *ResTable) parseTypeSpec() *ResTableTypeSpec {
+  header := rt.parseHeader()
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
@@ -339,14 +339,14 @@ func (rt *ResTable) parseResTableTypeSpec() *ResTableTypeSpec {
   }
 }
 
-func (rt *ResTable) parseResTableType() *ResTableType {
-  header := rt.parseResTableHeader()
+func (rt *ResTable) parseType() *ResTableType {
+  header := rt.parseHeader()
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
   entryCount := rt.readUint32()
   entryStart := rt.readUint32()
-  entryConfig := rt.parseResTableEntryConfig()
+  config := rt.parseConfig()
   entryOffsets := rt.readUint32Array(entryCount)
 
   var entries []*ResTableEntry
@@ -354,7 +354,7 @@ func (rt *ResTable) parseResTableType() *ResTableType {
     entries = make([]*ResTableEntry, entryCount)
     for i := uint32(0); i < entryCount; i++ {
       if entryOffsets[i] > 0 && entryOffsets[i] < math.MaxUint32 {
-        entries[i] = rt.parseResTableEntry()
+        entries[i] = rt.parseEntry()
       }
     }
   }
@@ -366,15 +366,15 @@ func (rt *ResTable) parseResTableType() *ResTableType {
     Res1:           res1,
     EntryCount:     entryCount,
     EntryStart:     entryStart,
-    EntryConfig:    entryConfig,
+    Config:         config,
     EntryOffsets:   entryOffsets,
     Entries:        entries,
   }
 }
 
-func (rt *ResTable) parseResTableEntryConfig() *ResTableEntryConfig {
+func (rt *ResTable) parseConfig() *ResTableConfig {
   // 76个字节
-  ret := &ResTableEntryConfig{
+  ret := &ResTableConfig{
     Size:                  rt.readUint32(),
     Mcc:                   rt.readUint16(),
     Mnc:                   rt.readUint16(),
@@ -401,7 +401,7 @@ func (rt *ResTable) parseResTableEntryConfig() *ResTableEntryConfig {
   return ret
 }
 
-func (rt *ResTable) parseResTableEntry() *ResTableEntry {
+func (rt *ResTable) parseEntry() *ResTableEntry {
   size := rt.readUint16()
   flags := rt.readUint16()
   key := rt.readUint32()
@@ -411,7 +411,7 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
       Size:  size,
       Flags: flags,
       Key:   key,
-      Value: rt.parseResTableValue(),
+      Value: rt.parseValue(),
     }
   }
 
@@ -421,7 +421,7 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
   if count > 0 && count < math.MaxUint32 {
     values = make(map[uint32]*ResTableValue, count)
     for i := uint32(0); i < count; i++ {
-      values[rt.readUint32()] = rt.parseResTableValue()
+      values[rt.readUint32()] = rt.parseValue()
     }
   }
   return &ResTableEntry{
@@ -434,7 +434,7 @@ func (rt *ResTable) parseResTableEntry() *ResTableEntry {
   }
 }
 
-func (rt *ResTable) parseResTableValue() *ResTableValue {
+func (rt *ResTable) parseValue() *ResTableValue {
   return &ResTableValue{
     Size:     rt.readUint16(),
     Res0:     rt.readUint8(),

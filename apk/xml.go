@@ -81,28 +81,28 @@ func ParseXml(file string) *Xml {
     return nil
   }
   xml := &Xml{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}}
-  xml.XmlHeader = xml.parseXmlHeader()
-  xml.StrPool = xml.parseXmlStrPool()
-  xml.ResId = xml.parseXmlResId()
+  xml.XmlHeader = xml.parseHeader()
+  xml.StrPool = xml.parseStrPool()
+  xml.ResId = xml.parseResId()
   xml.Namespaces = make([]*XmlNamespace, 0, 4)
   xml.Tags = make([]*XmlTag, 0, 4096)
   for xml.pos() < xml.Size {
     switch xml.readUint16() {
     case 258:
       xml.unreadN(2)
-      xml.Tags = append(xml.Tags, xml.parseXmlStartTag())
+      xml.Tags = append(xml.Tags, xml.parseStartTag())
     case 259:
       xml.unreadN(2)
-      xml.Tags = append(xml.Tags, xml.parseXmlEndTag())
+      xml.Tags = append(xml.Tags, xml.parseEndTag())
     case 256, 257:
       xml.unreadN(2)
-      xml.Namespaces = append(xml.Namespaces, xml.parseXmlNamespace())
+      xml.Namespaces = append(xml.Namespaces, xml.parseNamespace())
     }
   }
   return xml
 }
 
-func (xml *Xml) parseXmlHeader() *XmlHeader {
+func (xml *Xml) parseHeader() *XmlHeader {
   return &XmlHeader{
     Type:       xml.readUint16(),
     HeaderSize: xml.readUint16(),
@@ -110,9 +110,9 @@ func (xml *Xml) parseXmlHeader() *XmlHeader {
   }
 }
 
-func (xml *Xml) parseXmlStrPool() *XmlStrPool {
+func (xml *Xml) parseStrPool() *XmlStrPool {
   s := xml.pos()
-  header := xml.parseXmlHeader()
+  header := xml.parseHeader()
   strCount := xml.readUint32()
   styleCount := xml.readUint32()
   flags := xml.readUint32()
@@ -167,8 +167,8 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
   }
 }
 
-func (xml *Xml) parseXmlResId() *XmlResId {
-  header := xml.parseXmlHeader()
+func (xml *Xml) parseResId() *XmlResId {
+  header := xml.parseHeader()
   ids := xml.readUint32Array((header.Size - 8) / 4)
   return &XmlResId{
     XmlHeader: header,
@@ -176,8 +176,8 @@ func (xml *Xml) parseXmlResId() *XmlResId {
   }
 }
 
-func (xml *Xml) parseXmlNamespace() *XmlNamespace {
-  header := xml.parseXmlHeader()
+func (xml *Xml) parseNamespace() *XmlNamespace {
+  header := xml.parseHeader()
   lineNumber := xml.readUint32()
   res0 := xml.readUint32()
   prefix := xml.readUint32()
@@ -191,8 +191,8 @@ func (xml *Xml) parseXmlNamespace() *XmlNamespace {
   }
 }
 
-func (xml *Xml) parseXmlStartTag() *XmlTag {
-  header := xml.parseXmlHeader()
+func (xml *Xml) parseStartTag() *XmlTag {
+  header := xml.parseHeader()
   lineNumber := xml.readUint32()
   res0 := xml.readUint32()
   namespaceUri := xml.readUint32()
@@ -208,7 +208,7 @@ func (xml *Xml) parseXmlStartTag() *XmlTag {
   if attrCount > 0 && attrCount < math.MaxUint16 {
     attrs = make([]*XmlAttr, attrCount)
     for i := uint16(0); i < attrCount; i++ {
-      attrs[i] = xml.parseXmlAttr()
+      attrs[i] = xml.parseAttr()
     }
   }
 
@@ -228,9 +228,9 @@ func (xml *Xml) parseXmlStartTag() *XmlTag {
   }
 }
 
-func (xml *Xml) parseXmlEndTag() *XmlTag {
+func (xml *Xml) parseEndTag() *XmlTag {
   return &XmlTag{
-    XmlHeader:    xml.parseXmlHeader(),
+    XmlHeader:    xml.parseHeader(),
     LineNumber:   xml.readUint32(),
     Res0:         xml.readUint32(),
     NamespaceUri: xml.readUint32(),
@@ -238,7 +238,7 @@ func (xml *Xml) parseXmlEndTag() *XmlTag {
   }
 }
 
-func (xml *Xml) parseXmlAttr() *XmlAttr {
+func (xml *Xml) parseAttr() *XmlAttr {
   return &XmlAttr{
     Namespace: xml.readUint32(),
     Name:      xml.readUint32(),
