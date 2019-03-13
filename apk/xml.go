@@ -2,7 +2,6 @@ package main
 
 import (
   "bytes"
-  "io"
   "io/ioutil"
   "math"
 )
@@ -23,7 +22,7 @@ type XmlStrPool struct {
   StrOffsets   []uint32
   StyleOffsets []uint32
   Strs         []string
-  Styles       []string
+  Styles       []byte
 }
 
 type XmlResId struct {
@@ -149,7 +148,10 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
   }
 
   // todo 样式解析
-  xml.Seek(int64(s+header.Size), io.SeekStart)
+  var styles []byte
+  if styleCount > 0 && styleCount < math.MaxUint32 {
+    styles = xml.slice(s+styleStart, s+header.Size)
+  }
 
   return &XmlStrPool{
     XmlHeader:    header,
@@ -161,7 +163,7 @@ func (xml *Xml) parseXmlStrPool() *XmlStrPool {
     StrOffsets:   strOffsets,
     StyleOffsets: styleOffsets,
     Strs:         strs,
-    Styles:       nil,
+    Styles:       styles,
   }
 }
 

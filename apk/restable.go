@@ -2,7 +2,6 @@ package main
 
 import (
   "bytes"
-  "io"
   "io/ioutil"
   "math"
 )
@@ -45,7 +44,7 @@ type ResTableStrPool struct {
   // 若是UTF-16编码，以0x0000（2个字节）作为结束符
   Strs []string
 
-  Styles []string
+  Styles []byte
 }
 
 type ResTablePackage struct {
@@ -247,7 +246,10 @@ func (rt *ResTable) parseResTableStrPool() *ResTableStrPool {
   }
 
   // todo 样式解析
-  rt.Seek(int64(s+header.Size), io.SeekStart)
+  var styles []byte
+  if styleCount > 0 && styleCount < math.MaxUint32 {
+    styles = rt.slice(s+styleStart, s+header.Size)
+  }
 
   return &ResTableStrPool{
     ResTableHeader: header,
@@ -259,7 +261,7 @@ func (rt *ResTable) parseResTableStrPool() *ResTableStrPool {
     StrOffsets:     strOffsets,
     StyleOffsets:   styleOffsets,
     Strs:           strs,
-    Styles:         nil,
+    Styles:         styles,
   }
 }
 
