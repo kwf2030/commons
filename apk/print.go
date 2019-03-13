@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-  showXml()
-  // showResTable()
+  // showXml()
+  showResTable()
 }
 
 func showXml() {
@@ -74,7 +74,7 @@ func printXmlInfo(xml *Xml) {
     fmt.Println("LineNumber:", xml.Tags[i].LineNumber)
     fmt.Println("NamespaceUri:", xml.Tags[i].NamespaceUri)
     name := xml.Tags[i].Name
-    if name > 0 && name < math.MaxUint32 {
+    if name < math.MaxUint32 {
       fmt.Println("Name:", name, xml.StrPool.Strs[name])
     } else {
       fmt.Println("Name:", name)
@@ -88,26 +88,33 @@ func printXmlInfo(xml *Xml) {
     for i, v := range xml.Tags[i].Attrs {
       fmt.Println("============Attrs[" + strconv.Itoa(i) + "]============")
       ns := v.Namespace
-      if ns > 0 && ns < math.MaxUint32 {
+      if ns < math.MaxUint32 {
         fmt.Println("Namespace:", ns, xml.StrPool.Strs[ns])
       } else {
         fmt.Println("Namespace:", ns)
       }
       name2 := v.Name
-      if name2 > 0 && name2 < math.MaxUint32 {
+      if name2 < math.MaxUint32 {
         fmt.Println("Name:", name2, xml.StrPool.Strs[name2])
       } else {
         fmt.Println("Name:", name2)
       }
-      rawValue := v.RawValue
-      if rawValue > 0 && rawValue < math.MaxUint32 {
-        fmt.Println("RawValue:", rawValue, xml.StrPool.Strs[rawValue])
-      } else {
-        fmt.Println("RawValue:", rawValue)
-      }
+      fmt.Println("RawValue:", v.RawValue)
       fmt.Println("ValueSize:", v.ValueSize)
-      fmt.Println("DataType:", v.DataType)
-      fmt.Println("Data:", v.Data)
+      dt := v.DataType
+      fmt.Println("DataType:", dt)
+      switch data := v.Data; dt {
+      case 3:
+        if data < math.MaxUint32 {
+          fmt.Println("Data:", data, xml.StrPool.Strs[data])
+        } else {
+          fmt.Println("Data:", data)
+        }
+      case 16:
+        fmt.Println("Data:", data)
+      case 18:
+        fmt.Println("Data:", data != 0)
+      }
     }
   }
 }
@@ -180,9 +187,9 @@ func printResTableInfo(rt *ResTable) {
     fmt.Println("Id:", v.Id)
     fmt.Println("EntryCount:", v.EntryCount)
     fmt.Println("EntryStart:", v.EntryStart)
-    fmt.Println("EntryConfigSize:", v.EntryConfig.Size)
+    fmt.Println("ConfigSize:", v.Config.Size)
     for j := 0; j < 5; j++ {
-      if len(v.Entries) <= j {
+      if len(v.Entries) <= j || v.Entries[j] == nil {
         continue
       }
       fmt.Println("================Entries[" + strconv.Itoa(j) + "]==============")
