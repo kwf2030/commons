@@ -32,6 +32,9 @@ func (rt2 *ResTable2) CollectEntries() map[int]*ResTableEntry2 {
   for _, pkg := range rt2.Packages {
     for _, tp := range pkg.Types {
       for i, entry := range tp.Entries {
+        if entry == nil {
+          continue
+        }
         item := &ResTableEntry2{
           Id:       int(pkg.Id)<<24 | int(tp.Id)<<16 | i,
           PkgName:  pkg.Name,

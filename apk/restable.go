@@ -148,7 +148,7 @@ type ResTableConfig struct {
   ScreenWidthDp         uint16
   ScreenHeightDp        uint16
 
-  // 剩余20个字节未解析
+  // 剩余未解析的字节
   Res0 []byte
 }
 
@@ -172,7 +172,7 @@ type ResTableValue struct {
 }
 
 type ResTable struct {
-  *bytesReader
+  *bytesReader `json:"-"`
 
   *ResTableHeader
 
@@ -287,12 +287,10 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
   keyStrPool := rt.parseStrPool()
 
   var typeSpecs []*ResTableTypeSpec
+  var types []*ResTableType
   if typeCount > 0 && typeCount < math.MaxUint32 {
     typeSpecs = make([]*ResTableTypeSpec, 0, typeCount)
-  }
-  var types []*ResTableType
-  if keyCount > 0 && keyCount < math.MaxUint32 {
-    types = make([]*ResTableType, 0, keyCount)
+    types = make([]*ResTableType, 0, 256)
   }
   e := s + header.Size
   for rt.pos() < e {
@@ -353,6 +351,7 @@ func (rt *ResTable) parseType() *ResTableType {
   if entryCount > 0 && entryCount < math.MaxUint32 {
     entries = make([]*ResTableEntry, entryCount)
     for i := uint32(0); i < entryCount; i++ {
+      // 遍历时注意entries的元素可能为nil
       if entryOffsets[i] > 0 && entryOffsets[i] < math.MaxUint32 {
         entries[i] = rt.parseEntry()
       }
@@ -373,9 +372,12 @@ func (rt *ResTable) parseType() *ResTableType {
 }
 
 func (rt *ResTable) parseConfig() *ResTableConfig {
-  // 76个字节
+  // ResTableConfig一共56个字节，
+  // 目前只解析了36个字节，未解析的Res0是20个字节
+  s := rt.pos()
+  size := rt.readUint32()
   ret := &ResTableConfig{
-    Size:                  rt.readUint32(),
+    Size:                  size,
     Mcc:                   rt.readUint16(),
     Mnc:                   rt.readUint16(),
     Language:              rt.readUint16(),
@@ -396,7 +398,7 @@ func (rt *ResTable) parseConfig() *ResTableConfig {
     SmallestScreenWidthDp: rt.readUint16(),
     ScreenWidthDp:         rt.readUint16(),
     ScreenHeightDp:        rt.readUint16(),
-    Res0:                  rt.readN(20),
+    Res0:                  rt.slice(rt.pos(), s+size),
   }
   return ret
 }

@@ -64,7 +64,7 @@ type XmlAttr struct {
 }
 
 type Xml struct {
-  *bytesReader
+  *bytesReader `json:"-"`
   *XmlHeader
   StrPool    *XmlStrPool
   ResId      *XmlResId
