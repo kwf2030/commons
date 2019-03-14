@@ -54,13 +54,13 @@ type XmlTag struct {
 }
 
 type XmlAttr struct {
-  Namespace uint32
-  Name      uint32
-  RawValue  uint32
-  ValueSize uint16
-  Res0      uint8
-  DataType  uint8
-  Data      uint32
+  NamespaceUri uint32
+  Name         uint32
+  RawValue     uint32
+  ValueSize    uint16
+  Res0         uint8
+  DataType     uint8
+  Data         uint32
 }
 
 type Xml struct {
@@ -240,12 +240,12 @@ func (xml *Xml) parseEndTag() *XmlTag {
 
 func (xml *Xml) parseAttr() *XmlAttr {
   return &XmlAttr{
-    Namespace: xml.readUint32(),
-    Name:      xml.readUint32(),
-    RawValue:  xml.readUint32(),
-    ValueSize: xml.readUint16(),
-    Res0:      xml.readUint8(),
-    DataType:  xml.readUint8(),
-    Data:      xml.readUint32(),
+    NamespaceUri: xml.readUint32(),
+    Name:         xml.readUint32(),
+    RawValue:     xml.readUint32(),
+    ValueSize:    xml.readUint16(),
+    Res0:         xml.readUint8(),
+    DataType:     xml.readUint8(),
+    Data:         xml.readUint32(),
   }
 }
