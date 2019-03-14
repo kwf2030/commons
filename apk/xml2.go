@@ -45,11 +45,13 @@ func (xml2 *Xml2) CollectTags() []*XmlTag2 {
       continue
     }
     attrs := make([]string, tag.AttrCount)
-    for _, attr := range tag.Attrs {
+    for i, attr := range tag.Attrs {
       attrName := xml2.StrPool.Strs[attr.Name]
       if attr.NamespaceUri < math.MaxUint32 {
         attrName = xml2.NamespacePrefixes[attr.NamespaceUri] + ":" + attrName
       }
+      attrVal := xml2.parseData(attr.DataType, attr.Data)
+      attrs[i] = attrName + "=" + attrVal
     }
     ret = append(ret, &XmlTag2{Name: tagName, Attrs: attrs})
   }
