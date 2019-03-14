@@ -10,8 +10,9 @@ import (
 
 func main() {
   // debugResTable()
-  debugResTable2()
+  // debugResTable2()
   // debugXml()
+  debugXml2()
 }
 
 func debugResTable() {
@@ -78,6 +79,30 @@ func debugXml() {
       panic(e)
     }
     e = ioutil.WriteFile("C:\\Users\\WangFeng\\Desktop\\xml.json", data, os.ModePerm)
+    if e != nil {
+      panic(e)
+    }
+  }
+}
+
+func debugXml2() {
+  var file string
+  switch runtime.GOOS {
+  case "windows":
+    file = "C:\\Users\\WangFeng\\Desktop\\AndroidManifest.xml"
+  case "linux":
+    file = "/home/wangfeng/workspace/wechat/raw/AndroidManifest.xml"
+  default:
+    panic(errors.New("os not supported"))
+  }
+  xml := ParseXml(file)
+  if xml != nil {
+    xml2 := NewXml2(xml)
+    data, e := json.Marshal(xml2)
+    if e != nil {
+      panic(e)
+    }
+    e = ioutil.WriteFile("C:\\Users\\WangFeng\\Desktop\\xml2.json", data, os.ModePerm)
     if e != nil {
       panic(e)
     }

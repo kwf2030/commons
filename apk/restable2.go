@@ -42,12 +42,12 @@ func (rt2 *ResTable2) CollectEntries() map[uint32]*ResTableEntry2 {
         }
         item.Name = item.TypeName + "/" + item.KeyName
         if entry.Flags&0x0001 == 0 {
-          item.Value = rt2.parseData(entry.Value)
+          item.Value = rt2.parseData(entry.Value.DataType, entry.Value.Data)
         } else {
           if entry.Count > 0 && entry.Count < math.MaxUint32 {
             item.Values = make(map[uint32]string, entry.Count)
             for k, v := range entry.Values {
-              item.Values[k] = rt2.parseData(v)
+              item.Values[k] = rt2.parseData(v.DataType, v.Data)
             }
           }
         }
@@ -58,16 +58,16 @@ func (rt2 *ResTable2) CollectEntries() map[uint32]*ResTableEntry2 {
   return ret
 }
 
-func (rt2 *ResTable2) parseData(value *ResTableValue) string {
-  switch value.DataType {
+func (rt2 *ResTable2) parseData(dataType uint8, data uint32) string {
+  switch dataType {
   case 3:
-    if value.Data < math.MaxUint32 {
-      return rt2.StrPool.Strs[value.Data]
+    if data < math.MaxUint32 {
+      return rt2.StrPool.Strs[data]
     }
   case 16:
-    return strconv.Itoa(int(value.Data))
+    return strconv.Itoa(int(data))
   case 18:
-    if value.Data == 0 {
+    if data == 0 {
       return "false"
     }
     return "true"
