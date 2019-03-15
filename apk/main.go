@@ -7,8 +7,6 @@ import (
   "path"
 )
 
-var dir = path.Join(os.Getenv("GOPATH"), "src", "github.com", "kwf2030", "commons", "apk", "testdata")
-
 func main() {
   // debugResTable()
   // debugManifest()
@@ -16,7 +14,7 @@ func main() {
 }
 
 func debugResTable() {
-  rt := ParseResTable(path.Join(dir, "resources.arsc"))
+  rt := ParseResTable(path.Join("testdata", "resources.arsc"))
   if rt == nil {
     return
   }
@@ -25,14 +23,14 @@ func debugResTable() {
   if e != nil {
     panic(e)
   }
-  e = ioutil.WriteFile(path.Join(dir, "resources.json"), data, os.ModePerm)
+  e = ioutil.WriteFile(path.Join("testdata", "resources.json"), data, os.ModePerm)
   if e != nil {
     panic(e)
   }
 }
 
 func debugManifest() {
-  xml := ParseXml(path.Join(dir, "AndroidManifest.xml"))
+  xml := ParseXml(path.Join("testdata", "AndroidManifest.xml"))
   if xml == nil {
     return
   }
@@ -41,14 +39,14 @@ func debugManifest() {
   if e != nil {
     panic(e)
   }
-  e = ioutil.WriteFile(path.Join(dir, "AndroidManifest.json"), data, os.ModePerm)
+  e = ioutil.WriteFile(path.Join("testdata", "AndroidManifest.json"), data, os.ModePerm)
   if e != nil {
     panic(e)
   }
 }
 
 func setDebuggable(debuggable bool) {
-  xml := ParseXml(path.Join(dir, "AndroidManifest.xml"))
+  xml := ParseXml(path.Join("testdata", "AndroidManifest.xml"))
   if xml == nil {
     return
   }
@@ -57,11 +55,17 @@ func setDebuggable(debuggable bool) {
   if e != nil {
     panic(e)
   }
-  e = ioutil.WriteFile(path.Join(dir, "AndroidManifest.json"), data, os.ModePerm)
+  e = ioutil.WriteFile(path.Join("testdata", "AndroidManifest.json"), data, os.ModePerm)
   if e != nil {
     panic(e)
   }
 
-  /*for _, tag2 := range xml2.Tags2 {
+  /*str := "debuggable"
+  index := uint32(math.MaxUint32)
+  for i, s := range xml2.Ori.StrPool.Strs {
+    if s == str {
+      index = uint32(i)
+      break
+    }
   }*/
 }
