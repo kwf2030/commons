@@ -1,10 +1,15 @@
 package main
 
 import (
+  "bytes"
   "encoding/json"
   "io/ioutil"
+  "math"
   "os"
   "path"
+  "strings"
+
+  "github.com/kwf2030/commons/conv"
 )
 
 func main() {
@@ -60,10 +65,32 @@ func setDebuggable(debuggable bool) {
     panic(e)
   }
 
-  /*str := "debuggable"
-  index := uint32(math.MaxUint32)
+  // 定位到application节点
+  var appTag *XmlTag2
+  for _, tag2 := range xml2.Tags2 {
+    if tag2.Name == "application" {
+      appTag = tag2
+      break
+    }
+  }
+  // 定位到application节点的debuggable属性，修改值为0xFFFFFFFF（true）
+  for i, attr := range appTag.Attrs {
+    if strings.Contains(attr, "android:debuggable") {
+      raw := xml2.Ori.bytesReader.data
+      pos := appTag.Ori.Attrs[i].ChunkStart + 16
+      buf := bytes.Buffer{}
+      buf.Write(raw[:pos])
+      buf.Write(conv.Uint32ToBytesL(uint32(math.MaxUint32)))
+      buf.Write(raw[pos+4:])
+      f, _ := os.OpenFile(path.Join("testdata", "AndroidManifest2.xml"), os.O_CREATE|os.O_TRUNC, os.ModePerm)
+      buf.WriteTo(f)
+      return
+    }
+  }
+  // 查找字符串池有没有debuggable
+  /*index := uint32(math.MaxUint32)
   for i, s := range xml2.Ori.StrPool.Strs {
-    if s == str {
+    if s == "debuggable" {
       index = uint32(i)
       break
     }
