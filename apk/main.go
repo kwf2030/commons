@@ -2,65 +2,66 @@ package main
 
 import (
   "encoding/json"
-  "errors"
   "io/ioutil"
   "os"
-  "runtime"
+  "path"
 )
 
+var dir = path.Join(os.Getenv("GOPATH"), "src", "github.com", "kwf2030", "commons", "apk", "testdata")
+
 func main() {
-  //debugResTable()
-  debugManifest()
+  // debugResTable()
+  // debugManifest()
+  setDebuggable(true)
 }
 
 func debugResTable() {
-  var inFile, outFile string
-  switch runtime.GOOS {
-  case "windows":
-    inFile = "C:\\Users\\WangFeng\\Desktop\\resources.arsc"
-    outFile = "C:\\Users\\WangFeng\\Desktop\\resources.json"
-  case "linux":
-    inFile = "/home/wangfeng/workspace/wechat/raw/resources.arsc"
-    outFile = "/home/wangfeng/workspace/wechat/raw/resources.json"
-  default:
-    panic(errors.New("os not supported"))
+  rt := ParseResTable(path.Join(dir, "resources.arsc"))
+  if rt == nil {
+    return
   }
-  rt := ParseResTable(inFile)
-  if rt != nil {
-    rt2 := NewResTable2(rt)
-    data, e := json.Marshal(rt2)
-    if e != nil {
-      panic(e)
-    }
-    e = ioutil.WriteFile(outFile, data, os.ModePerm)
-    if e != nil {
-      panic(e)
-    }
+  rt2 := NewResTable2(rt)
+  data, e := json.Marshal(rt2)
+  if e != nil {
+    panic(e)
+  }
+  e = ioutil.WriteFile(path.Join(dir, "resources.json"), data, os.ModePerm)
+  if e != nil {
+    panic(e)
   }
 }
 
 func debugManifest() {
-  var inFile, outFile string
-  switch runtime.GOOS {
-  case "windows":
-    inFile = "C:\\Users\\WangFeng\\Desktop\\AndroidManifest.xml"
-    outFile = "C:\\Users\\WangFeng\\Desktop\\AndroidManifest.json"
-  case "linux":
-    inFile = "/home/wangfeng/workspace/wechat/raw/AndroidManifest.xml"
-    outFile = "/home/wangfeng/workspace/wechat/raw/AndroidManifest.json"
-  default:
-    panic(errors.New("os not supported"))
+  xml := ParseXml(path.Join(dir, "AndroidManifest.xml"))
+  if xml == nil {
+    return
   }
-  xml := ParseXml(inFile)
-  if xml != nil {
-    xml2 := NewXml2(xml)
-    data, e := json.Marshal(xml2)
-    if e != nil {
-      panic(e)
-    }
-    e = ioutil.WriteFile(outFile, data, os.ModePerm)
-    if e != nil {
-      panic(e)
-    }
+  xml2 := NewXml2(xml)
+  data, e := json.Marshal(xml2)
+  if e != nil {
+    panic(e)
   }
+  e = ioutil.WriteFile(path.Join(dir, "AndroidManifest.json"), data, os.ModePerm)
+  if e != nil {
+    panic(e)
+  }
+}
+
+func setDebuggable(debuggable bool) {
+  xml := ParseXml(path.Join(dir, "AndroidManifest.xml"))
+  if xml == nil {
+    return
+  }
+  xml2 := NewXml2(xml)
+  data, e := json.Marshal(xml2)
+  if e != nil {
+    panic(e)
+  }
+  e = ioutil.WriteFile(path.Join(dir, "AndroidManifest.json"), data, os.ModePerm)
+  if e != nil {
+    panic(e)
+  }
+
+  /*for _, tag2 := range xml2.Tags2 {
+  }*/
 }

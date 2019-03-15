@@ -51,7 +51,7 @@ func (xml2 *Xml2) CollectTags() []*XmlTag2 {
         attrName = xml2.NamespacePrefixes[attr.NamespaceUri] + ":" + attrName
       }
       attrVal := xml2.parseData(attr.DataType, attr.Data)
-      attrs[i] = attrName + "=" + attrVal
+      attrs[i] = attrName + "=\"" + attrVal + "\""
     }
     ret = append(ret, &XmlTag2{Name: tagName, Attrs: attrs})
   }
