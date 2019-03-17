@@ -1,6 +1,8 @@
 package main
 
 import (
+  "bytes"
+  "github.com/kwf2030/commons/conv"
   "math"
   "strconv"
 )
@@ -74,4 +76,25 @@ func (xml2 *Xml2) parseData(dataType uint8, data uint32) string {
     return "true"
   }
   return ""
+}
+
+func AddToStrPool(str string, pool XmlStrPool, poolBytes []byte) []byte {
+  buf := bytes.Buffer{}
+  // Type/HeaderSize
+  buf.Write(poolBytes[:4])
+  // Size, Size+4(StrOffsets)+str(str+3)
+  buf.Write(conv.Uint32ToBytesL(pool.Size + 4 + uint32(len(str)) + 3))
+  // StrCount
+  buf.Write(conv.Uint32ToBytesL(pool.StrCount + 1))
+  // StyleCount/Flags/StrStart
+  buf.Write(poolBytes[12:24])
+  // StyleStart, StyleStart+4(StrOffsets)+str(str+3)
+  if pool.StyleCount > 0 {
+    buf.Write(conv.Uint32ToBytesL(pool.StyleStart + 4 + uint32(len(str)) + 3))
+  }
+  //buf.Write() // StrOffsets, +4
+  //buf.Write() // StyleOffsets
+  //buf.Write() // Strs
+  //buf.Write() // Styles
+  return buf.Bytes()
 }

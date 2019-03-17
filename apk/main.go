@@ -65,6 +65,11 @@ func setDebuggable(debuggable bool) {
     panic(e)
   }
 
+  value := conv.Uint32ToBytesL(uint32(math.MaxUint32))
+  if !debuggable {
+    value = conv.Uint32ToBytesL(uint32(0))
+  }
+
   // 定位到application节点
   var appTag *XmlTag2
   for _, tag2 := range xml2.Tags2 {
@@ -73,26 +78,26 @@ func setDebuggable(debuggable bool) {
       break
     }
   }
-  // 定位到application节点的debuggable属性，修改值为0xFFFFFFFF（true）
+  // 定位到application节点的debuggable属性
   for i, attr := range appTag.Attrs {
     if strings.Contains(attr, "android:debuggable") {
       raw := xml2.Ori.bytesReader.data
       pos := appTag.Ori.Attrs[i].ChunkStart + 16
       buf := bytes.Buffer{}
       buf.Write(raw[:pos])
-      buf.Write(conv.Uint32ToBytesL(uint32(math.MaxUint32)))
+      buf.Write(value)
       buf.Write(raw[pos+4:])
       f, _ := os.OpenFile(path.Join("testdata", "AndroidManifest2.xml"), os.O_CREATE|os.O_TRUNC, os.ModePerm)
       buf.WriteTo(f)
+      f.Close()
       return
     }
   }
-  // 查找字符串池有没有debuggable
-  /*index := uint32(math.MaxUint32)
-  for i, s := range xml2.Ori.StrPool.Strs {
-    if s == "debuggable" {
-      index = uint32(i)
-      break
-    }
-  }*/
+  /*allBuf := bytes.Buffer{}
+  allBuf.Write(xml2.Ori.bytesReader.data[:xml2.Ori.StrPool.ChunkStart])
+  allBuf.Write(poolBuf.Bytes())
+  allBuf.Write(xml2.Ori.bytesReader.data[xml2.Ori.StrPool.ChunkEnd:])
+  f, _ := os.OpenFile(path.Join("testdata", "AndroidManifest2.xml"), os.O_CREATE|os.O_TRUNC, os.ModePerm)
+  allBuf.WriteTo(f)
+  f.Close()*/
 }
