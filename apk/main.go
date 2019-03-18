@@ -35,7 +35,7 @@ func debugResTable() {
 }
 
 func debugManifest() {
-  xml := ParseXml(path.Join("testdata", "AndroidManifest.xml"))
+  xml := ParseXml(path.Join("testdata", "AndroidManifest2.xml"))
   if xml == nil {
     return
   }
@@ -44,7 +44,7 @@ func debugManifest() {
   if e != nil {
     panic(e)
   }
-  e = ioutil.WriteFile(path.Join("testdata", "AndroidManifest.json"), data, os.ModePerm)
+  e = ioutil.WriteFile(path.Join("testdata", "AndroidManifest2.json"), data, os.ModePerm)
   if e != nil {
     panic(e)
   }
@@ -93,11 +93,12 @@ func setDebuggable(debuggable bool) {
       return
     }
   }
-  /*allBuf := bytes.Buffer{}
-  allBuf.Write(xml2.Ori.bytesReader.data[:xml2.Ori.StrPool.ChunkStart])
-  allBuf.Write(poolBuf.Bytes())
-  allBuf.Write(xml2.Ori.bytesReader.data[xml2.Ori.StrPool.ChunkEnd:])
+  poolBytes := xml.AddStrToPool("debuggable")
+  buf := bytes.Buffer{}
+  buf.Write(xml.data[:xml.StrPool.ChunkStart])
+  buf.Write(poolBytes)
+  buf.Write(xml.data[xml.StrPool.ChunkEnd:])
   f, _ := os.OpenFile(path.Join("testdata", "AndroidManifest2.xml"), os.O_CREATE|os.O_TRUNC, os.ModePerm)
-  allBuf.WriteTo(f)
-  f.Close()*/
+  buf.WriteTo(f)
+  f.Close()
 }

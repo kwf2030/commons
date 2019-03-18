@@ -2,10 +2,59 @@ package main
 
 import (
   "bytes"
-  "github.com/kwf2030/commons/conv"
   "math"
   "strconv"
+
+  "github.com/kwf2030/commons/conv"
 )
+
+func (xml *Xml) AddStrToPool(str string) []byte {
+  pool := xml.StrPool
+  poolBytes := xml.data[pool.ChunkStart:pool.ChunkEnd]
+  strBytes := make([]byte, 0, len(str)+4)
+  strBytes = append(strBytes, conv.Uint16ToBytesL(uint16(len(str)))...)
+  strBytes = append(strBytes, []byte(str)...)
+  strBytes = append(strBytes, 0, 0)
+  buf := bytes.Buffer{}
+  // Type/HeaderSize
+  buf.Write(poolBytes[:4])
+  // Size，
+  // Size+4（StrOffsets增加一个元素)+str（2个字节长度+str+2个字节结尾（UTF-16））
+  buf.Write(conv.Uint32ToBytesL(pool.Size + 4 + uint32(len(str)) + 4))
+  // StrCount
+  buf.Write(conv.Uint32ToBytesL(pool.StrCount + 1))
+  // StyleCount/Flags
+  buf.Write(poolBytes[12:20])
+  // StrStart
+  buf.Write(conv.Uint32ToBytesL(pool.StrStart + 4))
+  if pool.StyleCount > 0 {
+    // StyleStart，
+    // StyleStart+4（StrOffsets增加一个元素)+str（2个字节长度+str+2个字节结尾（UTF-16））
+    buf.Write(conv.Uint32ToBytesL(pool.StyleStart + 4 + uint32(len(str)) + 4))
+    // StrOffsets
+    buf.Write(poolBytes[28 : 28+pool.StrCount*4])
+    buf.Write(conv.Uint32ToBytesL(pool.StyleStart + 4))
+    // StyleOffsets
+    for _, so := range pool.StyleOffsets {
+      buf.Write(conv.Uint32ToBytesL(so + 4))
+    }
+    // Strs
+    buf.Write(poolBytes[pool.StrStart:pool.StyleStart])
+    buf.Write(strBytes)
+    // Styles
+    buf.Write(poolBytes[pool.StyleStart:])
+  } else {
+    // StyleStart
+    buf.Write(conv.Uint32ToBytesL(pool.StyleStart))
+    // StrOffsets
+    buf.Write(poolBytes[28 : 28+pool.StrCount*4])
+    buf.Write(conv.Uint32ToBytesL(pool.Size + 4))
+    // Strs
+    buf.Write(poolBytes[pool.StrStart:])
+    buf.Write(strBytes)
+  }
+  return buf.Bytes()
+}
 
 type XmlTag2 struct {
   Ori   *XmlTag
@@ -76,25 +125,4 @@ func (xml2 *Xml2) parseData(dataType uint8, data uint32) string {
     return "true"
   }
   return ""
-}
-
-func AddToStrPool(str string, pool XmlStrPool, poolBytes []byte) []byte {
-  buf := bytes.Buffer{}
-  // Type/HeaderSize
-  buf.Write(poolBytes[:4])
-  // Size, Size+4(StrOffsets)+str(str+3)
-  buf.Write(conv.Uint32ToBytesL(pool.Size + 4 + uint32(len(str)) + 3))
-  // StrCount
-  buf.Write(conv.Uint32ToBytesL(pool.StrCount + 1))
-  // StyleCount/Flags/StrStart
-  buf.Write(poolBytes[12:24])
-  // StyleStart, StyleStart+4(StrOffsets)+str(str+3)
-  if pool.StyleCount > 0 {
-    buf.Write(conv.Uint32ToBytesL(pool.StyleStart + 4 + uint32(len(str)) + 3))
-  }
-  //buf.Write() // StrOffsets, +4
-  //buf.Write() // StyleOffsets
-  //buf.Write() // Strs
-  //buf.Write() // Styles
-  return buf.Bytes()
 }
