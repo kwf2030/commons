@@ -77,10 +77,10 @@ type ResTablePackage struct {
   // 保留字段
   Res0 uint32
 
-  // 资源类型字符串池
+  // 资源类型字符串池（UTF-8）
   TypeStrPool *ResTableStrPool
 
-  // 资源项名称字符串池
+  // 资源项名称字符串池（UTF-8）
   KeyStrPool *ResTableStrPool
 
   TypeSpecs []*ResTableTypeSpec
@@ -204,7 +204,7 @@ type ResTable struct {
   // 资源包个数，通常一个app只有一个资源包
   PackageCount uint32
 
-  // 全局字符串池
+  // 全局字符串池（UTF-8）
   StrPool *ResTableStrPool
 
   // 资源包，长度为PackageCount

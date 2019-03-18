@@ -79,7 +79,8 @@ type Xml struct {
   ChunkStart, ChunkEnd uint32
 
   *XmlHeader
-  StrPool    *XmlStrPool
+  // UTF-16
+  StrPool *XmlStrPool
   ResId      *XmlResId
   Namespaces []*XmlNamespace
   Tags       []*XmlTag
