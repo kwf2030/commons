@@ -80,7 +80,7 @@ type Xml struct {
 
   *XmlHeader
   // UTF-16
-  StrPool *XmlStrPool
+  StrPool    *XmlStrPool
   ResId      *XmlResId
   Namespaces []*XmlNamespace
   Tags       []*XmlTag
@@ -142,15 +142,15 @@ func (xml *Xml) parseStrPool() *XmlStrPool {
     if styleCount > 0 && styleCount < math.MaxUint32 {
       end = chunkStart + styleStart
     }
-    block := xml.slice(xml.pos(), end)
+    pool := xml.slice(xml.pos(), end)
     strs = make([]string, strCount)
     if flags&0x0100 != 0 {
       for i := uint32(0); i < strCount; i++ {
-        strs[i] = str8(block, strOffsets[i])
+        strs[i] = string(str8(pool, strOffsets[i]))
       }
     } else {
       for i := uint32(0); i < strCount; i++ {
-        b := str16Bytes(block, strOffsets[i])
+        b := str16(pool, strOffsets[i])
         arr := make([]byte, 0, len(b))
         for _, v := range b {
           if v != 0 {

@@ -258,15 +258,15 @@ func (rt *ResTable) parseStrPool() *ResTableStrPool {
     if styleCount > 0 && styleCount < math.MaxUint32 {
       end = chunkStart + styleStart
     }
-    block := rt.slice(rt.pos(), end)
+    pool := rt.slice(rt.pos(), end)
     strs = make([]string, strCount)
     if flags&0x0100 != 0 {
       for i := uint32(0); i < strCount; i++ {
-        strs[i] = str8(block, strOffsets[i])
+        strs[i] = string(str8(pool, strOffsets[i]))
       }
     } else {
       for i := uint32(0); i < strCount; i++ {
-        strs[i] = str16(block, strOffsets[i])
+        strs[i] = string(str16(pool, strOffsets[i]))
       }
     }
   }

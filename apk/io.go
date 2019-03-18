@@ -1,6 +1,7 @@
 package main
 
 import (
+  "bufio"
   "bytes"
   "io"
 
@@ -59,4 +60,33 @@ func (r *bytesReader) readUint32Array(count uint32) []uint32 {
     ret[i] = r.readUint32()
   }
   return ret
+}
+
+type bytesWriter struct {
+  *bufio.Writer
+}
+
+func newBytesWriter(w io.Writer) *bytesWriter {
+  return &bytesWriter{Writer: bufio.NewWriterSize(w, 1024*64)}
+}
+
+func (w *bytesWriter) writeUint8(data uint8) {
+  w.WriteByte(data)
+}
+
+func (w *bytesWriter) writeUint16(data uint16) {
+  w.Write(conv.Uint16ToBytesL(data))
+}
+
+func (w *bytesWriter) writeUint32(data uint32) {
+  w.Write(conv.Uint32ToBytesL(data))
+}
+
+func (w *bytesWriter) writeUint32Array(data []uint32) {
+  if len(data) < 1 {
+    return
+  }
+  for _, v := range data {
+    w.Write(conv.Uint32ToBytesL(v))
+  }
 }

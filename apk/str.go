@@ -1,10 +1,6 @@
 package main
 
-func str8(data []byte, offset uint32) string {
-  return string(str8Bytes(data, offset))
-}
-
-func str8Bytes(data []byte, offset uint32) []byte {
+func str8(data []byte, offset uint32) []byte {
   n := 1
   if x := data[offset] & 0x80; x != 0 {
     n = 2
@@ -22,11 +18,7 @@ func str8Bytes(data []byte, offset uint32) []byte {
   return data[s : s+uint32(l)]
 }
 
-func str16(data []byte, offset uint32) string {
-  return string(str16Bytes(data, offset))
-}
-
-func str16Bytes(data []byte, offset uint32) []byte {
+func str16(data []byte, offset uint32) []byte {
   n := 2
   if x := data[offset+1] & 0x80; x != 0 {
     n = 4
