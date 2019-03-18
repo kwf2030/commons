@@ -19,12 +19,12 @@ type Xml2 struct {
 
 func NewXml2(xml *Xml) *Xml2 {
   ret := &Xml2{Ori: xml}
-  ret.NamespacePrefixes = ret.CollectNamespacePrefixes()
-  ret.Tags2 = ret.CollectTags()
+  ret.NamespacePrefixes = ret.collectNamespacePrefixes()
+  ret.Tags2 = ret.collectTags()
   return ret
 }
 
-func (xml2 *Xml2) CollectNamespacePrefixes() map[uint32]string {
+func (xml2 *Xml2) collectNamespacePrefixes() map[uint32]string {
   ret := make(map[uint32]string, 4)
   for _, ns := range xml2.Ori.Namespaces {
     if ns.Prefix < math.MaxUint32 {
@@ -34,7 +34,7 @@ func (xml2 *Xml2) CollectNamespacePrefixes() map[uint32]string {
   return ret
 }
 
-func (xml2 *Xml2) CollectTags() []*XmlTag2 {
+func (xml2 *Xml2) collectTags() []*XmlTag2 {
   ret := make([]*XmlTag2, 0, len(xml2.Ori.Tags))
   for _, tag := range xml2.Ori.Tags {
     tagName := xml2.Ori.StrPool.Strs[tag.Name]

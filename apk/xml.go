@@ -12,6 +12,12 @@ type XmlHeader struct {
   Size       uint32
 }
 
+func (h *XmlHeader) writeTo(w *bytesWriter) {
+  w.writeUint16(h.Type)
+  w.writeUint16(h.HeaderSize)
+  w.writeUint32(h.Size)
+}
+
 type XmlStrPool struct {
   ChunkStart, ChunkEnd uint32
 
@@ -27,11 +33,20 @@ type XmlStrPool struct {
   Styles       []byte
 }
 
+func (p *XmlStrPool) writeTo(w *bytesWriter) {
+
+}
+
 type XmlResId struct {
   ChunkStart, ChunkEnd uint32
 
   *XmlHeader
   Ids []uint32
+}
+
+func (r *XmlResId) writeTo(w *bytesWriter) {
+  r.XmlHeader.writeTo(w)
+  w.writeUint32Array(r.Ids)
 }
 
 type XmlNamespace struct {
@@ -42,6 +57,14 @@ type XmlNamespace struct {
   Res0       uint32
   Prefix     uint32
   Uri        uint32
+}
+
+func (ns *XmlNamespace) writeTo(w *bytesWriter) {
+  ns.XmlHeader.writeTo(w)
+  w.writeUint32(ns.LineNumber)
+  w.writeUint32(ns.Res0)
+  w.writeUint32(ns.Prefix)
+  w.writeUint32(ns.Uri)
 }
 
 type XmlTag struct {
@@ -61,6 +84,25 @@ type XmlTag struct {
   Attrs        []*XmlAttr
 }
 
+func (t *XmlTag) writeTo(w *bytesWriter) {
+  t.XmlHeader.writeTo(w)
+  w.writeUint32(t.LineNumber)
+  w.writeUint32(t.Res0)
+  w.writeUint32(t.NamespaceUri)
+  w.writeUint32(t.Name)
+  if t.Type == 258 {
+    w.writeUint16(t.AttrStart)
+    w.writeUint16(t.AttrSize)
+    w.writeUint16(t.AttrCount)
+    w.writeUint16(t.IdIndex)
+    w.writeUint16(t.ClassIndex)
+    w.writeUint16(t.StyleIndex)
+    for _, attr := range t.Attrs {
+      attr.writeTo(w)
+    }
+  }
+}
+
 type XmlAttr struct {
   ChunkStart, ChunkEnd uint32
 
@@ -71,6 +113,16 @@ type XmlAttr struct {
   Res0         uint8
   DataType     uint8
   Data         uint32
+}
+
+func (a *XmlAttr) writeTo(w *bytesWriter) {
+  w.writeUint32(a.NamespaceUri)
+  w.writeUint32(a.Name)
+  w.writeUint32(a.RawValue)
+  w.writeUint16(a.ValueSize)
+  w.writeUint8(a.Res0)
+  w.writeUint8(a.DataType)
+  w.writeUint32(a.Data)
 }
 
 type Xml struct {
@@ -279,5 +331,17 @@ func (xml *Xml) parseAttr() *XmlAttr {
     DataType:     xml.readUint8(),
     Data:         xml.readUint32(),
     ChunkEnd:     xml.pos(),
+  }
+}
+
+func (xml *Xml) writeTo(w *bytesWriter) {
+  xml.XmlHeader.writeTo(w)
+  xml.StrPool.writeTo(w)
+  xml.ResId.writeTo(w)
+  for _, ns := range xml.Namespaces {
+    ns.writeTo(w)
+  }
+  for _, t := range xml.Tags {
+    t.writeTo(w)
   }
 }

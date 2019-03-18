@@ -15,7 +15,7 @@ import (
 func main() {
   // debugResTable()
   // debugManifest()
-  setDebuggable(true)
+  // setDebuggable(true)
 }
 
 func debugResTable() {

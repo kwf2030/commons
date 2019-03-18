@@ -23,11 +23,11 @@ type ResTable2 struct {
 
 func NewResTable2(rt *ResTable) *ResTable2 {
   ret := &ResTable2{Ori: rt}
-  ret.Entries = ret.CollectEntries()
+  ret.Entries = ret.collectEntries()
   return ret
 }
 
-func (rt2 *ResTable2) CollectEntries() map[uint32]*ResTableEntry2 {
+func (rt2 *ResTable2) collectEntries() map[uint32]*ResTableEntry2 {
   ret := make(map[uint32]*ResTableEntry2, 40960)
   for _, pkg := range rt2.Ori.Packages {
     for _, tp := range pkg.Types {
