@@ -13,29 +13,14 @@ import (
 )
 
 func main() {
-  // debugResTable()
-  // debugManifest()
+  debugManifest()
   // setDebuggable(true)
 }
 
-func debugResTable() {
-  rt := ParseResTable(path.Join("testdata", "resources.arsc"))
-  if rt == nil {
-    return
-  }
-  rt2 := NewResTable2(rt)
-  data, e := json.Marshal(rt2)
-  if e != nil {
-    panic(e)
-  }
-  e = ioutil.WriteFile(path.Join("testdata", "resources.json"), data, os.ModePerm)
-  if e != nil {
-    panic(e)
-  }
-}
-
 func debugManifest() {
-  xml := ParseXml(path.Join("testdata", "AndroidManifest.xml"))
+  name := path.Join("testdata", "AndroidManifest")
+
+  xml := ParseXml(name + ".xml")
   if xml == nil {
     return
   }
@@ -44,10 +29,34 @@ func debugManifest() {
   if e != nil {
     panic(e)
   }
-  e = ioutil.WriteFile(path.Join("testdata", "AndroidManifest.json"), data, os.ModePerm)
+  e = ioutil.WriteFile(name+".json", data, os.ModePerm)
   if e != nil {
     panic(e)
   }
+
+  f, _ := os.OpenFile(name+"2.xml", os.O_CREATE|os.O_TRUNC, os.ModePerm)
+  xml.writeTo(newBytesWriter(f))
+  f.Close()
+
+  xmlEncode := ParseXml(name + "2.xml")
+  if xmlEncode == nil {
+    return
+  }
+  xml2Encode := NewXml2(xmlEncode)
+  data, e = json.Marshal(xml2Encode)
+  if e != nil {
+    panic(e)
+  }
+  e = ioutil.WriteFile(name+"2.json", data, os.ModePerm)
+  if e != nil {
+    panic(e)
+  }
+}
+
+func encodeManifest(name string, xml *Xml) {
+  f, _ := os.OpenFile(name, os.O_CREATE|os.O_TRUNC, os.ModePerm)
+  xml.writeTo(newBytesWriter(f))
+  f.Close()
 }
 
 func setDebuggable(debuggable bool) {

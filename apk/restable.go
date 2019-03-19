@@ -297,8 +297,8 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
   chunkStart := rt.pos()
   header := rt.parseHeader()
   id := rt.readUint32()
-  // 包名是固定的256个字节，不足的会填充0，
-  // UTF-16编码，每2个字节表示一个字符，所以字符之间会有0，需要去掉
+  // 包名是固定的256个字节（UTF-16编码），不足的会填充0，
+  // 需要去掉多余的0
   arr := make([]byte, 0, 128)
   for _, v := range rt.readN(256) {
     if v != 0 {

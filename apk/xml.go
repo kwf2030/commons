@@ -34,7 +34,28 @@ type XmlStrPool struct {
 }
 
 func (p *XmlStrPool) writeTo(w *bytesWriter) {
+  p.XmlHeader.writeTo(w)
+  w.writeUint32(p.StrCount)
+  w.writeUint32(p.StyleCount)
+  w.writeUint32(p.Flags)
+  w.writeUint32(p.StrStart)
+  w.writeUint32(p.StyleStart)
+  w.writeUint32Array(p.StrOffsets)
+  w.writeUint32Array(p.StyleOffsets)
+  p.writeStrs(w)
+  w.Write(p.Styles)
+}
 
+func (p *XmlStrPool) writeStrs(w *bytesWriter) {
+  for _, str := range p.Strs {
+    l := len(str)
+    w.writeUint16(uint16(l))
+    for i := 0; i < l; i++ {
+      w.writeUint8(str[i])
+      w.writeUint8(0)
+    }
+    w.writeUint16(0)
+  }
 }
 
 type XmlResId struct {
@@ -202,14 +223,7 @@ func (xml *Xml) parseStrPool() *XmlStrPool {
       }
     } else {
       for i := uint32(0); i < strCount; i++ {
-        b := str16(pool, strOffsets[i])
-        arr := make([]byte, 0, len(b))
-        for _, v := range b {
-          if v != 0 {
-            arr = append(arr, v)
-          }
-        }
-        strs[i] = string(arr)
+        strs[i] = string(str16(pool, strOffsets[i]))
       }
     }
   }
@@ -336,12 +350,20 @@ func (xml *Xml) parseAttr() *XmlAttr {
 
 func (xml *Xml) writeTo(w *bytesWriter) {
   xml.XmlHeader.writeTo(w)
+  w.Flush()
   xml.StrPool.writeTo(w)
+  w.Flush()
   xml.ResId.writeTo(w)
+  w.Flush()
   for _, ns := range xml.Namespaces {
     ns.writeTo(w)
   }
-  for _, t := range xml.Tags {
+  w.Flush()
+  for i, t := range xml.Tags {
     t.writeTo(w)
+    if i%100 == 0 {
+      w.Flush()
+    }
   }
+  w.Flush()
 }

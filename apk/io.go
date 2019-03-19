@@ -67,7 +67,7 @@ type bytesWriter struct {
 }
 
 func newBytesWriter(w io.Writer) *bytesWriter {
-  return &bytesWriter{Writer: bufio.NewWriterSize(w, 1024*64)}
+  return &bytesWriter{Writer: bufio.NewWriterSize(w, 1024*1024)}
 }
 
 func (w *bytesWriter) writeUint8(data uint8) {
