@@ -1,23 +1,21 @@
 package main
 
 func str8(data []byte, offset uint32) []byte {
-  // 1个字节表示字符串长度
   n := 1
-  // 如果第1个字节&0x10000000不为0，则是2个字节表示字符串长度
   if x := data[offset] & 0x80; x != 0 {
     n = 2
   }
   s := offset + uint32(n)
-  l := data[s]
-  if l == 0 {
+  b := data[s]
+  if b == 0 {
     return nil
   }
   s++
-  if l&0x80 != 0 {
-    l = (l&0x7F)<<8 | data[s]&0xFF
+  if b&0x80 != 0 {
+    b = (b&0x7F)<<8 | data[s]&0xFF
     s++
   }
-  return data[s : s+uint32(l)]
+  return data[s : s+uint32(b)]
 }
 
 func str16(data []byte, offset uint32) []byte {
