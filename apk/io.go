@@ -1,4 +1,4 @@
-package main
+package apk
 
 import (
   "bufio"

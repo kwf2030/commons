@@ -1,4 +1,4 @@
-package main
+package apk
 
 func str8(data []byte, offset uint32) []byte {
   n := 1
