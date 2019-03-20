@@ -43,7 +43,9 @@ func (p *XmlStrPool) writeTo(w *bytesWriter) {
   w.writeUint32Array(p.StrOffsets)
   w.writeUint32Array(p.StyleOffsets)
   p.writeStrs(w)
-  w.Write(p.Styles)
+  if len(p.Styles) > 0 {
+    w.Write(p.Styles)
+  }
 }
 
 func (p *XmlStrPool) writeStrs(w *bytesWriter) {

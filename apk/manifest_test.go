@@ -4,12 +4,92 @@ import (
   "encoding/json"
   "errors"
   "io/ioutil"
+  "math"
   "os"
   "path"
   "testing"
 )
 
-func TestManifest(t *testing.T) {
+func TestManifestModify(t *testing.T) {
+  name := path.Join("testdata", "AndroidManifest")
+
+  m1, e := decodeManifestFromBinary(name)
+  if e != nil {
+    t.Fatal(e)
+    return
+  }
+  encodeManifestToJson(name, m1)
+
+  value := "debuggable"
+  valueLen := uint32(2 + 2*len(value) + 2)
+  pool := m1.StrPool
+  pool.Size += 4 + valueLen
+  pool.StrCount += 1
+  pool.StrStart += 4
+  if pool.StyleCount > 0 {
+    pool.StyleStart += 4 + valueLen
+  }
+  lastStrLen := uint32(2 + 2*len(pool.Strs[len(pool.Strs)-1]) + 2)
+  valueOffset := pool.StrOffsets[len(pool.StrOffsets)-1] + lastStrLen
+  pool.StrOffsets = append(pool.StrOffsets, valueOffset)
+  pool.Strs = append(pool.Strs, value)
+  m1.Size += 4 + valueLen
+
+  e = encodeManifestToBinary(name+"2", m1)
+  if e != nil {
+    t.Fatal(e)
+    return
+  }
+  m2, e := decodeManifestFromBinary(name + "2")
+  if e != nil {
+    t.Fatal(e)
+    return
+  }
+  encodeManifestToJson(name+"2", m2)
+
+  xml2 := NewXml2(m2)
+  var appTag *XmlTag2
+  for _, tag2 := range xml2.Tags2 {
+    if tag2.Name == "application" {
+      appTag = tag2
+      break
+    }
+  }
+  var nsUri uint32
+  for k, v := range xml2.NamespacePrefixes {
+    if v == "android" {
+      nsUri = k
+      break
+    }
+  }
+  attr := &XmlAttr{
+    NamespaceUri: nsUri,
+    Name:         uint32(len(pool.Strs) - 1),
+    RawValue:     math.MaxUint32,
+    ValueSize:    8,
+    DataType:     18,
+    Data:         math.MaxUint32,
+  }
+  appTag.Attrs = append(appTag.Attrs, "android:debuggable=\"true\"")
+  appTag.Ori.Attrs = append(appTag.Ori.Attrs, attr)
+  appTag.Ori.AttrCount += 1
+  appTag.Ori.Size += 20
+  m2.Size += 20
+
+  e = encodeManifestToBinary(name+"3", m2)
+  if e != nil {
+    t.Fatal(e)
+    return
+  }
+  m3, e := decodeManifestFromBinary(name + "3")
+  if e != nil {
+    t.Fatal(e)
+    return
+  }
+  encodeManifestToJson(name+"3", m3)
+}
+
+func TestManifestRestore(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
 
   m1, e := decodeManifestFromBinary(name)

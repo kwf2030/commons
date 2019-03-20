@@ -36,10 +36,10 @@ type ResTableStrPool struct {
   // 字符串样式起始位置偏移（相对header）
   StyleStart uint32
 
-  // 字符串偏移数组，长度为StrCount
+  // 字符串偏移数组（相对Strs），长度为StrCount
   StrOffsets []uint32
 
-  // 字符串样式偏移数组，长度为StyleCount
+  // 字符串样式偏移数组（相对Styles），长度为StyleCount
   StyleOffsets []uint32
 
   // 字符串，长度为StrCount，每个字符串前两个字节为该字符串长度，
