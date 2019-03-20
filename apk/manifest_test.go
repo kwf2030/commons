@@ -1,9 +1,6 @@
 package apk
 
 import (
-  "encoding/json"
-  "errors"
-  "io/ioutil"
   "math"
   "os"
   "path"
@@ -12,157 +9,39 @@ import (
 
 func TestManifestModify(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
-
-  m1, e := decodeManifestFromBinary(name)
-  if e != nil {
-    t.Fatal(e)
-    return
-  }
-  encodeManifestToJson(name, m1)
-
-  value := "debuggable"
-  valueLen := uint32(2 + 2*len(value) + 2)
-  pool := m1.StrPool
-  pool.Size += 4 + valueLen
-  pool.StrCount += 1
-  pool.StrStart += 4
-  if pool.StyleCount > 0 {
-    pool.StyleStart += 4 + valueLen
-  }
-  lastStrLen := uint32(2 + 2*len(pool.Strs[len(pool.Strs)-1]) + 2)
-  valueOffset := pool.StrOffsets[len(pool.StrOffsets)-1] + lastStrLen
-  pool.StrOffsets = append(pool.StrOffsets, valueOffset)
-  pool.Strs = append(pool.Strs, value)
-  m1.Size += 4 + valueLen
-
-  e = encodeManifestToBinary(name+"2", m1)
-  if e != nil {
-    t.Fatal(e)
-    return
-  }
-  m2, e := decodeManifestFromBinary(name + "2")
-  if e != nil {
-    t.Fatal(e)
-    return
-  }
-  encodeManifestToJson(name+"2", m2)
-
-  xml2 := NewXml2(m2)
-  var appTag *XmlTag2
-  for _, tag2 := range xml2.Tags2 {
-    if tag2.Name == "application" {
-      appTag = tag2
-      break
-    }
-  }
-  var nsUri uint32
-  for k, v := range xml2.NamespacePrefixes {
-    if v == "android" {
-      nsUri = k
-      break
-    }
-  }
-  attr := &XmlAttr{
-    NamespaceUri: nsUri,
-    Name:         uint32(len(pool.Strs) - 1),
-    RawValue:     math.MaxUint32,
-    ValueSize:    8,
-    DataType:     18,
-    Data:         math.MaxUint32,
-  }
-  appTag.Attrs = append(appTag.Attrs, "android:debuggable=\"true\"")
-  appTag.Ori.Attrs = append(appTag.Ori.Attrs, attr)
-  appTag.Ori.AttrCount += 1
-  appTag.Ori.Size += 20
-  m2.Size += 20
-
-  e = encodeManifestToBinary(name+"3", m2)
-  if e != nil {
-    t.Fatal(e)
-    return
-  }
-  m3, e := decodeManifestFromBinary(name + "3")
-  if e != nil {
-    t.Fatal(e)
-    return
-  }
-  encodeManifestToJson(name+"3", m3)
+  m1 := NewXml2(ParseXml(name + ".xml"))
+  m1.AddAttr("android:debuggable", true, func(tag2 *XmlTag2) bool {
+    return tag2.Name == "application"
+  })
+  m1.WriteToFile(name + "2.xml")
+  m2 := NewXml2(ParseXml(name + "2.xml"))
+  assertUint32Equals(t, 1473, m2.Ori.StrPool.StrCount)
+  assertStrEquals(t, "debuggable", m2.Ori.StrPool.Strs[1472])
+  assertUint32Equals(t, uint32(len(m1.Ori.Tags)), uint32(len(m2.Ori.Tags)))
+  assertUint32Equals(t, 11, uint32(m2.Ori.Tags[169].AttrCount))
+  assertUint32Equals(t, 1472, m2.Ori.Tags[169].Attrs[10].Name)
+  assertUint32Equals(t, 44, m2.Ori.Tags[169].Attrs[10].NamespaceUri)
+  assertUint32Equals(t, math.MaxUint32, m2.Ori.Tags[169].Attrs[10].Data)
+  os.Remove(name + "2.xml")
 }
 
 func TestManifestRestore(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
-
-  m1, e := decodeManifestFromBinary(name)
-  if e != nil {
-    t.Fatal(e)
-    return
+  m1 := NewXml2(ParseXml(name + ".xml"))
+  m1.WriteToFile(name + "2.xml")
+  m2 := NewXml2(ParseXml(name + "2.xml"))
+  assertUint32Equals(t, m1.Ori.ChunkStart, m2.Ori.ChunkStart)
+  assertUint32Equals(t, m1.Ori.ChunkEnd, m2.Ori.ChunkEnd)
+  assertHeaderEquals(t, m1.Ori.XmlHeader, m2.Ori.XmlHeader)
+  assertStrPoolEquals(t, m1.Ori.StrPool, m2.Ori.StrPool)
+  assertResIdEquals(t, m1.Ori.ResId, m2.Ori.ResId)
+  for i := 0; i < len(m1.Ori.Namespaces); i++ {
+    assertNamespaceEquals(t, m1.Ori.Namespaces[i], m2.Ori.Namespaces[i])
   }
-
-  e = encodeManifestToBinary(name+"_encode", m1)
-  if e != nil {
-    t.Fatal(e)
-    return
+  for i := 0; i < len(m1.Ori.Tags); i++ {
+    assertTagEquals(t, m1.Ori.Tags[i], m2.Ori.Tags[i])
   }
-  m2, e := decodeManifestFromBinary(name + "_encode")
-  if e != nil {
-    t.Fatal(e)
-    return
-  }
-
-  assertUint32Equals(t, m1.ChunkStart, m2.ChunkStart)
-  assertUint32Equals(t, m1.ChunkEnd, m2.ChunkEnd)
-  assertHeaderEquals(t, m1.XmlHeader, m2.XmlHeader)
-  assertStrPoolEquals(t, m1.StrPool, m2.StrPool)
-  assertResIdEquals(t, m1.ResId, m2.ResId)
-  for i := 0; i < len(m1.Namespaces); i++ {
-    assertNamespaceEquals(t, m1.Namespaces[i], m2.Namespaces[i])
-  }
-  for i := 0; i < len(m1.Tags); i++ {
-    assertTagEquals(t, m1.Tags[i], m2.Tags[i])
-  }
-}
-
-func decodeManifestFromBinary(name string) (*Xml, error) {
-  xml := ParseXml(name + ".xml")
-  if xml == nil {
-    return nil, errors.New("parse failed")
-  }
-  return xml, nil
-}
-
-func decodeManifestFromJson(name string) (*Xml, error) {
-  data, e := ioutil.ReadFile(name + ".json")
-  if e != nil {
-    return nil, e
-  }
-  ret := &Xml{}
-  e = json.Unmarshal(data, ret)
-  if e != nil {
-    return nil, e
-  }
-  return ret, nil
-}
-
-func encodeManifestToBinary(name string, xml *Xml) error {
-  f, e := os.OpenFile(name+".xml", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-  if e != nil {
-    return e
-  }
-  xml.writeTo(newBytesWriter(f))
-  f.Close()
-  return nil
-}
-
-func encodeManifestToJson(name string, xml *Xml) error {
-  data, e := json.Marshal(xml)
-  if e != nil {
-    return e
-  }
-  e = ioutil.WriteFile(name+".json", data, os.ModePerm)
-  if e != nil {
-    return e
-  }
-  return nil
+  os.Remove(name + "2.xml")
 }
 
 func assertHeaderEquals(t *testing.T, h1, h2 *XmlHeader) {
@@ -232,6 +111,12 @@ func assertAttrEquals(t *testing.T, a1, a2 *XmlAttr) {
   assertUint8Equals(t, a1.Res0, a2.Res0)
   assertUint8Equals(t, a1.DataType, a2.DataType)
   assertUint32Equals(t, a1.Data, a2.Data)
+}
+
+func assertStrEquals(t *testing.T, str1, str2 string) {
+  if str1 != str2 {
+    t.Fatalf("assertStrEquals failed, str1=%s, str2=%s", str1, str2)
+  }
 }
 
 func assertUint8Equals(t *testing.T, n1, n2 uint8) {

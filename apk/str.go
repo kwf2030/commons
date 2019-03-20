@@ -19,7 +19,7 @@ func str8(data []byte, offset uint32) []byte {
 }
 
 func str16(data []byte, offset uint32) []byte {
-  // 2个字节表示字符串长度（去掉多余空格和结束符的长度）
+  // 2个字节表示字符串长度（去掉多余的0和结束符后的长度）
   n := 2
   // 如果第2个字节&0x10000000不为0，则是4个字节表示字符串长度
   if x := data[offset+1] & 0x80; x != 0 {
