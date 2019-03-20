@@ -35,12 +35,11 @@ func TestManifest(t *testing.T) {
   assertStrPoolEquals(t, m1.StrPool, m2.StrPool)
   assertResIdEquals(t, m1.ResId, m2.ResId)
   for i := 0; i < len(m1.Namespaces); i++ {
-    // 最后一个Namespace错误，排查一下解析方法
     assertNamespaceEquals(t, m1.Namespaces[i], m2.Namespaces[i])
   }
-  //for i := 0; i < len(m1.Tags); i++ {
-  //  assertTagEquals(t, m1.Tags[i], m2.Tags[i])
-  //}
+  for i := 0; i < len(m1.Tags); i++ {
+    assertTagEquals(t, m1.Tags[i], m2.Tags[i])
+  }
 }
 
 func decodeManifestFromBinary(name string) (*Xml, error) {
@@ -211,51 +210,3 @@ func assertUint32ArrayEquals(t *testing.T, arr1, arr2 []uint32) {
     }
   }
 }
-
-/*func setDebuggable(debuggable bool) {
-  xml := ParseXml(path.Join("testdata", "AndroidManifest.xml"))
-  if xml == nil {
-    return
-  }
-  xml2 := NewXml2(xml)
-  data, e := json.Marshal(xml2)
-  if e != nil {
-    panic(e)
-  }
-  e = ioutil.WriteFile(path.Join("testdata", "AndroidManifest.json"), data, os.ModePerm)
-  if e != nil {
-    panic(e)
-  }
-
-  value := conv.Uint32ToBytesL(uint32(math.MaxUint32))
-  if !debuggable {
-    value = conv.Uint32ToBytesL(uint32(0))
-  }
-
-  // 定位到application节点
-  var appTag *XmlTag2
-  for _, tag2 := range xml2.Tags2 {
-    if tag2.Name == "application" {
-      appTag = tag2
-      break
-    }
-  }
-  // 定位到application节点的debuggable属性
-  for i, attr := range appTag.Attrs {
-    if strings.Contains(attr, "android:debuggable") {
-      raw := xml2.Ori.bytesReader.data
-      pos := appTag.Ori.Attrs[i].ChunkStart + 16
-      buf := bytes.Buffer{}
-      buf.Write(raw[:pos])
-      buf.Write(value)
-      buf.Write(raw[pos+4:])
-      f, _ := os.OpenFile(path.Join("testdata", "AndroidManifest2.xml"), os.O_CREATE|os.O_TRUNC, os.ModePerm)
-      buf.WriteTo(f)
-      f.Close()
-      return
-    }
-  }
-  // f, _ := os.OpenFile(path.Join("testdata", "AndroidManifest2.xml"), os.O_CREATE|os.O_TRUNC, os.ModePerm)
-  // f.Write(xml.Encode())
-  // f.Close()
-}*/

@@ -355,14 +355,36 @@ func (xml *Xml) writeTo(w *bytesWriter) {
   w.Flush()
   xml.ResId.writeTo(w)
   w.Flush()
+  // 同一个struct数组是有序的（按解析顺序），但不同的struct数组没有记录顺序，
+  // 如Xml.Namespaces和Xml.Tags两个数组，各自本身是按解析顺序存储的，
+  // 但两个数组在解析时是交叉的（Namespace->Tag->Tag->Namespace），
+  // 实际上是先一个Namespace，然后全部的Tag，最后再一个Namespace（通常就是文件的结束），
+  // 注意，这种情况只有不同的struct数组交叉解析才会出现，
+  // 且只影响写入顺序，不影响解析结果（解析出来的ChunkStart/ChunkEnd字段和原来不同），
+  // 因为struct的ChunkStart/ChunkEnd字段可以表示其读取顺序，
+  // 所以这里用其来保证写入的顺序和读取的顺序一致
+  last := xml.ResId.ChunkEnd
   for _, ns := range xml.Namespaces {
-    ns.writeTo(w)
+    if ns.ChunkStart == last {
+      last = ns.ChunkEnd
+      ns.writeTo(w)
+    }
   }
   w.Flush()
   for i, t := range xml.Tags {
-    t.writeTo(w)
+    if t.ChunkStart == last {
+      last = t.ChunkEnd
+      t.writeTo(w)
+    }
     if i%100 == 0 {
       w.Flush()
+    }
+  }
+  w.Flush()
+  for _, ns := range xml.Namespaces {
+    if ns.ChunkStart == last {
+      last = ns.ChunkEnd
+      ns.writeTo(w)
     }
   }
   w.Flush()
