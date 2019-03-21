@@ -23,6 +23,9 @@ type Xml2 struct {
 }
 
 func NewXml2(xml *Xml) *Xml2 {
+  if xml == nil {
+    return nil
+  }
   ret := &Xml2{Ori: xml}
   ret.NamespacePrefixes = ret.collectNamespacePrefixes()
   ret.Tags2 = ret.collectTags()

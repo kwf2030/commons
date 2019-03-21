@@ -22,6 +22,9 @@ type ResTable2 struct {
 }
 
 func NewResTable2(rt *ResTable) *ResTable2 {
+  if rt == nil {
+    return nil
+  }
   ret := &ResTable2{Ori: rt}
   ret.Entries = ret.collectEntries()
   return ret
