@@ -20,7 +20,7 @@ type Header struct {
   Size uint32
 }
 
-func parseHeader(r *bytesReader) *Header {
+func decodeHeader(r *bytesReader) *Header {
   return &Header{
     Type:       r.readUint16(),
     HeaderSize: r.readUint16(),
@@ -72,9 +72,9 @@ type StrPool struct {
   Styles []byte
 }
 
-func parseStrPool(r *bytesReader) *StrPool {
+func decodeStrPool(r *bytesReader) *StrPool {
   chunkStart := r.pos()
-  header := parseHeader(r)
+  header := decodeHeader(r)
   strCount := r.readUint32()
   styleCount := r.readUint32()
   flags := r.readUint32()
@@ -84,9 +84,9 @@ func parseStrPool(r *bytesReader) *StrPool {
   styleOffsets := r.readUint32Array(styleCount)
 
   var strs []string
-  if strCount > 0 && styleCount < math.MaxUint32 {
+  if uint32Valid(strCount) {
     end := chunkStart + header.Size
-    if styleCount > 0 && styleCount < math.MaxUint32 {
+    if uint32Valid(styleCount) {
       end = chunkStart + styleStart
     }
     pool := r.slice(r.pos(), end)
@@ -161,6 +161,18 @@ func (p *StrPool) writeStrs(w *bytesWriter) {
   }
 }
 
+func uint32Valid(n uint32) bool {
+  return n > 0 && n < math.MaxUint32
+}
+
+func uint16Valid(n uint16) bool {
+  return n > 0 && n < math.MaxUint16
+}
+
+func uint8Valid(n uint8) bool {
+  return n > 0 && n < math.MaxUint8
+}
+
 func str8(block []byte, offset uint32) []byte {
   n := 1
   if x := block[offset] & 0x80; x != 0 {
@@ -202,9 +214,9 @@ func str16(block []byte, offset uint32) []byte {
   }
   // 去掉多余的0
   ret := make([]byte, 0, (e-s)/2)
-  for _, v := range block[s:e] {
-    if v != 0 {
-      ret = append(ret, v)
+  for _, b := range block[s:e] {
+    if b != 0 {
+      ret = append(ret, b)
     }
   }
   return ret

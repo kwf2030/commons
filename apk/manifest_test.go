@@ -9,37 +9,39 @@ import (
 
 func TestManifestModify(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
-  m1 := NewXml2(ParseXml(name + ".xml"))
-  m1.AddAttr("android:debuggable", true, func(tag2 *XmlTag2) bool {
-    return tag2.Name == "application"
+  m1, _ := DecodeXml(name + ".xml")
+  m1.MarshalJSON(name + ".json")
+  m1.AddAttr("android:debuggable", true, func(tag *Tag) bool {
+    return tag.DecodedName == "application"
   })
-  m1.WriteToFile(name + "2.xml")
-  m2 := NewXml2(ParseXml(name + "2.xml"))
-  assertUint32Equals(t, 1473, m2.Ori.StrPool.StrCount)
-  assertStrEquals(t, "debuggable", m2.Ori.StrPool.Strs[1472])
-  assertUint32Equals(t, uint32(len(m1.Ori.Tags)), uint32(len(m2.Ori.Tags)))
-  assertUint32Equals(t, 11, uint32(m2.Ori.Tags[169].AttrCount))
-  assertUint32Equals(t, 1472, m2.Ori.Tags[169].Attrs[10].Name)
-  assertUint32Equals(t, 44, m2.Ori.Tags[169].Attrs[10].NamespaceUri)
-  assertUint32Equals(t, math.MaxUint32, m2.Ori.Tags[169].Attrs[10].Data)
-  os.Remove(name + "2.xml")
+  m1.Marshal(name + "2.xml")
+  m2, _ := DecodeXml(name + "2.xml")
+  m2.MarshalJSON(name + "2.json")
+  assertUint32Equals(t, 1473, m2.StrPool.StrCount)
+  assertStrEquals(t, "debuggable", m2.StrPool.Strs[1472])
+  assertUint32Equals(t, uint32(len(m1.Tags)), uint32(len(m2.Tags)))
+  assertUint32Equals(t, 11, uint32(m2.Tags[169].AttrCount))
+  assertUint32Equals(t, 1472, m2.Tags[169].Attrs[10].Name)
+  assertUint32Equals(t, 44, m2.Tags[169].Attrs[10].NamespaceUri)
+  assertUint32Equals(t, math.MaxUint32, m2.Tags[169].Attrs[10].Data)
+  // os.Remove(name + "2.xml")
 }
 
 func TestManifestRestore(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
-  m1 := NewXml2(ParseXml(name + ".xml"))
-  m1.WriteToFile(name + "2.xml")
-  m2 := NewXml2(ParseXml(name + "2.xml"))
-  assertUint32Equals(t, m1.Ori.ChunkStart, m2.Ori.ChunkStart)
-  assertUint32Equals(t, m1.Ori.ChunkEnd, m2.Ori.ChunkEnd)
-  assertHeaderEquals(t, m1.Ori.Header, m2.Ori.Header)
-  assertStrPoolEquals(t, m1.Ori.StrPool, m2.Ori.StrPool)
-  assertResIdEquals(t, m1.Ori.ResId, m2.Ori.ResId)
-  for i := 0; i < len(m1.Ori.Namespaces); i++ {
-    assertNamespaceEquals(t, m1.Ori.Namespaces[i], m2.Ori.Namespaces[i])
+  m1, _ := DecodeXml(name + ".xml")
+  m1.Marshal(name + "2.xml")
+  m2, _ := DecodeXml(name + "2.xml")
+  assertUint32Equals(t, m1.ChunkStart, m2.ChunkStart)
+  assertUint32Equals(t, m1.ChunkEnd, m2.ChunkEnd)
+  assertHeaderEquals(t, m1.Header, m2.Header)
+  assertStrPoolEquals(t, m1.StrPool, m2.StrPool)
+  assertResIdEquals(t, m1.ResId, m2.ResId)
+  for i := 0; i < len(m1.Namespaces); i++ {
+    assertNamespaceEquals(t, m1.Namespaces[i], m2.Namespaces[i])
   }
-  for i := 0; i < len(m1.Ori.Tags); i++ {
-    assertTagEquals(t, m1.Ori.Tags[i], m2.Ori.Tags[i])
+  for i := 0; i < len(m1.Tags); i++ {
+    assertTagEquals(t, m1.Tags[i], m2.Tags[i])
   }
   os.Remove(name + "2.xml")
 }
@@ -65,14 +67,14 @@ func assertStrPoolEquals(t *testing.T, p1, p2 *StrPool) {
   assertByteArrayEquals(t, p1.Styles, p2.Styles)
 }
 
-func assertResIdEquals(t *testing.T, r1, r2 *XmlResId) {
+func assertResIdEquals(t *testing.T, r1, r2 *ResId) {
   assertUint32Equals(t, r1.ChunkStart, r2.ChunkStart)
   assertUint32Equals(t, r1.ChunkEnd, r2.ChunkEnd)
   assertHeaderEquals(t, r1.Header, r2.Header)
   assertUint32ArrayEquals(t, r1.Ids, r2.Ids)
 }
 
-func assertNamespaceEquals(t *testing.T, ns1, ns2 *XmlNamespace) {
+func assertNamespaceEquals(t *testing.T, ns1, ns2 *Namespace) {
   assertUint32Equals(t, ns1.ChunkStart, ns2.ChunkStart)
   assertUint32Equals(t, ns1.ChunkEnd, ns2.ChunkEnd)
   assertHeaderEquals(t, ns1.Header, ns2.Header)
@@ -82,7 +84,7 @@ func assertNamespaceEquals(t *testing.T, ns1, ns2 *XmlNamespace) {
   assertUint32Equals(t, ns1.Uri, ns2.Uri)
 }
 
-func assertTagEquals(t *testing.T, t1, t2 *XmlTag) {
+func assertTagEquals(t *testing.T, t1, t2 *Tag) {
   assertUint32Equals(t, t1.ChunkStart, t2.ChunkStart)
   assertUint32Equals(t, t1.ChunkEnd, t2.ChunkEnd)
   assertHeaderEquals(t, t1.Header, t2.Header)
@@ -101,7 +103,7 @@ func assertTagEquals(t *testing.T, t1, t2 *XmlTag) {
   }
 }
 
-func assertAttrEquals(t *testing.T, a1, a2 *XmlAttr) {
+func assertAttrEquals(t *testing.T, a1, a2 *Attr) {
   assertUint32Equals(t, a1.ChunkStart, a2.ChunkStart)
   assertUint32Equals(t, a1.ChunkEnd, a2.ChunkEnd)
   assertUint32Equals(t, a1.NamespaceUri, a2.NamespaceUri)

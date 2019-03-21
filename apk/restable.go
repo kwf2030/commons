@@ -159,7 +159,7 @@ type ResTable struct {
   // 资源包个数，通常一个app只有一个资源包
   PackageCount uint32
 
-  // 全局字符串池（UTF-8）
+  // 全局字符串池
   StrPool *StrPool
 
   // 资源包，长度为PackageCount
@@ -175,9 +175,9 @@ func ParseResTable(file string) *ResTable {
     return nil
   }
   rt := &ResTable{bytesReader: newBytesReader(data), ChunkStart: 0}
-  rt.Header = parseHeader(rt.bytesReader)
+  rt.Header = decodeHeader(rt.bytesReader)
   rt.PackageCount = rt.readUint32()
-  rt.StrPool = parseStrPool(rt.bytesReader)
+  rt.StrPool = decodeStrPool(rt.bytesReader)
   if rt.PackageCount > 0 && rt.PackageCount < math.MaxUint32 {
     rt.Packages = make([]*ResTablePackage, rt.PackageCount)
     for i := uint32(0); i < rt.PackageCount; i++ {
@@ -190,7 +190,7 @@ func ParseResTable(file string) *ResTable {
 
 func (rt *ResTable) parsePackage() *ResTablePackage {
   chunkStart := rt.pos()
-  header := parseHeader(rt.bytesReader)
+  header := decodeHeader(rt.bytesReader)
   id := rt.readUint32()
   // 包名是固定的256个字节（UTF-16编码），不足的会填充0，
   // 需要去掉多余的0
@@ -206,8 +206,8 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
   keyStrPoolStart := rt.readUint32()
   keyCount := rt.readUint32()
   res0 := rt.readUint32()
-  typeStrPool := parseStrPool(rt.bytesReader)
-  keyStrPool := parseStrPool(rt.bytesReader)
+  typeStrPool := decodeStrPool(rt.bytesReader)
+  keyStrPool := decodeStrPool(rt.bytesReader)
 
   var typeSpecs []*ResTableTypeSpec
   var types []*ResTableType
@@ -247,7 +247,7 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
 
 func (rt *ResTable) parseTypeSpec() *ResTableTypeSpec {
   chunkStart := rt.pos()
-  header := parseHeader(rt.bytesReader)
+  header := decodeHeader(rt.bytesReader)
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
@@ -267,7 +267,7 @@ func (rt *ResTable) parseTypeSpec() *ResTableTypeSpec {
 
 func (rt *ResTable) parseType() *ResTableType {
   chunkStart := rt.pos()
-  header := parseHeader(rt.bytesReader)
+  header := decodeHeader(rt.bytesReader)
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()

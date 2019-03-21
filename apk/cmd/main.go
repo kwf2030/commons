@@ -2,7 +2,6 @@ package main
 
 import (
   "flag"
-  "fmt"
 
   "github.com/kwf2030/commons/apk"
 )
@@ -13,29 +12,32 @@ func main() {
   json := flag.Bool("j", false, "generate json file for manifest")
   flag.Parse()
 
-  xml2 := apk.NewXml2(apk.ParseXml(*manifest))
-  if xml2 == nil {
-    fmt.Println("can not read manifest file")
-    return
+  xml, e := apk.DecodeXml(*manifest)
+  if e != nil {
+    panic(e)
   }
+
   if *debuggable {
-    xml2.AddAttr("android:debuggable", true, func(tag2 *apk.XmlTag2) bool {
-      return tag2.Name == "application"
+    xml.AddAttr("android:debuggable", true, func(tag *apk.Tag) bool {
+      return tag.DecodedName == "application"
     })
-    e := xml2.WriteToFile(*manifest)
+    e := xml.Marshal(*manifest)
     if e != nil {
       panic(e)
     }
 
-    debuggableXml2 := apk.NewXml2(apk.ParseXml(*manifest))
-    if "debuggable" != debuggableXml2.Ori.StrPool.Strs[debuggableXml2.Ori.StrPool.StrCount-1] {
+    debuggableXml, e := apk.DecodeXml(*manifest)
+    if e != nil {
+      panic(e)
+    }
+    if "debuggable" != debuggableXml.StrPool.Strs[debuggableXml.StrPool.StrCount-1] {
       panic("validate failed(no \"debuggable\" string found in pool)")
     }
     b := false
-    for _, t := range debuggableXml2.Tags2 {
-      if t.Name == "application" {
+    for _, t := range debuggableXml.Tags {
+      if t.DecodedName == "application" {
         for _, attr := range t.Attrs {
-          if attr == "android:debuggable=\"true\"" {
+          if attr.DecodedFull == "android:debuggable=\"true\"" {
             b = true
             break
           }
@@ -47,8 +49,9 @@ func main() {
       panic("validate failed(no \"debuggable\" attr found in application node)")
     }
   }
+
   if *json {
-    e := xml2.WriteToJsonFile(*manifest + ".json")
+    e := xml.MarshalJSON(*manifest + ".json")
     if e != nil {
       panic(e)
     }
