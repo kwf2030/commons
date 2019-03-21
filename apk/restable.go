@@ -1,60 +1,15 @@
 package apk
 
 import (
-  "bytes"
   "io/ioutil"
   "math"
 )
-
-type ResTableHeader struct {
-  Type       uint16
-  HeaderSize uint16
-  Size       uint32
-}
-
-type ResTableStrPool struct {
-  // Chunk的起始和结束位置，非协议字段
-  ChunkStart, ChunkEnd uint32
-
-  *ResTableHeader
-
-  // 字符串个数
-  StrCount uint32
-
-  // 字符串样式个数
-  StyleCount uint32
-
-  // 字符串标识，
-  // SortedFlag: 0x0001
-  // UTF16Flag:  0x0000
-  // UTF8Flag:   0x0100
-  Flags uint32
-
-  // 字符串起始位置偏移（相对header）
-  StrStart uint32
-
-  // 字符串样式起始位置偏移（相对header）
-  StyleStart uint32
-
-  // 字符串偏移数组（相对Strs），长度为StrCount
-  StrOffsets []uint32
-
-  // 字符串样式偏移数组（相对Styles），长度为StyleCount
-  StyleOffsets []uint32
-
-  // 字符串，长度为StrCount，每个字符串前两个字节为该字符串长度，
-  // 若是UTF-8编码，以0x00（1个字节）作为结束符，
-  // 若是UTF-16编码，以0x0000（2个字节）作为结束符
-  Strs []string
-
-  Styles []byte
-}
 
 type ResTablePackage struct {
   // Chunk的起始和结束位置，非协议字段
   ChunkStart, ChunkEnd uint32
 
-  *ResTableHeader
+  *Header
 
   // 包Id，用户包是0x7F，系统包是0x01
   Id uint32
@@ -78,10 +33,10 @@ type ResTablePackage struct {
   Res0 uint32
 
   // 资源类型字符串池（UTF-8）
-  TypeStrPool *ResTableStrPool
+  TypeStrPool *StrPool
 
   // 资源项名称字符串池（UTF-8）
-  KeyStrPool *ResTableStrPool
+  KeyStrPool *StrPool
 
   TypeSpecs []*ResTableTypeSpec
 
@@ -92,7 +47,7 @@ type ResTableTypeSpec struct {
   // Chunk的起始和结束位置，非协议字段
   ChunkStart, ChunkEnd uint32
 
-  *ResTableHeader
+  *Header
 
   // 资源类型Id
   Id uint8
@@ -112,7 +67,7 @@ type ResTableType struct {
   // Chunk的起始和结束位置，非协议字段
   ChunkStart, ChunkEnd uint32
 
-  *ResTableHeader
+  *Header
 
   // 资源类型Id
   Id uint8
@@ -199,13 +154,13 @@ type ResTable struct {
   // Chunk的起始和结束位置，非协议字段
   ChunkStart, ChunkEnd uint32
 
-  *ResTableHeader
+  *Header
 
   // 资源包个数，通常一个app只有一个资源包
   PackageCount uint32
 
   // 全局字符串池（UTF-8）
-  StrPool *ResTableStrPool
+  StrPool *StrPool
 
   // 资源包，长度为PackageCount
   Packages []*ResTablePackage
@@ -219,10 +174,10 @@ func ParseResTable(file string) *ResTable {
   if e != nil {
     return nil
   }
-  rt := &ResTable{bytesReader: &bytesReader{Reader: bytes.NewReader(data), data: data}, ChunkStart: 0}
-  rt.ResTableHeader = rt.parseHeader()
+  rt := &ResTable{bytesReader: newBytesReader(data), ChunkStart: 0}
+  rt.Header = parseHeader(rt.bytesReader)
   rt.PackageCount = rt.readUint32()
-  rt.StrPool = rt.parseStrPool()
+  rt.StrPool = parseStrPool(rt.bytesReader)
   if rt.PackageCount > 0 && rt.PackageCount < math.MaxUint32 {
     rt.Packages = make([]*ResTablePackage, rt.PackageCount)
     for i := uint32(0); i < rt.PackageCount; i++ {
@@ -233,69 +188,9 @@ func ParseResTable(file string) *ResTable {
   return rt
 }
 
-func (rt *ResTable) parseHeader() *ResTableHeader {
-  return &ResTableHeader{
-    Type:       rt.readUint16(),
-    HeaderSize: rt.readUint16(),
-    Size:       rt.readUint32(),
-  }
-}
-
-func (rt *ResTable) parseStrPool() *ResTableStrPool {
-  chunkStart := rt.pos()
-  header := rt.parseHeader()
-  strCount := rt.readUint32()
-  styleCount := rt.readUint32()
-  flags := rt.readUint32()
-  strStart := rt.readUint32()
-  styleStart := rt.readUint32()
-  strOffsets := rt.readUint32Array(strCount)
-  styleOffsets := rt.readUint32Array(styleCount)
-
-  var strs []string
-  if strCount > 0 && styleCount < math.MaxUint32 {
-    end := chunkStart + header.Size
-    if styleCount > 0 && styleCount < math.MaxUint32 {
-      end = chunkStart + styleStart
-    }
-    pool := rt.slice(rt.pos(), end)
-    strs = make([]string, strCount)
-    if flags&0x0100 != 0 {
-      for i := uint32(0); i < strCount; i++ {
-        strs[i] = string(str8(pool, strOffsets[i]))
-      }
-    } else {
-      for i := uint32(0); i < strCount; i++ {
-        strs[i] = string(str16(pool, strOffsets[i]))
-      }
-    }
-  }
-
-  // todo 样式解析
-  var styles []byte
-  if styleCount > 0 && styleCount < math.MaxUint32 {
-    styles = rt.slice(chunkStart+styleStart, chunkStart+header.Size)
-  }
-
-  return &ResTableStrPool{
-    ChunkStart:     chunkStart,
-    ChunkEnd:       chunkStart + header.Size,
-    ResTableHeader: header,
-    StrCount:       strCount,
-    StyleCount:     styleCount,
-    Flags:          flags,
-    StrStart:       strStart,
-    StyleStart:     styleStart,
-    StrOffsets:     strOffsets,
-    StyleOffsets:   styleOffsets,
-    Strs:           strs,
-    Styles:         styles,
-  }
-}
-
 func (rt *ResTable) parsePackage() *ResTablePackage {
   chunkStart := rt.pos()
-  header := rt.parseHeader()
+  header := parseHeader(rt.bytesReader)
   id := rt.readUint32()
   // 包名是固定的256个字节（UTF-16编码），不足的会填充0，
   // 需要去掉多余的0
@@ -311,8 +206,8 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
   keyStrPoolStart := rt.readUint32()
   keyCount := rt.readUint32()
   res0 := rt.readUint32()
-  typeStrPool := rt.parseStrPool()
-  keyStrPool := rt.parseStrPool()
+  typeStrPool := parseStrPool(rt.bytesReader)
+  keyStrPool := parseStrPool(rt.bytesReader)
 
   var typeSpecs []*ResTableTypeSpec
   var types []*ResTableType
@@ -335,7 +230,7 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
   return &ResTablePackage{
     ChunkStart:       chunkStart,
     ChunkEnd:         chunkEnd,
-    ResTableHeader:   header,
+    Header:           header,
     Id:               id,
     Name:             name,
     TypeStrPoolStart: typeStrPoolStart,
@@ -352,27 +247,27 @@ func (rt *ResTable) parsePackage() *ResTablePackage {
 
 func (rt *ResTable) parseTypeSpec() *ResTableTypeSpec {
   chunkStart := rt.pos()
-  header := rt.parseHeader()
+  header := parseHeader(rt.bytesReader)
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
   entryCount := rt.readUint32()
   entryFlags := rt.readUint32Array(entryCount)
   return &ResTableTypeSpec{
-    ChunkStart:     chunkStart,
-    ChunkEnd:       chunkStart + header.Size,
-    ResTableHeader: header,
-    Id:             id,
-    Res0:           res0,
-    Res1:           res1,
-    EntryCount:     entryCount,
-    EntryFlags:     entryFlags,
+    ChunkStart: chunkStart,
+    ChunkEnd:   chunkStart + header.Size,
+    Header:     header,
+    Id:         id,
+    Res0:       res0,
+    Res1:       res1,
+    EntryCount: entryCount,
+    EntryFlags: entryFlags,
   }
 }
 
 func (rt *ResTable) parseType() *ResTableType {
   chunkStart := rt.pos()
-  header := rt.parseHeader()
+  header := parseHeader(rt.bytesReader)
   id := rt.readUint8()
   res0 := rt.readUint8()
   res1 := rt.readUint16()
@@ -393,17 +288,17 @@ func (rt *ResTable) parseType() *ResTableType {
   }
 
   return &ResTableType{
-    ChunkStart:     chunkStart,
-    ChunkEnd:       chunkStart + header.Size,
-    ResTableHeader: header,
-    Id:             id,
-    Res0:           res0,
-    Res1:           res1,
-    EntryCount:     entryCount,
-    EntryStart:     entryStart,
-    Config:         config,
-    EntryOffsets:   entryOffsets,
-    Entries:        entries,
+    ChunkStart:   chunkStart,
+    ChunkEnd:     chunkStart + header.Size,
+    Header:       header,
+    Id:           id,
+    Res0:         res0,
+    Res1:         res1,
+    EntryCount:   entryCount,
+    EntryStart:   entryStart,
+    Config:       config,
+    EntryOffsets: entryOffsets,
+    Entries:      entries,
   }
 }
 

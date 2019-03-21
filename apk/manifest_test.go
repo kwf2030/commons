@@ -32,7 +32,7 @@ func TestManifestRestore(t *testing.T) {
   m2 := NewXml2(ParseXml(name + "2.xml"))
   assertUint32Equals(t, m1.Ori.ChunkStart, m2.Ori.ChunkStart)
   assertUint32Equals(t, m1.Ori.ChunkEnd, m2.Ori.ChunkEnd)
-  assertHeaderEquals(t, m1.Ori.XmlHeader, m2.Ori.XmlHeader)
+  assertHeaderEquals(t, m1.Ori.Header, m2.Ori.Header)
   assertStrPoolEquals(t, m1.Ori.StrPool, m2.Ori.StrPool)
   assertResIdEquals(t, m1.Ori.ResId, m2.Ori.ResId)
   for i := 0; i < len(m1.Ori.Namespaces); i++ {
@@ -44,16 +44,16 @@ func TestManifestRestore(t *testing.T) {
   os.Remove(name + "2.xml")
 }
 
-func assertHeaderEquals(t *testing.T, h1, h2 *XmlHeader) {
+func assertHeaderEquals(t *testing.T, h1, h2 *Header) {
   assertUint16Equals(t, h1.Type, h2.Type)
   assertUint16Equals(t, h1.HeaderSize, h2.HeaderSize)
   assertUint32Equals(t, h1.Size, h2.Size)
 }
 
-func assertStrPoolEquals(t *testing.T, p1, p2 *XmlStrPool) {
+func assertStrPoolEquals(t *testing.T, p1, p2 *StrPool) {
   assertUint32Equals(t, p1.ChunkStart, p2.ChunkStart)
   assertUint32Equals(t, p1.ChunkEnd, p2.ChunkEnd)
-  assertHeaderEquals(t, p1.XmlHeader, p2.XmlHeader)
+  assertHeaderEquals(t, p1.Header, p2.Header)
   assertUint32Equals(t, p1.StrCount, p2.StrCount)
   assertUint32Equals(t, p1.StyleCount, p2.StyleCount)
   assertUint32Equals(t, p1.Flags, p2.Flags)
@@ -68,14 +68,14 @@ func assertStrPoolEquals(t *testing.T, p1, p2 *XmlStrPool) {
 func assertResIdEquals(t *testing.T, r1, r2 *XmlResId) {
   assertUint32Equals(t, r1.ChunkStart, r2.ChunkStart)
   assertUint32Equals(t, r1.ChunkEnd, r2.ChunkEnd)
-  assertHeaderEquals(t, r1.XmlHeader, r2.XmlHeader)
+  assertHeaderEquals(t, r1.Header, r2.Header)
   assertUint32ArrayEquals(t, r1.Ids, r2.Ids)
 }
 
 func assertNamespaceEquals(t *testing.T, ns1, ns2 *XmlNamespace) {
   assertUint32Equals(t, ns1.ChunkStart, ns2.ChunkStart)
   assertUint32Equals(t, ns1.ChunkEnd, ns2.ChunkEnd)
-  assertHeaderEquals(t, ns1.XmlHeader, ns2.XmlHeader)
+  assertHeaderEquals(t, ns1.Header, ns2.Header)
   assertUint32Equals(t, ns1.LineNumber, ns2.LineNumber)
   assertUint32Equals(t, ns1.Res0, ns2.Res0)
   assertUint32Equals(t, ns1.Prefix, ns2.Prefix)
@@ -85,7 +85,7 @@ func assertNamespaceEquals(t *testing.T, ns1, ns2 *XmlNamespace) {
 func assertTagEquals(t *testing.T, t1, t2 *XmlTag) {
   assertUint32Equals(t, t1.ChunkStart, t2.ChunkStart)
   assertUint32Equals(t, t1.ChunkEnd, t2.ChunkEnd)
-  assertHeaderEquals(t, t1.XmlHeader, t2.XmlHeader)
+  assertHeaderEquals(t, t1.Header, t2.Header)
   assertUint32Equals(t, t1.LineNumber, t2.LineNumber)
   assertUint32Equals(t, t1.Res0, t2.Res0)
   assertUint32Equals(t, t1.NamespaceUri, t2.NamespaceUri)
