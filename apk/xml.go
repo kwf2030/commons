@@ -147,7 +147,7 @@ func (xml *Xml) addStr(str string) uint32 {
   return strCount - 1
 }
 
-// value只能是数字/字符串/布尔值
+// value只能是string/int/bool
 func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error {
   var tag *Tag
   for _, t := range xml.Tags {
@@ -163,6 +163,15 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
   dataType, data, rawValue := uint8(math.MaxUint8), uint32(math.MaxUint32), uint32(math.MaxUint32)
   var decodedValue string
   switch v := value.(type) {
+  case string:
+    dataType = 3
+    data = xml.addStr(v)
+    rawValue = data
+    decodedValue = v
+  case int:
+    dataType = 16
+    data = uint32(v)
+    decodedValue = strconv.Itoa(v)
   case bool:
     dataType = 18
     decodedValue = "true"
@@ -170,42 +179,61 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
       data = 0
       decodedValue = "false"
     }
-  case int:
-    dataType = 16
-    data = uint32(v)
-    decodedValue = strconv.Itoa(v)
-  case string:
-    dataType = 3
-    data = xml.addStr(v)
-    rawValue = data
-    decodedValue = v
+  default:
+    return errors.New("invalid value type")
   }
 
+  var decodedNamespacePrefix, decodedName string
   arr := strings.Split(key, ":")
-  var prefix, name string
   if len(arr) != 2 || arr[0] == "" {
-    name = key
+    decodedName = key
   } else {
-    prefix = arr[0]
-    name = arr[1]
+    decodedNamespacePrefix = arr[0]
+    decodedName = arr[1]
   }
 
   for _, attr := range tag.Attrs {
-    if attr.DecodedNamespacePrefix == prefix && attr.DecodedName == name {
-      // todo 修改attr的Data
-      return nil
+    if attr.DecodedNamespacePrefix == decodedNamespacePrefix && attr.DecodedName == decodedName {
+      if attr.DataType == 3 || attr.DataType == 16 || attr.DataType == 18 {
+        attr.DataType = dataType
+        attr.Data = data
+        attr.RawValue = rawValue
+        attr.DecodedValue = decodedValue
+        if attr.DecodedNamespacePrefix == "" {
+          attr.DecodedFull = attr.DecodedName + "=\"" + attr.DecodedValue + "\""
+        } else {
+          attr.DecodedFull = attr.DecodedNamespacePrefix + ":" + attr.DecodedName + "=\"" + attr.DecodedValue + "\""
+        }
+        return nil
+      }
+      return errors.New("attr already exists and its data type is not string/int/bool")
+    }
+  }
+
+  name, namespaceUri := uint32(math.MaxUint32), uint32(math.MaxUint32)
+  var decodedFull string
+  if decodedNamespacePrefix == "" {
+    name = xml.addStr(decodedName)
+    decodedFull = decodedName
+  } else {
+    for k, p := range xml.p {
+      if decodedNamespacePrefix == p {
+        namespaceUri = k
+        break
+      }
+    }
+    if namespaceUri <math.MaxUint32 {
+      name = xml.addStr(decodedName)
+      decodedFull = decodedNamespacePrefix + ":"+decodedName
+    } else {
+      name = xml.addStr()
+      decodedFull = decodedName
     }
   }
 
   return nil
 
   /*
-
-
-  for _, attr := range tag.Attrs {
-
-  }
-
   attr := &Attr{
     NamespaceUri: math.MaxUint32,
     Name:         math.MaxUint32,
