@@ -9,8 +9,6 @@ import (
   "os"
   "strconv"
   "strings"
-
-  "github.com/kwf2030/commons/conv"
 )
 
 type Xml struct {
@@ -23,7 +21,7 @@ type Xml struct {
   ResId      *ResId
   Namespaces []*Namespace
   Tags       []*Tag
-  Others     [][]byte
+  Others     []byte
 }
 
 func (xml *Xml) writeTo(w *bytesWriter) {
@@ -39,8 +37,8 @@ func (xml *Xml) writeTo(w *bytesWriter) {
       v.writeTo(w)
     case *Tag:
       v.writeTo(w)
-    case []byte:
-      w.Write(v)
+    case byte:
+      w.WriteByte(v)
     default:
       panic(fmt.Sprintf("unsupported type(%T)\n", v))
     }
@@ -360,7 +358,7 @@ func DecodeXml(file string) (*Xml, error) {
 
   nss := make([]*Namespace, 0, 4)
   tags := make([]*Tag, 0, 4096)
-  others := make([][]byte, 0, 32)
+  others := make([]byte, 0, 64)
   for r.pos() < header.Size {
     switch v := r.readUint16(); v {
     case 256, 257:
@@ -374,7 +372,11 @@ func DecodeXml(file string) (*Xml, error) {
       tags = append(tags, t)
       o = append(o, t)
     default:
-      b := conv.Uint16ToBytesL(v)
+      r.unreadN(2)
+      b, e := r.ReadByte()
+      if e != nil {
+        panic(e)
+      }
       others = append(others, b)
       o = append(o, b)
     }
