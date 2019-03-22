@@ -223,8 +223,8 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
   }
   tag.Attrs = append(tag.Attrs, attr)
   tag.AttrCount += 1
+  tag.ChunkEnd += 20
   tag.Size += 20
-  // tag.ChunkEnd += 20
   xml.Size += 20
   return nil
 }
