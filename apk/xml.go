@@ -16,8 +16,6 @@ type Xml struct {
 
   p map[uint32]string
 
-  ChunkStart, ChunkEnd uint32
-
   *Header
   StrPool    *StrPool
   ResId      *ResId
@@ -206,14 +204,11 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
     }
   }
 
-  chunkStart := tag.Attrs[tag.AttrCount-1].ChunkEnd
   attr := &Attr{
     DecodedNamespacePrefix: decodedNamespacePrefix,
     DecodedName:            decodedName,
     DecodedValue:           decodedValue,
     DecodedFull:            decodedFull,
-    ChunkStart:             chunkStart,
-    ChunkEnd:               chunkStart + 20,
     NamespaceUri:           namespaceUri,
     Name:                   name,
     RawValue:               rawValue,
@@ -223,7 +218,6 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
   }
   tag.Attrs = append(tag.Attrs, attr)
   tag.AttrCount += 1
-  tag.ChunkEnd += 20
   tag.Size += 20
   xml.Size += 20
   return nil
@@ -248,8 +242,6 @@ func (xml *Xml) MarshalJSON(name string) error {
 }
 
 type ResId struct {
-  ChunkStart, ChunkEnd uint32
-
   *Header
   Ids []uint32
 }
@@ -262,8 +254,6 @@ func (r *ResId) writeTo(w *bytesWriter) {
 type Namespace struct {
   DecodedPrefix string
   DecodedUri    string
-
-  ChunkStart, ChunkEnd uint32
 
   *Header
   LineNumber uint32
@@ -284,8 +274,6 @@ type Tag struct {
   DecodedNamespacePrefix string
   DecodedName            string
   DecodedFull            string
-
-  ChunkStart, ChunkEnd uint32
 
   *Header
   LineNumber   uint32
@@ -325,8 +313,6 @@ type Attr struct {
   DecodedName            string
   DecodedValue           string
   DecodedFull            string
-
-  ChunkStart, ChunkEnd uint32
 
   NamespaceUri uint32
   Name         uint32
@@ -389,8 +375,6 @@ func DecodeXml(file string) (*Xml, error) {
   ret := &Xml{
     o:          o,
     p:          make(map[uint32]string, 4),
-    ChunkStart: 0,
-    ChunkEnd:   header.Size,
     Header:     header,
     StrPool:    strPool,
     ResId:      resId,
@@ -403,24 +387,17 @@ func DecodeXml(file string) (*Xml, error) {
 }
 
 func decodeResId(r *bytesReader) *ResId {
-  chunkStart := r.pos()
   header := decodeHeader(r)
   ids := r.readUint32Array((header.Size - 8) / 4)
   return &ResId{
-    ChunkStart: chunkStart,
-    ChunkEnd:   chunkStart + header.Size,
-    Header:     header,
-    Ids:        ids,
+    Header: header,
+    Ids:    ids,
   }
 }
 
 func decodeNamespace(r *bytesReader) *Namespace {
-  chunkStart := r.pos()
-  header := decodeHeader(r)
   return &Namespace{
-    ChunkStart: chunkStart,
-    ChunkEnd:   chunkStart + header.Size,
-    Header:     header,
+    Header:     decodeHeader(r),
     LineNumber: r.readUint32(),
     Res0:       r.readUint32(),
     Prefix:     r.readUint32(),
@@ -429,7 +406,6 @@ func decodeNamespace(r *bytesReader) *Namespace {
 }
 
 func decodeTag(r *bytesReader) *Tag {
-  chunkStart := r.pos()
   header := decodeHeader(r)
   lineNumber := r.readUint32()
   res0 := r.readUint32()
@@ -438,8 +414,6 @@ func decodeTag(r *bytesReader) *Tag {
 
   if header.Type == 259 {
     return &Tag{
-      ChunkStart:   chunkStart,
-      ChunkEnd:     chunkStart + header.Size,
       Header:       header,
       LineNumber:   lineNumber,
       Res0:         res0,
@@ -464,8 +438,6 @@ func decodeTag(r *bytesReader) *Tag {
   }
 
   return &Tag{
-    ChunkStart:   chunkStart,
-    ChunkEnd:     chunkStart + header.Size,
     Header:       header,
     LineNumber:   lineNumber,
     Res0:         res0,
@@ -483,7 +455,6 @@ func decodeTag(r *bytesReader) *Tag {
 
 func decodeAttr(xml *bytesReader) *Attr {
   return &Attr{
-    ChunkStart:   xml.pos(),
     NamespaceUri: xml.readUint32(),
     Name:         xml.readUint32(),
     RawValue:     xml.readUint32(),
@@ -491,6 +462,5 @@ func decodeAttr(xml *bytesReader) *Attr {
     Res0:         xml.readUint8(),
     DataType:     xml.readUint8(),
     Data:         xml.readUint32(),
-    ChunkEnd:     xml.pos(),
   }
 }

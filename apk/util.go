@@ -35,9 +35,6 @@ func (h *Header) writeTo(w *bytesWriter) {
 }
 
 type StrPool struct {
-  // Chunk的起始和结束位置（非协议字段）
-  ChunkStart, ChunkEnd uint32
-
   *Header
 
   // 字符串个数
@@ -73,7 +70,7 @@ type StrPool struct {
 }
 
 func decodeStrPool(r *bytesReader) *StrPool {
-  chunkStart := r.pos()
+  start := r.pos()
   header := decodeHeader(r)
   strCount := r.readUint32()
   styleCount := r.readUint32()
@@ -85,9 +82,9 @@ func decodeStrPool(r *bytesReader) *StrPool {
 
   var strs []string
   if uint32Valid(strCount) {
-    end := chunkStart + header.Size
+    end := start + header.Size
     if uint32Valid(styleCount) {
-      end = chunkStart + styleStart
+      end = start + styleStart
     }
     pool := r.slice(r.pos(), end)
     strs = make([]string, strCount)
@@ -105,12 +102,10 @@ func decodeStrPool(r *bytesReader) *StrPool {
   // todo 样式解析
   var styles []byte
   if styleCount > 0 && styleCount < math.MaxUint32 {
-    styles = r.slice(chunkStart+styleStart, chunkStart+header.Size)
+    styles = r.slice(start+styleStart, start+header.Size)
   }
 
   return &StrPool{
-    ChunkStart:   chunkStart,
-    ChunkEnd:     chunkStart + header.Size,
     Header:       header,
     StrCount:     strCount,
     StyleCount:   styleCount,
