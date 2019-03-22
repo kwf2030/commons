@@ -9,6 +9,8 @@ import (
   "os"
   "strconv"
   "strings"
+
+  "github.com/kwf2030/commons/conv"
 )
 
 type Xml struct {
@@ -21,6 +23,7 @@ type Xml struct {
   ResId      *ResId
   Namespaces []*Namespace
   Tags       []*Tag
+  Others     [][]byte
 }
 
 func (xml *Xml) writeTo(w *bytesWriter) {
@@ -36,8 +39,10 @@ func (xml *Xml) writeTo(w *bytesWriter) {
       v.writeTo(w)
     case *Tag:
       v.writeTo(w)
+    case []byte:
+      w.Write(v)
     default:
-      fmt.Printf("Xml.writeTo(): unsupported type(%T)\n", v)
+      panic(fmt.Sprintf("unsupported type(%T)\n", v))
     }
     if i%100 == 0 {
       w.Flush()
@@ -355,20 +360,23 @@ func DecodeXml(file string) (*Xml, error) {
 
   nss := make([]*Namespace, 0, 4)
   tags := make([]*Tag, 0, 4096)
+  others := make([][]byte, 0, 32)
   for r.pos() < header.Size {
     switch v := r.readUint16(); v {
-    case 258, 259:
-      r.unreadN(2)
-      t := decodeTag(r)
-      tags = append(tags, t)
-      o = append(o, t)
     case 256, 257:
       r.unreadN(2)
       ns := decodeNamespace(r)
       nss = append(nss, ns)
       o = append(o, ns)
+    case 258, 259:
+      r.unreadN(2)
+      t := decodeTag(r)
+      tags = append(tags, t)
+      o = append(o, t)
     default:
-      fmt.Printf("DecodeXml(): unsupported type(%d)\n", v)
+      b := conv.Uint16ToBytesL(v)
+      others = append(others, b)
+      o = append(o, b)
     }
   }
 
@@ -380,6 +388,7 @@ func DecodeXml(file string) (*Xml, error) {
     ResId:      resId,
     Namespaces: nss,
     Tags:       tags,
+    Others:     others,
   }
   ret.parseNamespaces()
   ret.parseTags()
