@@ -26,42 +26,23 @@ type Xml struct {
 }
 
 func (xml *Xml) writeTo(w *bytesWriter) {
-  xml.Header.writeTo(w)
-  w.Flush()
-  xml.StrPool.writeTo(w)
-  w.Flush()
-  xml.ResId.writeTo(w)
-  w.Flush()
-  // 同一个struct数组是有序的（按解析顺序），但不同的struct数组没有记录顺序，
-  // 如Xml.Namespaces和Xml.Tags两个数组，各自本身是按解析顺序存储的，
-  // 但两个数组在解析时是交叉的（Namespace->Tag->Tag->Namespace），
-  // 实际上是先一个Namespace，然后全部的Tag，最后再一个Namespace（通常就是文件的结束），
-  // 注意，这种情况只有不同的struct数组交叉解析才会出现，
-  // 且只影响写入顺序，不影响解析结果（解析出来的ChunkStart/ChunkEnd字段和原来不同），
-  // 因为struct的ChunkStart/ChunkEnd字段可以表示其读取顺序，
-  // 所以这里用其来保证写入的顺序和读取的顺序一致
-  last := xml.ResId.ChunkEnd
-  for _, ns := range xml.Namespaces {
-    if ns.ChunkStart == last {
-      last = ns.ChunkEnd
-      ns.writeTo(w)
-    }
-  }
-  w.Flush()
-  for i, t := range xml.Tags {
-    if t.ChunkStart == last {
-      last = t.ChunkEnd
-      t.writeTo(w)
+  for i, o := range xml.o {
+    switch v := o.(type) {
+    case *Header:
+      v.writeTo(w)
+    case *StrPool:
+      v.writeTo(w)
+    case *ResId:
+      v.writeTo(w)
+    case *Namespace:
+      v.writeTo(w)
+    case *Tag:
+      v.writeTo(w)
+    default:
+      fmt.Printf("Xml.writeTo(): unsupported type(%T)\n", v)
     }
     if i%100 == 0 {
       w.Flush()
-    }
-  }
-  w.Flush()
-  for _, ns := range xml.Namespaces {
-    if ns.ChunkStart == last {
-      last = ns.ChunkEnd
-      ns.writeTo(w)
     }
   }
   w.Flush()
@@ -115,7 +96,7 @@ func (xml *Xml) parseData(dataType uint8, data uint32) string {
   return ""
 }
 
-func (xml *Xml) addStr(str string) uint32 {
+func (xml *Xml) AddStr(str string) uint32 {
   if str == "" {
     return math.MaxUint32
   }
@@ -165,7 +146,7 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
   switch v := value.(type) {
   case string:
     dataType = 3
-    data = xml.addStr(v)
+    data = xml.AddStr(v)
     rawValue = data
     decodedValue = v
   case int:
@@ -180,7 +161,7 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
       decodedValue = "false"
     }
   default:
-    return errors.New("invalid value type")
+    return errors.New(fmt.Sprintf("Xml.AddAttr(): unsupported type(%T)", v))
   }
 
   var decodedNamespacePrefix, decodedName string
@@ -211,7 +192,7 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
   }
 
   namespaceUri := uint32(math.MaxUint32)
-  name := xml.addStr(decodedName)
+  name := xml.AddStr(decodedName)
   decodedFull := decodedName + "=\"" + decodedValue + "\""
   if decodedNamespacePrefix != "" {
     for k, p := range xml.p {
@@ -375,7 +356,7 @@ func DecodeXml(file string) (*Xml, error) {
     return nil, e
   }
   r := newBytesReader(data)
-  o := make([]interface{}, 4096)
+  o := make([]interface{}, 0, 4096)
 
   header := decodeHeader(r)
   o = append(o, header)
@@ -401,7 +382,7 @@ func DecodeXml(file string) (*Xml, error) {
       nss = append(nss, ns)
       o = append(o, ns)
     default:
-      fmt.Println("unsupported tag type:", v)
+      fmt.Printf("DecodeXml(): unsupported type(%d)\n", v)
     }
   }
 

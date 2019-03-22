@@ -30,22 +30,28 @@ func main() {
     if e != nil {
       panic(e)
     }
-    if "debuggable" != debuggableXml.StrPool.Strs[debuggableXml.StrPool.StrCount-1] {
+    var b1, b2 bool
+    for _, str := range debuggableXml.StrPool.Strs {
+      if "debuggable" == str {
+        b1 = true
+        break
+      }
+    }
+    if !b1 {
       panic("validate failed(no \"debuggable\" string found in pool)")
     }
-    b := false
     for _, t := range debuggableXml.Tags {
       if t.DecodedName == "application" {
         for _, attr := range t.Attrs {
           if attr.DecodedFull == "android:debuggable=\"true\"" {
-            b = true
+            b2 = true
             break
           }
         }
         break
       }
     }
-    if !b {
+    if !b2 {
       panic("validate failed(no \"debuggable\" attr found in application node)")
     }
   }
