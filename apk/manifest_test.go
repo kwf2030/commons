@@ -10,13 +10,11 @@ import (
 func TestManifestModify(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
   m1, _ := DecodeXml(name + ".xml")
-  m1.MarshalJSON(name + ".json")
   m1.AddAttr("android:debuggable", true, func(tag *Tag) bool {
     return tag.DecodedName == "application"
   })
   m1.Marshal(name + "2.xml")
   m2, _ := DecodeXml(name + "2.xml")
-  m2.MarshalJSON(name + "2.json")
   assertUint32Equals(t, 1473, m2.StrPool.StrCount)
   assertStrEquals(t, "debuggable", m2.StrPool.Strs[1472])
   assertUint32Equals(t, uint32(len(m1.Tags)), uint32(len(m2.Tags)))
@@ -24,7 +22,7 @@ func TestManifestModify(t *testing.T) {
   assertUint32Equals(t, 1472, m2.Tags[169].Attrs[10].Name)
   assertUint32Equals(t, 44, m2.Tags[169].Attrs[10].NamespaceUri)
   assertUint32Equals(t, math.MaxUint32, m2.Tags[169].Attrs[10].Data)
-  // os.Remove(name + "2.xml")
+  os.Remove(name + "2.xml")
 }
 
 func TestManifestRestore(t *testing.T) {

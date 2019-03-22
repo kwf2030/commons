@@ -199,83 +199,53 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
         attr.Data = data
         attr.RawValue = rawValue
         attr.DecodedValue = decodedValue
-        if attr.DecodedNamespacePrefix == "" {
+        if decodedNamespacePrefix == "" {
           attr.DecodedFull = attr.DecodedName + "=\"" + attr.DecodedValue + "\""
         } else {
           attr.DecodedFull = attr.DecodedNamespacePrefix + ":" + attr.DecodedName + "=\"" + attr.DecodedValue + "\""
         }
         return nil
       }
-      return errors.New("attr already exists and its data type is not string/int/bool")
+      return errors.New("attr already exists but its data type is not string/int/bool")
     }
   }
 
-  name, namespaceUri := uint32(math.MaxUint32), uint32(math.MaxUint32)
-  var decodedFull string
-  if decodedNamespacePrefix == "" {
-    name = xml.addStr(decodedName)
-    decodedFull = decodedName
-  } else {
+  namespaceUri := uint32(math.MaxUint32)
+  name := xml.addStr(decodedName)
+  decodedFull := decodedName + "=\"" + decodedValue + "\""
+  if decodedNamespacePrefix != "" {
     for k, p := range xml.p {
       if decodedNamespacePrefix == p {
         namespaceUri = k
         break
       }
     }
-    if namespaceUri <math.MaxUint32 {
-      name = xml.addStr(decodedName)
-      decodedFull = decodedNamespacePrefix + ":"+decodedName
-    } else {
-      name = xml.addStr()
-      decodedFull = decodedName
+    if namespaceUri < math.MaxUint32 {
+      decodedFull = decodedNamespacePrefix + ":" + decodedFull
     }
   }
 
-  return nil
-
-  /*
+  chunkStart := tag.Attrs[tag.AttrCount-1].ChunkEnd
   attr := &Attr{
-    NamespaceUri: math.MaxUint32,
-    Name:         math.MaxUint32,
-    RawValue:     math.MaxUint32,
-    ValueSize:    8,
-    DataType:     math.MaxUint8,
-    Data:         math.MaxUint32,
+    DecodedNamespacePrefix: decodedNamespacePrefix,
+    DecodedName:            decodedName,
+    DecodedValue:           decodedValue,
+    DecodedFull:            decodedFull,
+    ChunkStart:             chunkStart,
+    ChunkEnd:               chunkStart + 20,
+    NamespaceUri:           namespaceUri,
+    Name:                   name,
+    RawValue:               rawValue,
+    ValueSize:              8,
+    DataType:               dataType,
+    Data:                   data,
   }
-
-
-
-  if arr := strings.Split(key, ":"); len(arr) != 2 || arr[0] == "" {
-    attr.Name = xml.addStr(key)
-    attr.DecodedName = xml.StrPool.Strs[attr.Name]
-    attr.DecodedFull = attr.DecodedName
-  } else {
-    for k, prefix := range xml.p {
-      if arr[0] == prefix {
-        attr.NamespaceUri = k
-        break
-      }
-    }
-    if attr.NamespaceUri < math.MaxUint32 {
-      attr.Name = xml.addStr(arr[1])
-      attr.DecodedName = xml.StrPool.Strs[attr.Name]
-      attr.DecodedNamespacePrefix = xml.p[attr.NamespaceUri]
-      attr.DecodedFull = attr.DecodedNamespacePrefix + ":" + attr.DecodedName
-    } else {
-      attr.Name = xml.addStr(key)
-      attr.DecodedName = xml.StrPool.Strs[attr.Name]
-      attr.DecodedFull = attr.DecodedName
-    }
-  }
-
-  attr.DecodedFull += "=\"" + attr.DecodedValue + "\""
-  attr.ChunkStart = tag.Attrs[tag.AttrCount-1].ChunkEnd
-  attr.ChunkEnd = attr.ChunkStart + 20
   tag.Attrs = append(tag.Attrs, attr)
   tag.AttrCount += 1
   tag.Size += 20
+  // tag.ChunkEnd += 20
   xml.Size += 20
-  return nil*/
+  return nil
 }
 
 func (xml *Xml) Marshal(name string) error {
