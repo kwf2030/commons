@@ -71,7 +71,7 @@ loop:
   prepare:
     eval: "js"
     wait_when_ready: "2s"
-  # eval计算过后，返回值会作为全局变量（变量名叫last），eval次数也会作为全局变量（变量名叫count，从1开始）
+  # eval次数会作为全局变量（变量名叫count，从1开始）
   eval: "js"
   # 返回true终止循环（true或"true"表示true，其他任何值都表示false）
   break: "js"
