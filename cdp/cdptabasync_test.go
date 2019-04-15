@@ -33,7 +33,7 @@ func (h *H) OnCdpResp(msg *Message) bool {
   return true
 }
 
-func TestTab(t *testing.T) {
+func TestTabAsync(t *testing.T) {
   chrome, e := Launch("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe")
   if e != nil {
     panic(e)
