@@ -20,6 +20,11 @@ patterns:
 
 page_load_timeout: "10s"
 
+fields:
+  - name: price
+    eval: "document.querySelector('.J-p-6655821').textContent"
+    export: true
+
 loop:
   name: "page"
   alias: "最新10页评论"
