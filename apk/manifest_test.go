@@ -8,7 +8,7 @@ import (
 
 func TestManifestModify(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
-  m1, _ := DecodeXml(name + ".xml")
+  m1, _ := DecodeXmlFile(name + ".xml")
   m1.MarshalJSON(name + ".json")
   m1.AddAttr("android:debuggable", true, 3, 4, 0, func(tag *Tag) bool {
     return tag.DecodedName == "application"
@@ -22,9 +22,9 @@ func TestManifestModify(t *testing.T) {
 
 func TestManifestRestore(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
-  m1, _ := DecodeXml(name + ".xml")
+  m1, _ := DecodeXmlFile(name + ".xml")
   m1.Marshal(name + "2.xml")
-  m2, _ := DecodeXml(name + "2.xml")
+  m2, _ := DecodeXmlFile(name + "2.xml")
   assertHeaderEquals(t, m1.Header, m2.Header)
   assertStrPoolEquals(t, m1.StrPool, m2.StrPool)
   assertResIdEquals(t, m1.ResId, m2.ResId)

@@ -470,13 +470,20 @@ func (a *Attr) writeTo(w *bytesWriter) {
   w.writeUint32(a.Data)
 }
 
-func DecodeXml(file string) (*Xml, error) {
+func DecodeXmlFile(file string) (*Xml, error) {
   if file == "" {
-    return nil, errors.New("DecodeXml(): invalid args")
+    return nil, errors.New("DecodeXmlFile(): invalid args")
   }
   data, e := ioutil.ReadFile(file)
   if e != nil {
     return nil, e
+  }
+  return DecodeXml(data)
+}
+
+func DecodeXml(data []byte) (*Xml, error) {
+  if len(data) == 0 {
+    return nil, errors.New("DecodeXml(): invalid args")
   }
   r := newBytesReader(data)
   o := make([]interface{}, 0, 4096)

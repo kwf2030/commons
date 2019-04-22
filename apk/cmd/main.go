@@ -12,7 +12,7 @@ func main() {
   json := flag.Bool("j", false, "generate json file after decoding")
   flag.Parse()
 
-  xml, e := apk.DecodeXml(*manifest)
+  xml, e := apk.DecodeXmlFile(*manifest)
   if e != nil {
     panic(e)
   }
