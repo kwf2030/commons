@@ -81,9 +81,9 @@ func decodeStrPool(r *bytesReader) *StrPool {
   styleOffsets := r.readUint32Array(styleCount)
 
   var strs []string
-  if uint32Valid(strCount) {
+  if strCount > 0 && strCount < math.MaxUint32 {
     end := start + header.Size
-    if uint32Valid(styleCount) {
+    if styleCount > 0 && styleCount < math.MaxUint32 {
       end = start + styleStart
     }
     pool := r.slice(r.pos(), end)
@@ -154,18 +154,6 @@ func (p *StrPool) writeStrs(w *bytesWriter) {
       w.writeUint16(0)
     }
   }
-}
-
-func uint32Valid(n uint32) bool {
-  return n > 0 && n < math.MaxUint32
-}
-
-func uint16Valid(n uint16) bool {
-  return n > 0 && n < math.MaxUint16
-}
-
-func uint8Valid(n uint8) bool {
-  return n > 0 && n < math.MaxUint8
 }
 
 func str8(block []byte, offset uint32) []byte {

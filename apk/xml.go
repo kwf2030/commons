@@ -21,7 +21,7 @@ type Xml struct {
   ResId      *ResId
   Namespaces []*Namespace
   Tags       []*Tag
-  Others     []byte
+  Others     [][]byte
 }
 
 func (xml *Xml) writeTo(w *bytesWriter) {
@@ -37,10 +37,10 @@ func (xml *Xml) writeTo(w *bytesWriter) {
       v.writeTo(w)
     case *Tag:
       v.writeTo(w)
-    case byte:
-      w.WriteByte(v)
+    case []byte:
+      w.Write(v)
     default:
-      panic(fmt.Sprintf("unsupported type(%T)\n", v))
+      panic(fmt.Sprintf("unsupported type: %T\n", v))
     }
     if i%100 == 0 {
       w.Flush()
@@ -97,24 +97,87 @@ func (xml *Xml) parseData(dataType uint8, data uint32) string {
   return ""
 }
 
-func (xml *Xml) AddStr(str string) uint32 {
+func (xml *Xml) AddStr(str string, i int) uint32 {
   if str == "" {
     return math.MaxUint32
   }
+
   pool := xml.StrPool
-  for i, v := range pool.Strs {
-    if v == str {
-      return uint32(i)
+  for j, s := range pool.Strs {
+    if s == str {
+      return uint32(j)
     }
   }
+
+  if i < -1 {
+    i = 0
+  } else if i >= len(xml.StrPool.Strs) {
+    i = -1
+  }
+  u := uint32(i)
 
   strLen := uint32(2 + 2*len(str) + 2)
   size := pool.Size + 4 + strLen
   strCount := pool.StrCount + 1
   strStart := pool.StrStart + 4
   styleStart := pool.StyleStart + 4 + strLen
-  lastStrLen := uint32(2 + 2*len(pool.Strs[pool.StrCount-1]) + 2)
-  strOffset := pool.StrOffsets[pool.StrCount-1] + lastStrLen
+  strOffsets := make([]uint32, strCount)
+  strs := make([]string, strCount)
+  if i == -1 {
+    lastStrLen := uint32(2 + 2*len(pool.Strs[pool.StrCount-1]) + 2)
+    strOffset := pool.StrOffsets[pool.StrCount-1] + lastStrLen
+    copy(strOffsets, pool.StrOffsets)
+    strOffsets[strCount-1] = strOffset
+    copy(strs, pool.Strs)
+    strs[strCount-1] = str
+  } else {
+    copy(strOffsets, pool.StrOffsets[:u+1])
+    copy(strs, pool.Strs[:u])
+    strs[u] = str
+    for j := u + 1; j < strCount; j++ {
+      strOffsets[j] = pool.StrOffsets[j-1] + strLen
+      strs[j] = pool.Strs[j-1]
+    }
+    for _, v := range xml.Namespaces {
+      if v.Prefix >= u && v.Prefix < math.MaxUint32 {
+        v.Prefix += 1
+      }
+      if v.Uri >= u && v.Uri < math.MaxUint32 {
+        v.Uri += 1
+      }
+    }
+    for _, t := range xml.Tags {
+      if t.NamespaceUri >= u && t.NamespaceUri < math.MaxUint32 {
+        t.NamespaceUri += 1
+      }
+      if t.Name >= u && t.Name < math.MaxUint32 {
+        t.Name += 1
+      }
+      for _, a := range t.Attrs {
+        if a.NamespaceUri >= u && a.NamespaceUri < math.MaxUint32 {
+          a.NamespaceUri += 1
+        }
+        if a.Name >= u && a.Name < math.MaxUint32 {
+          a.Name += 1
+        }
+        if a.RawValue >= u && a.RawValue < math.MaxUint32 {
+          a.RawValue += 1
+        }
+        if a.DataType == 3 && a.Data >= u && a.Data < math.MaxUint32 {
+          a.Data += 1
+        }
+      }
+    }
+    m := make(map[uint32]string, len(xml.p))
+    for k, v := range xml.p {
+      if k >= u && k < math.MaxUint32 {
+        m[k+1] = v
+      } else {
+        m[k] = v
+      }
+    }
+    xml.p = m
+  }
 
   pool.Size = size
   pool.StrCount = strCount
@@ -122,15 +185,53 @@ func (xml *Xml) AddStr(str string) uint32 {
   if pool.StyleCount > 0 {
     pool.StyleStart = styleStart
   }
-  pool.StrOffsets = append(pool.StrOffsets, strOffset)
-  pool.Strs = append(pool.Strs, str)
+  pool.StrOffsets = strOffsets
+  pool.Strs = strs
   xml.Size += 4 + strLen
 
-  return strCount - 1
+  if i == -1 {
+    return strCount - 1
+  }
+  return u
+}
+
+func (xml *Xml) AddResId(id uint32, i int) uint32 {
+  for j, v := range xml.ResId.Ids {
+    if v == id {
+      return uint32(j)
+    }
+  }
+
+  if i < -1 {
+    i = 0
+  } else if i >= len(xml.ResId.Ids) {
+    i = -1
+  }
+
+  xml.ResId.Size += 4
+  xml.Size += 4
+  if i == -1 {
+    xml.ResId.Ids = append(xml.ResId.Ids, id)
+    return uint32(len(xml.ResId.Ids)) - 1
+  } else {
+    l := len(xml.ResId.Ids) + 1
+    a := make([]uint32, l)
+    copy(a, xml.ResId.Ids[:i])
+    a[i] = id
+    for j := i + 1; j < l; j++ {
+      a[j] = xml.ResId.Ids[j-1]
+    }
+    xml.ResId.Ids = a
+    return uint32(i)
+  }
 }
 
 // value只能是string/int/bool
-func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error {
+func (xml *Xml) AddAttr(key string, value interface{}, ai, ki, vi int, f func(*Tag) bool) error {
+  if key == "" || value == nil || f == nil {
+    return errors.New("Xml.AddAttr(): invalid args")
+  }
+
   var tag *Tag
   for _, t := range xml.Tags {
     if f(t) {
@@ -139,7 +240,23 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
     }
   }
   if tag == nil {
-    return errors.New("tag not found")
+    return errors.New("Xml.AddAttr(): tag not found")
+  }
+
+  if ai < -1 {
+    ai = 0
+  } else if ai >= len(tag.Attrs) {
+    ai = -1
+  }
+  if ki < -1 {
+    ki = 0
+  } else if ki >= len(xml.StrPool.Strs) {
+    ki = -1
+  }
+  if vi < -1 {
+    vi = 0
+  } else if vi >= len(xml.StrPool.Strs) {
+    vi = -1
   }
 
   dataType, data, rawValue := uint8(math.MaxUint8), uint32(math.MaxUint32), uint32(math.MaxUint32)
@@ -147,7 +264,7 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
   switch v := value.(type) {
   case string:
     dataType = 3
-    data = xml.AddStr(v)
+    data = xml.AddStr(v, vi)
     rawValue = data
     decodedValue = v
   case int:
@@ -162,7 +279,7 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
       decodedValue = "false"
     }
   default:
-    return errors.New(fmt.Sprintf("Xml.AddAttr(): unsupported type(%T)", v))
+    return errors.New(fmt.Sprintf("Xml.AddAttr(): unsupported type: %T", v))
   }
 
   var decodedNamespacePrefix, decodedName string
@@ -188,12 +305,12 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
         }
         return nil
       }
-      return errors.New("attr already exists but its data type is not string/int/bool")
+      return errors.New("Xml.AddAttr(): attr already exists but its data type is not string/int/bool")
     }
   }
 
   namespaceUri := uint32(math.MaxUint32)
-  name := xml.AddStr(decodedName)
+  name := xml.AddStr(decodedName, ki)
   decodedFull := decodedName + "=\"" + decodedValue + "\""
   if decodedNamespacePrefix != "" {
     for k, p := range xml.p {
@@ -219,14 +336,28 @@ func (xml *Xml) AddAttr(key string, value interface{}, f func(*Tag) bool) error 
     DataType:               dataType,
     Data:                   data,
   }
-  tag.Attrs = append(tag.Attrs, attr)
-  tag.AttrCount += 1
   tag.Size += 20
+  tag.AttrCount += 1
+  if ai == -1 {
+    tag.Attrs = append(tag.Attrs, attr)
+  } else {
+    l := len(tag.Attrs) + 1
+    a := make([]*Attr, l)
+    copy(a, tag.Attrs[:ai])
+    a[ai] = attr
+    for j := ai + 1; j < l; j++ {
+      a[j] = tag.Attrs[j-1]
+    }
+    tag.Attrs = a
+  }
   xml.Size += 20
   return nil
 }
 
 func (xml *Xml) Marshal(name string) error {
+  if name == "" {
+    return errors.New("Xml.Marshal(): invalid args")
+  }
   f, e := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
   if e != nil {
     return e
@@ -237,6 +368,9 @@ func (xml *Xml) Marshal(name string) error {
 }
 
 func (xml *Xml) MarshalJSON(name string) error {
+  if name == "" {
+    return errors.New("Xml.MarshalJSON(): invalid args")
+  }
   data, e := json.Marshal(xml)
   if e != nil {
     return e
@@ -338,7 +472,7 @@ func (a *Attr) writeTo(w *bytesWriter) {
 
 func DecodeXml(file string) (*Xml, error) {
   if file == "" {
-    return nil, errors.New("missing args")
+    return nil, errors.New("DecodeXml(): invalid args")
   }
   data, e := ioutil.ReadFile(file)
   if e != nil {
@@ -358,7 +492,7 @@ func DecodeXml(file string) (*Xml, error) {
 
   nss := make([]*Namespace, 0, 4)
   tags := make([]*Tag, 0, 4096)
-  others := make([]byte, 0, 64)
+  others := make([][]byte, 0, 64)
   for r.pos() < header.Size {
     switch v := r.readUint16(); v {
     case 256, 257:
@@ -372,13 +506,22 @@ func DecodeXml(file string) (*Xml, error) {
       tags = append(tags, t)
       o = append(o, t)
     default:
-      r.unreadN(2)
-      b, e := r.ReadByte()
-      if e != nil {
-        panic(e)
+      headerSize := uint32(r.readUint16())
+      if headerSize < 4 || headerSize >= header.Size {
+        panic(fmt.Sprintf("DecodeXml(): unsupported type: %d\n", v))
       }
-      others = append(others, b)
-      o = append(o, b)
+      if headerSize == 4 {
+        r.unreadN(4)
+        b := r.readN(4)
+        others = append(others, b)
+        o = append(o, b)
+      } else {
+        s := r.readUint32()
+        r.unreadN(8)
+        b := r.readN(s)
+        others = append(others, b)
+        o = append(o, b)
+      }
     }
   }
 
@@ -441,7 +584,7 @@ func decodeTag(r *bytesReader) *Tag {
   styleIndex := r.readUint16()
 
   var attrs []*Attr
-  if uint16Valid(attrCount) {
+  if attrCount > 0 && attrCount < math.MaxUint16 {
     attrs = make([]*Attr, attrCount)
     for i := uint16(0); i < attrCount; i++ {
       attrs[i] = decodeAttr(r)
