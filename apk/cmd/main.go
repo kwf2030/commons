@@ -32,7 +32,7 @@ func main() {
   }
 
   if *json {
-    xml, e = apk.DecodeXml(*manifest)
+    xml, e = apk.DecodeXmlFile(*manifest)
     if e != nil {
       panic(e)
     }
