@@ -16,8 +16,8 @@ func TestManifestModify(t *testing.T) {
   m1.AddResId(16842767, 4)
   m1.Marshal(name + "2.xml")
   m1.MarshalJSON(name + "2.json")
-  //os.Remove(name + "2.xml")
-  //os.Remove(name + "2.json")
+  // os.Remove(name + "2.xml")
+  // os.Remove(name + "2.json")
 }
 
 func TestManifestRestore(t *testing.T) {
