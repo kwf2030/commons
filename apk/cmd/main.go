@@ -7,17 +7,17 @@ import (
 )
 
 func main() {
-  manifest := flag.String("m", "AndroidManifest.xml", "specify manifest file")
-  debuggable := flag.Bool("d", false, "set debuggable=\"true\" for <application>")
-  json := flag.Bool("j", false, "generate json file after decoding")
+  m := flag.String("m", "AndroidManifest.xml", "")
+  d := flag.Bool("d", false, "set debuggable=\"true\"")
+  j := flag.Bool("j", false, "dump json")
   flag.Parse()
 
-  xml, e := apk.DecodeXmlFile(*manifest)
+  xml, e := apk.DecodeXmlFile(*m)
   if e != nil {
     panic(e)
   }
 
-  if *debuggable {
+  if *d {
     e = xml.AddAttr("android:debuggable", true, 3, 4, 0, func(tag *apk.Tag) bool {
       return tag.DecodedName == "application"
     })
@@ -25,18 +25,18 @@ func main() {
       panic(e)
     }
     xml.AddResId(16842767, 4)
-    e = xml.Marshal(*manifest)
+    e = xml.MarshalFile(*m)
     if e != nil {
       panic(e)
     }
   }
 
-  if *json {
-    xml, e = apk.DecodeXmlFile(*manifest)
+  if *j {
+    xml, e = apk.DecodeXmlFile(*m)
     if e != nil {
       panic(e)
     }
-    e = xml.MarshalJSON(*manifest + ".json")
+    e = xml.Dump(*m + ".json")
     if e != nil {
       panic(e)
     }

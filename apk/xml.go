@@ -4,6 +4,7 @@ import (
   "encoding/json"
   "errors"
   "fmt"
+  "io"
   "io/ioutil"
   "math"
   "os"
@@ -354,22 +355,26 @@ func (xml *Xml) AddAttr(key string, value interface{}, ai, ki, vi int, f func(*T
   return nil
 }
 
-func (xml *Xml) Marshal(name string) error {
+func (xml *Xml) MarshalFile(name string) error {
   if name == "" {
-    return errors.New("Xml.Marshal(): invalid args")
+    return errors.New("Xml.MarshalFile(): invalid args")
   }
   f, e := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
   if e != nil {
     return e
   }
-  xml.writeTo(newBytesWriter(f))
+  xml.Marshal(f)
   f.Close()
   return nil
 }
 
-func (xml *Xml) MarshalJSON(name string) error {
+func (xml *Xml) Marshal(w io.Writer) {
+  xml.writeTo(newBytesWriter(w))
+}
+
+func (xml *Xml) Dump(name string) error {
   if name == "" {
-    return errors.New("Xml.MarshalJSON(): invalid args")
+    return errors.New("Xml.Dump(): invalid args")
   }
   data, e := json.Marshal(xml)
   if e != nil {
