@@ -9,13 +9,13 @@ import (
 func TestManifestModify(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
   m1, _ := DecodeXmlFile(name + ".xml")
-  m1.MarshalJSON(name + ".json")
+  m1.Dump(name + ".json")
   m1.AddAttr("android:debuggable", true, 3, 4, 0, func(tag *Tag) bool {
     return tag.DecodedName == "application"
   })
   m1.AddResId(16842767, 4)
-  m1.Marshal(name + "2.xml")
-  m1.MarshalJSON(name + "2.json")
+  m1.MarshalFile(name + "2.xml")
+  m1.Dump(name + "2.json")
   // os.Remove(name + "2.xml")
   // os.Remove(name + "2.json")
 }
@@ -23,7 +23,7 @@ func TestManifestModify(t *testing.T) {
 func TestManifestRestore(t *testing.T) {
   name := path.Join("testdata", "AndroidManifest")
   m1, _ := DecodeXmlFile(name + ".xml")
-  m1.Marshal(name + "2.xml")
+  m1.MarshalFile(name + "2.xml")
   m2, _ := DecodeXmlFile(name + "2.xml")
   assertHeaderEquals(t, m1.Header, m2.Header)
   assertStrPoolEquals(t, m1.StrPool, m2.StrPool)
