@@ -1,4 +1,4 @@
-package base
+package obj
 
 type Equality interface {
   Equals(interface{}) bool
