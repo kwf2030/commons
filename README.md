@@ -1,19 +1,22 @@
 # commons
 
-## bolt
-[bbolt](https://github.com/etcd-io/bbolt)的简单封装。
-
 ## beanstalk
 [beanstalkd](https://github.com/kr/beanstalkd)客户端实现。
+
+## bolt
+[bbolt](https://github.com/etcd-io/bbolt)的简单封装。
 
 ## cdp
 [ChromeDevToolsProtocol](https://github.com/ChromeDevTools/devtools-protocol)协议封装。
 
 ## conv
-map和gob/json互转。
+bool/int/uint/string和interface{}互转，map和gob/json互转。
 
 ## crawler
-使用cdp包实现的基于配置的极简页面爬取库（可以爬取任何网页，只需几行简单的JS代码）。
+使用cdp包实现的基于配置的极简页面爬取库（只需简单的JS代码就可以爬取任何网页）。
+
+# obj
+通用接口（例如Equality/Comparable/Cloneable，类似Java的Object）。
 
 ## pipeline
 链式处理流程。
