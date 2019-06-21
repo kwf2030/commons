@@ -6,35 +6,40 @@ import (
 )
 
 const (
-  DateFormat       = "2006-01-02"
-  DateTimeFormat   = "2006-01-02 15:04"
+  DateFormat  = "2006-01-02"
+  DateFormat2 = "2006_01_02"
+  DateFormat3 = "2006/01/02"
+  DateFormat4 = "2006.01.02"
+
+  TimeFormat   = "15:04"
+  TimeSFormat  = "15:04:05"
+  TimeMsFormat = "15:04:05.000"
+
+  DateTimeFormat  = "2006-01-02 15:04"
+  DateTimeFormat2 = "2006_01_02 15:04"
+  DateTimeFormat3 = "2006/01/02 15:04"
+  DateTimeFormat4 = "2006.01.02 15:04"
+  DateTimeFormat5 = "200601021504"
+
   DateTimeSFormat  = "2006-01-02 15:04:05"
-  DateTimeMsFormat = "2006-01-02 15:04:05.000"
+  DateTimeSFormat2 = "2006_01_02 15:04:05"
+  DateTimeSFormat3 = "2006/01/02 15:04:05"
+  DateTimeSFormat4 = "2006.01.02 15:04:05"
+  DateTimeSFormat5 = "20060102150405"
 
-  DateFormat2       = "2006_01_02"
-  DateTimeFormat2   = "2006_01_02 15:04"
-  DateTimeSFormat2  = "2006_01_02 15:04:05"
+  DateTimeMsFormat  = "2006-01-02 15:04:05.000"
   DateTimeMsFormat2 = "2006_01_02 15:04:05.000"
-
-  DateFormat3       = "2006/01/02"
-  DateTimeFormat3   = "2006/01/02 15:04"
-  DateTimeSFormat3  = "2006/01/02 15:04:05"
   DateTimeMsFormat3 = "2006/01/02 15:04:05.000"
-
-  DateFormat4       = "2006.01.02"
-  DateTimeFormat4   = "2006.01.02 15:04"
-  DateTimeSFormat4  = "2006.01.02 15:04:05"
   DateTimeMsFormat4 = "2006.01.02 15:04:05.000"
-
-  DateFormat5       = "20060102"
-  DateTimeFormat5   = "200601021504"
-  DateTimeSFormat5  = "20060102150405"
   DateTimeMsFormat5 = "20060102150405000"
 )
 
 const (
   OneSecondInMillis    = 1000
+  TwoSecondInMillis    = 2000
   ThreeSecondsInMillis = 3000
+  FourSecondsInMillis  = 4000
+  FiveSecondsInMillis  = 5000
 )
 
 var (
@@ -78,7 +83,7 @@ func RandMillis(min, max int) time.Duration {
 }
 
 func Sleep() {
-  time.Sleep(RandMillis(OneSecondInMillis, ThreeSecondsInMillis))
+  time.Sleep(RandMillis(OneSecondInMillis, FiveSecondsInMillis))
 }
 
 func UntilTomorrow() time.Duration {

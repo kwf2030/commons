@@ -121,7 +121,6 @@ func (tw *TimingWheel) Cancel(id uint64) {
 }
 
 func (tw *TimingWheel) run() {
-out:
   for {
     select {
     case <-tw.ticker.C:
@@ -136,7 +135,7 @@ out:
 
     case <-tw.stopCh:
       tw.ticker.Stop()
-      break out
+      return
     }
   }
 }
