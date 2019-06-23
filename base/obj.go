@@ -2,11 +2,10 @@ package base
 
 import (
   "math/rand"
-
-  "github.com/kwf2030/commons/time2"
+  "time"
 )
 
-var R = rand.New(rand.NewSource(time2.Timestamp()))
+var R = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type Equality interface {
   Equals(interface{}) bool

@@ -2,9 +2,10 @@ package time2
 
 import (
   "math"
-  "math/rand"
   "sync"
   "time"
+
+  "github.com/kwf2030/commons/base"
 )
 
 const (
@@ -30,57 +31,48 @@ type TimingWheel struct {
   slots uint64
 
   // 计时器停止信号
-  stopCh chan struct{}
-
-  // 用于随机生成task的id
-  r *rand.Rand
-
-  l *sync.Mutex
+  stopChan chan struct{}
 
   state int
+
+  mu sync.Mutex
 }
 
 func NewTimingWheel(slots int, duration time.Duration) *TimingWheel {
-  arr := make([]map[uint64]*task, slots)
-  for i := range arr {
-    arr[i] = make(map[uint64]*task, 10)
+  if slots <= 0 {
+    return nil
+  }
+  buckets := make([]map[uint64]*task, slots)
+  for i := range buckets {
+    buckets[i] = make(map[uint64]*task, 16)
   }
   return &TimingWheel{
     duration: duration,
     ticker:   time.NewTicker(duration),
     cur:      0,
-    buckets:  arr,
+    buckets:  buckets,
     slots:    uint64(slots),
-    stopCh:   make(chan struct{}),
-    r:        rand.New(rand.NewSource(Timestamp())),
-    l:        &sync.Mutex{},
+    stopChan: make(chan struct{}),
     state:    stateReady,
+    mu:       sync.Mutex{},
   }
 }
 
 func (tw *TimingWheel) Start() {
-  b := false
-  tw.l.Lock()
+  tw.mu.Lock()
+  defer tw.mu.Unlock()
   if tw.state == stateReady {
     tw.state = stateRunning
-    b = true
-  }
-  tw.l.Unlock()
-  if b {
     go tw.run()
   }
 }
 
 func (tw *TimingWheel) Stop() {
-  b := false
-  tw.l.Lock()
+  tw.mu.Lock()
+  defer tw.mu.Unlock()
   if tw.state == stateRunning {
     tw.state = stateStopped
-    b = true
-  }
-  tw.l.Unlock()
-  if b {
-    close(tw.stopCh)
+    close(tw.stopChan)
   }
 }
 
@@ -90,11 +82,11 @@ func (tw *TimingWheel) Delay(delay time.Duration, data interface{}, f func(uint6
   if n2 == 0 {
     n2 = 1
   }
-  tw.l.Lock()
-  defer tw.l.Unlock()
+  tw.mu.Lock()
+  defer tw.mu.Unlock()
   n := tw.cur + n2
   task := &task{
-    id:    (n << 32) | (tw.r.Uint64() >> 32),
+    id:    (n << 32) | (base.R.Uint64() >> 32),
     round: n1,
     data:  data,
     f:     f,
@@ -104,7 +96,7 @@ func (tw *TimingWheel) Delay(delay time.Duration, data interface{}, f func(uint6
 }
 
 func (tw *TimingWheel) At(t time.Time, data interface{}, f func(uint64, interface{})) uint64 {
-  now := time.Now()
+  now := UTC()
   if t.Before(now) {
     return 0
   }
@@ -114,9 +106,9 @@ func (tw *TimingWheel) At(t time.Time, data interface{}, f func(uint64, interfac
 func (tw *TimingWheel) Cancel(id uint64) {
   i := id >> 32
   if i < tw.slots {
-    tw.l.Lock()
+    tw.mu.Lock()
+    defer tw.mu.Unlock()
     delete(tw.buckets[i], id)
-    tw.l.Unlock()
   }
 }
 
@@ -124,16 +116,16 @@ func (tw *TimingWheel) run() {
   for {
     select {
     case <-tw.ticker.C:
-      tw.l.Lock()
+      tw.mu.Lock()
       if tw.cur == tw.slots-1 {
         tw.cur = 0
       } else {
         tw.cur++
       }
       tw.tick()
-      tw.l.Unlock()
+      tw.mu.Unlock()
 
-    case <-tw.stopCh:
+    case <-tw.stopChan:
       tw.ticker.Stop()
       return
     }
@@ -141,23 +133,23 @@ func (tw *TimingWheel) run() {
 }
 
 func (tw *TimingWheel) tick() {
-  arr := make([]*task, 0, 2)
+  tasks := make([]*task, 0, 2)
   for _, t := range tw.buckets[tw.cur] {
     if t.round <= 0 {
-      arr = append(arr, t)
+      tasks = append(tasks, t)
     }
     if t.round > math.MinInt64 {
       t.round--
     }
   }
-  for _, t := range arr {
+  for _, t := range tasks {
     delete(tw.buckets[tw.cur], t.id)
     go t.f(t.id, t.data)
   }
 }
 
 type task struct {
-  // 高32位用于表示该task所在的slot，低32位随机生成
+  // 高32位表示task所在的slot，低32位随机生成
   id uint64
 
   // 剩余轮数
