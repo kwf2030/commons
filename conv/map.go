@@ -76,18 +76,18 @@ func GetMapSlice(data map[string]interface{}, key string) []map[string]interface
   if data == nil || key == "" {
     return nil
   }
-  if v, ok := data[key]; ok {
-    switch ret := v.(type) {
+  if val, ok := data[key]; ok {
+    switch v := val.(type) {
     case []interface{}:
-      arr := make([]map[string]interface{}, 0, len(ret))
-      for _, m := range ret {
+      ret := make([]map[string]interface{}, 0, len(v))
+      for _, m := range v {
         if vv, ok := m.(map[string]interface{}); ok {
-          arr = append(arr, vv)
+          ret = append(ret, vv)
         }
       }
-      return arr
-    case []map[string]interface{}:
       return ret
+    case []map[string]interface{}:
+      return v
     }
   }
   return nil

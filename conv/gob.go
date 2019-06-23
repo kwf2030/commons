@@ -5,9 +5,14 @@ import (
   "encoding/gob"
   "io"
   "io/ioutil"
+
+  "github.com/kwf2030/commons/base"
 )
 
 func MapToGob(data map[string]interface{}) ([]byte, error) {
+  if len(data) == 0 {
+    return nil, base.ErrInvalidArgs
+  }
   var buf bytes.Buffer
   e := gob.NewEncoder(&buf).Encode(data)
   if e != nil {
@@ -17,7 +22,10 @@ func MapToGob(data map[string]interface{}) ([]byte, error) {
 }
 
 func GobToMap(data []byte) (map[string]interface{}, error) {
-  ret := make(map[string]interface{})
+  if len(data) == 0 {
+    return nil, base.ErrInvalidArgs
+  }
+  ret := make(map[string]interface{}, 16)
   e := gob.NewDecoder(bytes.NewBuffer(data)).Decode(&ret)
   if e != nil {
     return nil, e
@@ -26,23 +34,23 @@ func GobToMap(data []byte) (map[string]interface{}, error) {
 }
 
 func ReadGob(r io.Reader, in interface{}) error {
-  content, e := ioutil.ReadAll(r)
+  if r == nil || in == nil {
+    return base.ErrInvalidArgs
+  }
+  data, e := ioutil.ReadAll(r)
   if e != nil {
     return e
   }
-  if content == nil || len(content) == 0 {
-    return nil
-  }
-  return gob.NewDecoder(bytes.NewBuffer(content)).Decode(in)
+  return gob.NewDecoder(bytes.NewBuffer(data)).Decode(in)
 }
 
 func ReadGobToMap(r io.Reader) (map[string]interface{}, error) {
-  content, e := ioutil.ReadAll(r)
+  if r == nil {
+    return nil, base.ErrInvalidArgs
+  }
+  data, e := ioutil.ReadAll(r)
   if e != nil {
     return nil, e
   }
-  if content == nil || len(content) == 0 {
-    return nil, nil
-  }
-  return GobToMap(content)
+  return GobToMap(data)
 }
