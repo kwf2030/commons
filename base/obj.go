@@ -1,11 +1,18 @@
 package base
 
 import (
+  "errors"
   "math/rand"
   "time"
 )
 
-var R = rand.New(rand.NewSource(time.Now().UnixNano()))
+var (
+  ErrNullPointer     = errors.New("error: null pointer")
+  ErrInvalidArgs     = errors.New("error: invalid args")
+  ErrIndexOutOfRange = errors.New("error: index out of range")
+)
+
+var Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type Equality interface {
   Equals(interface{}) bool

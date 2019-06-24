@@ -90,7 +90,7 @@ func UTC2Tomorrow() time.Duration {
 }
 
 func RandMillis(min, max int) time.Duration {
-  n := base.R.Intn(max)
+  n := base.Rand.Intn(max)
   if n < min {
     n = min
   }

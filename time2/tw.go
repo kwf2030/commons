@@ -92,7 +92,7 @@ func (tw *TimingWheel) Delay(delay time.Duration, data interface{}, f func(uint6
   defer tw.mu.Unlock()
   n := (tw.slot + n2 + 1) % tw.slots
   task := &task{
-    id:    (n << 32) | (base.R.Uint64() >> 32),
+    id:    (n << 32) | (base.Rand.Uint64() >> 32),
     round: n1,
     data:  data,
     f:     f,
