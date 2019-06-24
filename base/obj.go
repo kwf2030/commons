@@ -7,9 +7,10 @@ import (
 )
 
 var (
-  ErrNullPointer     = errors.New("error: null pointer")
-  ErrInvalidArgs     = errors.New("error: invalid args")
-  ErrIndexOutOfRange = errors.New("error: index out of range")
+  ErrNullPointer     = errors.New("null pointer")
+  ErrInvalidArgs     = errors.New("invalid args")
+  ErrIndexOutOfRange = errors.New("index out of range")
+  ErrTimeout         = errors.New("timeout")
 )
 
 var Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
