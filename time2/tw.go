@@ -1,7 +1,6 @@
 package time2
 
 import (
-  "math"
   "sync"
   "time"
 
@@ -17,29 +16,30 @@ const (
 var DefaultTimingWheel = NewTimingWheel(60, time.Second)
 
 type TimingWheel struct {
-  // 单个slot时间
-  duration time.Duration
-  ticker   *time.Ticker
+  state int
 
-  // 当前所在slot
-  cur uint64
+  ticker *time.Ticker
 
-  // 每个slot对应一个bucket，即一轮共有len(buckets)个slot，
+  // 单个slot时间（duration per slot）
+  dps time.Duration
+
+  // 当前slot
+  slot uint64
+  // 一轮有多少个slot
+  slots uint64
+
+  // 每个slot对应一个bucket，一轮共有len(buckets)个slot，
   // 每个bucket是一个map，包含该slot的所有task
   buckets []map[uint64]*task
-  // 一轮有多少个slot，等于len(buckets)
-  slots uint64
 
   // 计时器停止信号
   stopChan chan struct{}
 
-  state int
-
   mu sync.Mutex
 }
 
-func NewTimingWheel(slots int, duration time.Duration) *TimingWheel {
-  if slots <= 0 {
+func NewTimingWheel(slots int, dps time.Duration) *TimingWheel {
+  if slots <= 0 || dps <= 0 {
     return nil
   }
   buckets := make([]map[uint64]*task, slots)
@@ -47,13 +47,13 @@ func NewTimingWheel(slots int, duration time.Duration) *TimingWheel {
     buckets[i] = make(map[uint64]*task, 16)
   }
   return &TimingWheel{
-    duration: duration,
-    ticker:   time.NewTicker(duration),
-    cur:      0,
-    buckets:  buckets,
-    slots:    uint64(slots),
-    stopChan: make(chan struct{}),
     state:    stateReady,
+    ticker:   time.NewTicker(dps),
+    dps:      dps,
+    slot:     0,
+    slots:    uint64(slots),
+    buckets:  buckets,
+    stopChan: make(chan struct{}),
     mu:       sync.Mutex{},
   }
 }
@@ -77,14 +77,20 @@ func (tw *TimingWheel) Stop() {
 }
 
 func (tw *TimingWheel) Delay(delay time.Duration, data interface{}, f func(uint64, interface{})) uint64 {
-  n1 := int64(delay/tw.duration) / int64(tw.slots)
-  n2 := uint64(delay/tw.duration) % tw.slots
+  if delay <= 0 || f == nil {
+    return 0
+  }
+  // 剩余轮数
+  n1 := uint64(delay/tw.dps) / tw.slots
+  // 需要几个slot的时间
+  n2 := uint64(delay/tw.dps) % tw.slots
   if n2 == 0 {
+    // 不足一个slot时间，按一个slot时间算
     n2 = 1
   }
   tw.mu.Lock()
   defer tw.mu.Unlock()
-  n := tw.cur + n2
+  n := (tw.slot + n2 + 1) % tw.slots
   task := &task{
     id:    (n << 32) | (base.R.Uint64() >> 32),
     round: n1,
@@ -96,11 +102,13 @@ func (tw *TimingWheel) Delay(delay time.Duration, data interface{}, f func(uint6
 }
 
 func (tw *TimingWheel) At(t time.Time, data interface{}, f func(uint64, interface{})) uint64 {
-  now := UTC()
-  if t.Before(now) {
+  if f == nil {
     return 0
   }
-  return tw.Delay(t.Sub(now), data, f)
+  if now := UTC(); t.After(now) {
+    return tw.Delay(t.Sub(now), data, f)
+  }
+  return 0
 }
 
 func (tw *TimingWheel) Cancel(id uint64) {
@@ -115,35 +123,34 @@ func (tw *TimingWheel) Cancel(id uint64) {
 func (tw *TimingWheel) run() {
   for {
     select {
-    case <-tw.ticker.C:
-      tw.mu.Lock()
-      if tw.cur == tw.slots-1 {
-        tw.cur = 0
-      } else {
-        tw.cur++
-      }
-      tw.tick()
-      tw.mu.Unlock()
-
     case <-tw.stopChan:
       tw.ticker.Stop()
       return
+
+    case <-tw.ticker.C:
+      tw.mu.Lock()
+      if tw.slot == tw.slots-1 {
+        tw.slot = 0
+      } else {
+        tw.slot++
+      }
+      tw.tick()
+      tw.mu.Unlock()
     }
   }
 }
 
 func (tw *TimingWheel) tick() {
-  tasks := make([]*task, 0, 2)
-  for _, t := range tw.buckets[tw.cur] {
-    if t.round <= 0 {
-      tasks = append(tasks, t)
-    }
-    if t.round > math.MinInt64 {
+  tasks := make([]*task, 0, 16)
+  for _, t := range tw.buckets[tw.slot] {
+    if t.round > 0 {
       t.round--
+    } else {
+      tasks = append(tasks, t)
     }
   }
   for _, t := range tasks {
-    delete(tw.buckets[tw.cur], t.id)
+    delete(tw.buckets[tw.slot], t.id)
     go t.f(t.id, t.data)
   }
 }
@@ -153,7 +160,7 @@ type task struct {
   id uint64
 
   // 剩余轮数
-  round int64
+  round uint64
 
   data interface{}
 
