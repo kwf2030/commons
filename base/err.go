@@ -3,8 +3,8 @@ package base
 import "strconv"
 
 var (
-  ErrNullPointer = NewException(-0xFF7801, "NullPointer Exception")
-  ErrInvalidArgs = NewException(-0xFF7802, "InvalidArgs Exception")
+  ErrNullPointer = NewException(-0xFFE801, "NullPointer Exception")
+  ErrInvalidArgs = NewException(-0xFFE802, "InvalidArgs Exception")
 )
 
 type Exception struct {
