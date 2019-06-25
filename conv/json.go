@@ -8,11 +8,11 @@ import (
   "github.com/kwf2030/commons/base"
 )
 
-func MapToJson(data map[string]interface{}) ([]byte, error) {
-  if len(data) == 0 {
-    return nil, base.ErrInvalidArgs
+func MapToJson(m map[string]interface{}) ([]byte, error) {
+  if len(m) == 0 {
+    return nil, base.ErrInvalidArgument
   }
-  ret, e := json.Marshal(data)
+  ret, e := json.Marshal(m)
   if e != nil {
     return nil, e
   }
@@ -21,7 +21,7 @@ func MapToJson(data map[string]interface{}) ([]byte, error) {
 
 func JsonToMap(data []byte) (map[string]interface{}, error) {
   if len(data) == 0 {
-    return nil, base.ErrInvalidArgs
+    return nil, base.ErrInvalidArgument
   }
   ret := make(map[string]interface{}, 16)
   e := json.Unmarshal(data, &ret)
@@ -33,7 +33,7 @@ func JsonToMap(data []byte) (map[string]interface{}, error) {
 
 func ReadJson(r io.Reader, in interface{}) error {
   if r == nil || in == nil {
-    return base.ErrInvalidArgs
+    return base.ErrInvalidArgument
   }
   data, e := ioutil.ReadAll(r)
   if e != nil {
@@ -44,7 +44,7 @@ func ReadJson(r io.Reader, in interface{}) error {
 
 func ReadJsonToMap(r io.Reader) (map[string]interface{}, error) {
   if r == nil {
-    return nil, base.ErrInvalidArgs
+    return nil, base.ErrInvalidArgument
   }
   data, e := ioutil.ReadAll(r)
   if e != nil {

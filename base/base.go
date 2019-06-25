@@ -7,8 +7,8 @@ import (
 )
 
 var (
-  ErrNullPointer     = errors.New("null pointer")
-  ErrInvalidArgs     = errors.New("invalid args")
+  ErrNilPointer      = errors.New("nil pointer")
+  ErrInvalidArgument = errors.New("invalid argument")
   ErrIndexOutOfRange = errors.New("index out of range")
   ErrTimeout         = errors.New("timeout")
 )

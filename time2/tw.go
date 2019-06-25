@@ -8,9 +8,9 @@ import (
 )
 
 const (
-  stateReady = iota
-  stateRunning
-  stateStopped
+  ready = iota
+  running
+  stopped
 )
 
 var DefaultTimingWheel = NewTimingWheel(60, time.Second)
@@ -47,7 +47,7 @@ func NewTimingWheel(slots int, dps time.Duration) *TimingWheel {
     buckets[i] = make(map[uint64]*task, 16)
   }
   return &TimingWheel{
-    state:    stateReady,
+    state:    ready,
     ticker:   time.NewTicker(dps),
     dps:      dps,
     slot:     0,
@@ -61,8 +61,8 @@ func NewTimingWheel(slots int, dps time.Duration) *TimingWheel {
 func (tw *TimingWheel) Start() {
   tw.mu.Lock()
   defer tw.mu.Unlock()
-  if tw.state == stateReady {
-    tw.state = stateRunning
+  if tw.state == ready {
+    tw.state = running
     go tw.run()
   }
 }
@@ -70,8 +70,8 @@ func (tw *TimingWheel) Start() {
 func (tw *TimingWheel) Stop() {
   tw.mu.Lock()
   defer tw.mu.Unlock()
-  if tw.state == stateRunning {
-    tw.state = stateStopped
+  if tw.state == running {
+    tw.state = stopped
     close(tw.stopChan)
   }
 }

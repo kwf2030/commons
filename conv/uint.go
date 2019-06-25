@@ -40,26 +40,26 @@ func Uint16ToBytesL(i uint16) []byte {
   return b
 }
 
-func BytesToUint64(b []byte) uint64 {
-  return binary.BigEndian.Uint64(b)
+func BytesToUint64(data []byte) uint64 {
+  return binary.BigEndian.Uint64(data)
 }
 
-func BytesToUint64L(b []byte) uint64 {
-  return binary.LittleEndian.Uint64(b)
+func BytesToUint64L(data []byte) uint64 {
+  return binary.LittleEndian.Uint64(data)
 }
 
-func BytesToUint32(b []byte) uint32 {
-  return binary.BigEndian.Uint32(b)
+func BytesToUint32(data []byte) uint32 {
+  return binary.BigEndian.Uint32(data)
 }
 
-func BytesToUint32L(b []byte) uint32 {
-  return binary.LittleEndian.Uint32(b)
+func BytesToUint32L(data []byte) uint32 {
+  return binary.LittleEndian.Uint32(data)
 }
 
-func BytesToUint16(b []byte) uint16 {
-  return binary.BigEndian.Uint16(b)
+func BytesToUint16(data []byte) uint16 {
+  return binary.BigEndian.Uint16(data)
 }
 
-func BytesToUint16L(b []byte) uint16 {
-  return binary.LittleEndian.Uint16(b)
+func BytesToUint16L(data []byte) uint16 {
+  return binary.LittleEndian.Uint16(data)
 }

@@ -15,8 +15,8 @@ type Pipeline struct {
 
 func New() *Pipeline {
   p := &Pipeline{
-    head: &HandlerContext{name: "_head", handler: &defaultHandler{}},
-    tail: &HandlerContext{name: "_tail", handler: &defaultHandler{}},
+    head: &HandlerContext{name: "__head__", handler: &defaultHandler{}},
+    tail: &HandlerContext{name: "__tail__", handler: &defaultHandler{}},
     mu:   sync.RWMutex{},
   }
   p.head.pipeline = p
