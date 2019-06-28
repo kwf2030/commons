@@ -7,8 +7,11 @@ Go常用工具库。
 ## conv
 interface{}转bool/int/uint/string，map和gob/json互转。
 
+## file
+文件操作工具。
+
 ## pipeline
 链式处理工具。
 
 ## time2
-时间常量和工具函数，包含一个简单时间轮实现。
+时间常量和工具函数，包含一个简单时间轮的实现。
