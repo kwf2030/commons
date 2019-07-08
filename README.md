@@ -5,7 +5,7 @@ Go常用工具库。
 通用接口（如Equality/Comparable/Cloneable）。
 
 ## conv
-interface{}转bool/int/uint/string，map和gob/json互转。
+interface{}转bool/int/uint/string，map和gob/json互转，string/[]byte零拷贝互转。
 
 ## file
 文件操作工具。
