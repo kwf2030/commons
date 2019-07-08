@@ -2,6 +2,7 @@ package conv
 
 import (
   "reflect"
+  "strconv"
   "unsafe"
 )
 
@@ -14,4 +15,14 @@ func StrBytes(str string) []byte {
 
 func BytesStr(bytes []byte) string {
   return *(*string)(unsafe.Pointer(&bytes))
+}
+
+func NumBytes(n int) []byte {
+  return StrBytes(strconv.Itoa(n))
+}
+
+func BytesNum(bytes []byte) int {
+  str := BytesStr(bytes)
+  n, _ := strconv.Atoi(str)
+  return n
 }
