@@ -6,7 +6,7 @@ import (
   "testing"
   "time"
 
-  "github.com/kwf2030/commons/base"
+  "github.com/kwf2030/commons/rand2"
 )
 
 func TestNormal(t *testing.T) {
@@ -95,7 +95,7 @@ func TestConcurrent(t *testing.T) {
   wg.Add(n)
   DefaultTimingWheel.Start()
   for i := 0; i < n; i++ {
-    t := time.Second * time.Duration(base.Rand.Intn(100)+1)
+    t := time.Second * time.Duration(rand2.R.Intn(100)+1)
     DefaultTimingWheel.Delay(t, i, func(id uint64, data interface{}) {
       fmt.Printf("executing task %d: %v\n", id, data)
       wg.Done()
@@ -111,7 +111,7 @@ func TestCustom(t *testing.T) {
   wg.Add(n)
   tw.Start()
   for i := 0; i < n; i++ {
-    t := time.Millisecond * time.Duration(base.Rand.Intn(1000)+1)
+    t := time.Millisecond * time.Duration(rand2.R.Intn(1000)+1)
     tw.Delay(t, i, func(id uint64, data interface{}) {
       fmt.Printf("executing task %d: %v\n", id, data)
       wg.Done()

@@ -3,7 +3,7 @@ package time2
 import (
   "time"
 
-  "github.com/kwf2030/commons/base"
+  "github.com/kwf2030/commons/rand2"
 )
 
 const (
@@ -90,7 +90,7 @@ func UTC2Tomorrow() time.Duration {
 }
 
 func RandMillis(min, max int) time.Duration {
-  n := base.Rand.Intn(max)
+  n := rand2.R.Intn(max)
   if n < min {
     n = min
   }

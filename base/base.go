@@ -2,8 +2,6 @@ package base
 
 import (
   "errors"
-  "math/rand"
-  "time"
 )
 
 var (
@@ -12,8 +10,6 @@ var (
   ErrIndexOutOfRange = errors.New("index out of range")
   ErrTimeout         = errors.New("timeout")
 )
-
-var Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type Equality interface {
   Equals(interface{}) bool

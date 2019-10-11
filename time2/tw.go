@@ -4,7 +4,7 @@ import (
   "sync"
   "time"
 
-  "github.com/kwf2030/commons/base"
+  "github.com/kwf2030/commons/rand2"
 )
 
 const (
@@ -92,7 +92,7 @@ func (tw *TimingWheel) Delay(delay time.Duration, data interface{}, f func(uint6
   defer tw.mu.Unlock()
   n := (tw.slot + n2 + 1) % tw.slots
   task := &task{
-    id:    (n << 32) | (base.Rand.Uint64() >> 32),
+    id:    (n << 32) | (rand2.R.Uint64() >> 32),
     round: n1,
     data:  data,
     f:     f,
