@@ -14,25 +14,23 @@ const (
   TimeFormatSec = "15:04:05"
   TimeFormatMs  = "15:04:05.000"
 
-  DateTimeFormat    = "2006-01-02 15:04"
-  DateTimeFormatSec = "2006-01-02 15:04:05"
-  DateTimeFormatMs  = "2006-01-02 15:04:05.000"
+  DateTimeFormat  = "2006-01-02 15:04"
+  DateTimeFormat2 = "2006_01_02 15:04"
+  DateTimeFormat3 = "2006/01/02 15:04"
+  DateTimeFormat4 = "2006.01.02 15:04"
+  DateTimeFormat5 = "200601021504"
 
-  DateTimeFormat2    = "2006_01_02 15:04"
+  DateTimeFormatSec  = "2006-01-02 15:04:05"
   DateTimeFormatSec2 = "2006_01_02 15:04:05"
-  DateTimeFormatMs2  = "2006_01_02 15:04:05.000"
-
-  DateTimeFormat3    = "2006/01/02 15:04"
   DateTimeFormatSec3 = "2006/01/02 15:04:05"
-  DateTimeFormatMs3  = "2006/01/02 15:04:05.000"
-
-  DateTimeFormat4    = "2006.01.02 15:04"
   DateTimeFormatSec4 = "2006.01.02 15:04:05"
-  DateTimeFormatMs4  = "2006.01.02 15:04:05.000"
-
-  DateTimeFormat5    = "200601021504"
   DateTimeFormatSec5 = "20060102150405"
-  DateTimeFormatMs5  = "20060102150405000"
+
+  DateTimeFormatMs  = "2006-01-02 15:04:05.000"
+  DateTimeFormatMs2 = "2006_01_02 15:04:05.000"
+  DateTimeFormatMs3 = "2006/01/02 15:04:05.000"
+  DateTimeFormatMs4 = "2006.01.02 15:04:05.000"
+  DateTimeFormatMs5 = "20060102150405000"
 )
 
 var (
