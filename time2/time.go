@@ -2,8 +2,6 @@ package time2
 
 import (
   "time"
-
-  "github.com/kwf2030/commons/rand2"
 )
 
 const (
@@ -12,35 +10,38 @@ const (
   DateFormat3 = "2006/01/02"
   DateFormat4 = "2006.01.02"
 
-  TimeFormat   = "15:04"
-  TimeFormatS  = "15:04:05"
-  TimeFormatMs = "15:04:05.000"
+  TimeFormat    = "15:04"
+  TimeFormatSec = "15:04:05"
+  TimeFormatMs  = "15:04:05.000"
 
-  DateTimeFormat  = "2006-01-02 15:04"
-  DateTimeFormat2 = "2006_01_02 15:04"
-  DateTimeFormat3 = "2006/01/02 15:04"
-  DateTimeFormat4 = "2006.01.02 15:04"
-  DateTimeFormat5 = "200601021504"
-
-  DateTimeFormatS  = "2006-01-02 15:04:05"
-  DateTimeFormatS2 = "2006_01_02 15:04:05"
-  DateTimeFormatS3 = "2006/01/02 15:04:05"
-  DateTimeFormatS4 = "2006.01.02 15:04:05"
-  DateTimeFormatS5 = "20060102150405"
-
+  DateTimeFormat    = "2006-01-02 15:04"
+  DateTimeFormatSec = "2006-01-02 15:04:05"
   DateTimeFormatMs  = "2006-01-02 15:04:05.000"
-  DateTimeFormatMs2 = "2006_01_02 15:04:05.000"
-  DateTimeFormatMs3 = "2006/01/02 15:04:05.000"
-  DateTimeFormatMs4 = "2006.01.02 15:04:05.000"
-  DateTimeFormatMs5 = "20060102150405000"
+
+  DateTimeFormat2    = "2006_01_02 15:04"
+  DateTimeFormatSec2 = "2006_01_02 15:04:05"
+  DateTimeFormatMs2  = "2006_01_02 15:04:05.000"
+
+  DateTimeFormat3    = "2006/01/02 15:04"
+  DateTimeFormatSec3 = "2006/01/02 15:04:05"
+  DateTimeFormatMs3  = "2006/01/02 15:04:05.000"
+
+  DateTimeFormat4    = "2006.01.02 15:04"
+  DateTimeFormatSec4 = "2006.01.02 15:04:05"
+  DateTimeFormatMs4  = "2006.01.02 15:04:05.000"
+
+  DateTimeFormat5    = "200601021504"
+  DateTimeFormatSec5 = "20060102150405"
+  DateTimeFormatMs5  = "20060102150405000"
 )
 
 var (
   TimeZoneSH, _ = time.LoadLocation("Asia/Shanghai")
 
   Nil time.Time
+
   // 0001-01-01 00:00:00
-  NilStr = Nil.Format(DateTimeFormatS)
+  NilStr = Nil.Format(DateTimeFormatSec)
 )
 
 func Timestamp() int64 {
@@ -51,23 +52,16 @@ func TimestampNano() int64 {
   return time.Now().UnixNano()
 }
 
-func Now() time.Time {
+func Shanghai() time.Time {
   return time.Now().In(TimeZoneSH)
 }
 
-func NowStr() string {
-  return Now().Format(DateTimeFormatS)
+func ShanghaiStr() string {
+  return Shanghai().Format(DateTimeFormatSec)
 }
 
-func NowStrf(format string) string {
-  return Now().Format(format)
-}
-
-func Now2Tomorrow() time.Duration {
-  t1 := Now()
-  t2 := t1.Add(time.Hour * 24)
-  t2 = time.Date(t2.Year(), t2.Month(), t2.Day(), 0, 0, 0, 0, t1.Location())
-  return t2.Sub(t1)
+func ShanghaiStrf(format string) string {
+  return Shanghai().Format(format)
 }
 
 func UTC() time.Time {
@@ -75,24 +69,15 @@ func UTC() time.Time {
 }
 
 func UTCStr() string {
-  return UTC().Format(DateTimeFormatS)
+  return UTC().Format(DateTimeFormatSec)
 }
 
 func UTCStrf(format string) string {
   return UTC().Format(format)
 }
 
-func UTC2Tomorrow() time.Duration {
-  t1 := UTC()
-  t2 := t1.Add(time.Hour * 24)
-  t2 = time.Date(t2.Year(), t2.Month(), t2.Day(), 0, 0, 0, 0, t1.Location())
-  return t2.Sub(t1)
-}
-
-func RandMillis(min, max int) time.Duration {
-  n := rand2.R.Intn(max)
-  if n < min {
-    n = min
-  }
-  return time.Millisecond * time.Duration(n)
+func DurationUntilTomorrow(t time.Time) time.Duration {
+  t0 := t.Add(time.Hour * 24)
+  t0 = time.Date(t0.Year(), t0.Month(), t0.Day(), 0, 0, 0, 0, t.Location())
+  return t0.Sub(t)
 }

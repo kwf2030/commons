@@ -6,8 +6,6 @@ import (
 )
 
 var (
-  R = rand.New(rand.NewSource(time.Now().UnixNano()))
-
   numbers = []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}
 
   chars = []byte{
@@ -24,7 +22,7 @@ func RandStr(length int) string {
   l := len(chars)
   bytes := make([]byte, length)
   for i := 0; i < length; i++ {
-    bytes[i] = chars[R.Intn(l)]
+    bytes[i] = chars[rand.Intn(l)]
   }
   return string(bytes)
 }
@@ -33,14 +31,14 @@ func RandStrRange(minLen, maxLen int) string {
   if maxLen <= minLen {
     return RandStr(minLen)
   }
-  return RandStr(R.Intn(maxLen+1-minLen) + minLen)
+  return RandStr(rand.Intn(maxLen+1-minLen) + minLen)
 }
 
-func RandStrFixed(lens []int) string {
+func RandStrIn(lens []int) string {
   if len(lens) == 0 {
     return ""
   }
-  return RandStr(lens[R.Intn(len(lens))])
+  return RandStr(lens[rand.Intn(len(lens))])
 }
 
 func RandNumberStr(length int) string {
@@ -50,7 +48,7 @@ func RandNumberStr(length int) string {
   l := len(numbers)
   bytes := make([]byte, length)
   for i := 0; i < length; i++ {
-    bytes[i] = numbers[R.Intn(l)]
+    bytes[i] = numbers[rand.Intn(l)]
   }
   return string(bytes)
 }
@@ -59,12 +57,16 @@ func RandNumberStrRange(minLen, maxLen int) string {
   if maxLen <= minLen {
     return RandNumberStr(minLen)
   }
-  return RandNumberStr(R.Intn(maxLen+1-minLen) + minLen)
+  return RandNumberStr(rand.Intn(maxLen+1-minLen) + minLen)
 }
 
-func RandNumberStrFixed(lens []int) string {
+func RandNumberStrIn(lens []int) string {
   if len(lens) == 0 {
     return ""
   }
-  return RandNumberStr(lens[R.Intn(len(lens))])
+  return RandNumberStr(lens[rand.Intn(len(lens))])
+}
+
+func RandMilliseconds(min, max int) time.Duration {
+  return time.Millisecond * time.Duration(rand.Intn(max+1-min)+min)
 }

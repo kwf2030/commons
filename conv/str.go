@@ -6,23 +6,23 @@ import (
   "unsafe"
 )
 
-func StrBytes(str string) []byte {
+func StrToBytes(str string) []byte {
   var b reflect.SliceHeader
   s := (*reflect.StringHeader)(unsafe.Pointer(&str))
   b.Data, b.Len, b.Cap = s.Data, s.Len, s.Len
   return *(*[]byte)(unsafe.Pointer(&b))
 }
 
-func BytesStr(bytes []byte) string {
+func BytesToStr(bytes []byte) string {
   return *(*string)(unsafe.Pointer(&bytes))
 }
 
-func NumBytes(n int) []byte {
-  return StrBytes(strconv.Itoa(n))
+func NumberToBytes(n int) []byte {
+  return StrToBytes(strconv.Itoa(n))
 }
 
-func BytesNum(bytes []byte) int {
-  str := BytesStr(bytes)
+func BytesToNumber(bytes []byte) int {
+  str := BytesToStr(bytes)
   n, _ := strconv.Atoi(str)
   return n
 }

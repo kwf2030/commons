@@ -14,7 +14,7 @@ func BenchmarkStrToBytes1(b *testing.B) {
 
 func BenchmarkStrToBytes2(b *testing.B) {
   for i := 0; i < b.N; i++ {
-    _ = StrBytes(str)
+    _ = StrToBytes(str)
   }
 }
 
@@ -28,6 +28,6 @@ func BenchmarkBytesToStr1(b *testing.B) {
 func BenchmarkBytesToStr2(b *testing.B) {
   bytes := []byte(str)
   for i := 0; i < b.N; i++ {
-    _ = BytesStr(bytes)
+    _ = BytesToStr(bytes)
   }
 }
