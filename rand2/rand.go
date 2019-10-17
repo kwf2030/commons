@@ -1,8 +1,11 @@
 package rand2
 
 import (
+  cr "crypto/rand"
   "math/rand"
   "time"
+
+  "github.com/kwf2030/commons/base"
 )
 
 var (
@@ -69,4 +72,16 @@ func RandNumberStrIn(lens []int) string {
 
 func RandMilliseconds(min, max int) time.Duration {
   return time.Millisecond * time.Duration(rand.Intn(max+1-min)+min)
+}
+
+func RandCrypt(length int) ([]byte, error) {
+  if length <= 0 {
+    return nil, base.ErrInvalidArgument
+  }
+  ret := make([]byte, length)
+  _, e := cr.Read(ret)
+  if e != nil {
+    return nil, e
+  }
+  return ret, nil
 }
