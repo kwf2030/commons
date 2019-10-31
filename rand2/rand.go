@@ -18,6 +18,10 @@ var (
   }
 )
 
+func RandMilliseconds(min, max int) time.Duration {
+  return time.Millisecond * time.Duration(rand.Intn(max+1-min)+min)
+}
+
 func RandStr(length int) string {
   if length <= 0 {
     return ""
@@ -70,11 +74,7 @@ func RandNumberStrIn(lens []int) string {
   return RandNumberStr(lens[rand.Intn(len(lens))])
 }
 
-func RandMilliseconds(min, max int) time.Duration {
-  return time.Millisecond * time.Duration(rand.Intn(max+1-min)+min)
-}
-
-func RandCrypt(length int) ([]byte, error) {
+func RandCryptoBytes(length int) ([]byte, error) {
   if length <= 0 {
     return nil, base.ErrInvalidArgument
   }
